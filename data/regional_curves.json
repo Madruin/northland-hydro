@@ -1,0 +1,2284 @@
+{
+ "generated": "2026-09-08T13:49:55",
+ "generator": "tools/build_regional_curves.py",
+ "units": {
+  "da": "mi\u00b2",
+  "area": "ft\u00b2",
+  "width": "ft",
+  "depth": "ft",
+  "discharge": "cfs",
+  "velocity": "ft/s"
+ },
+ "curves": [
+  {
+   "id": "north_shore",
+   "name": "North Shore Regional Curve",
+   "region": "Lake Superior North Shore tributaries: Duluth northeast through Cook County (HUC8 04010101, 04010102)",
+   "source_file": "North Shore Regional Curve_updated 2026_01.xlsx",
+   "source_modified": "2026-01-06",
+   "reliability": "Primary curve for TSA3. Best-supported dataset; B, C and E channel types fit separately.",
+   "method": "Power-law fits of bankfull area, width and mean depth vs drainage area per Rosgen stream type; bankfull discharge from gage-site surveys (single fit for all types); velocity = Q / area.",
+   "types": {
+    "B": {
+     "label": "B channels (steep, confined)",
+     "equations": {
+      "area": {
+       "form": "power",
+       "a": 8.8667,
+       "b": 0.5468,
+       "unit": "ft\u00b2"
+      },
+      "width": {
+       "form": "power",
+       "a": 11.369,
+       "b": 0.331,
+       "unit": "ft"
+      },
+      "depth": {
+       "form": "power",
+       "a": 0.8017,
+       "b": 0.2105,
+       "unit": "ft"
+      },
+      "discharge": {
+       "form": "power",
+       "a": 13.804,
+       "b": 0.9581,
+       "unit": "cfs"
+      }
+     },
+     "refit": {
+      "area": {
+       "a": 8.93908,
+       "b": 0.54908,
+       "n": 24,
+       "r2": 0.9546,
+       "da_min": 0.09,
+       "da_max": 264.0
+      },
+      "width": {
+       "a": 11.45124,
+       "b": 0.33286,
+       "n": 22,
+       "r2": 0.9214,
+       "da_min": 0.09,
+       "da_max": 264.0
+      },
+      "depth": {
+       "a": 0.80372,
+       "b": 0.21116,
+       "n": 22,
+       "r2": 0.7943,
+       "da_min": 0.09,
+       "da_max": 264.0
+      }
+     },
+     "sites": [
+      {
+       "stream": "Stewart Creek",
+       "type": "C(E)4b",
+       "slope": 0.0233,
+       "da": 0.09,
+       "width": 4.46,
+       "depth": 0.61,
+       "area": 2.74,
+       "site": "Downstream of Lindahl Rd"
+      },
+      {
+       "stream": "Sucker River Tributary",
+       "type": "C3b",
+       "slope": 0.0296,
+       "da": 0.5,
+       "width": 10.71,
+       "depth": 0.5025,
+       "area": 4.9025,
+       "site": "Adjacent to Fox Farm Rd"
+      },
+      {
+       "stream": "Merritt Creek Trib",
+       "type": "B3",
+       "slope": 0.0287,
+       "da": 1.13,
+       "width": 14.3,
+       "depth": 0.87,
+       "area": 12.3,
+       "site": "Reference Reach upstream of Skyline Pkwy"
+      },
+      {
+       "stream": "Chester Creek",
+       "type": "B3",
+       "slope": 0.0329,
+       "da": 1.34,
+       "width": 16.45,
+       "depth": 0.6,
+       "area": 9.905,
+       "site": "Downstream of Rice Lake Rd"
+      },
+      {
+       "stream": "Silver Creek",
+       "type": "B3",
+       "slope": 0.0236,
+       "da": 2.99,
+       "width": 14.3933,
+       "depth": 1.13,
+       "area": 16.0,
+       "site": "Upstream of North Shore State Trail"
+      },
+      {
+       "stream": "Talmadge River",
+       "type": "B3",
+       "slope": 0.0225,
+       "da": 3.16,
+       "width": 19.5,
+       "depth": 1.185,
+       "area": 23.05,
+       "site": "MPCA Biosite @ Wahl Rd"
+      },
+      {
+       "stream": "Stanley Creek",
+       "type": "B3",
+       "slope": 0.0209,
+       "da": 4.26,
+       "width": 18.15,
+       "depth": 0.92,
+       "area": 16.3,
+       "site": "Reach 4"
+      },
+      {
+       "stream": "Tischer Creek",
+       "type": "B4c",
+       "slope": 0.0187,
+       "da": 4.9,
+       "width": 21.7,
+       "depth": 1.29,
+       "area": 27.9,
+       "site": "Glen Avon Park"
+      },
+      {
+       "stream": "Captain Jacobson Creek",
+       "type": "B4c",
+       "slope": 0.0162,
+       "da": 5.11,
+       "width": 19.9,
+       "depth": 0.98,
+       "area": 19.6,
+       "site": "MPCA Biosite 11LS017"
+      },
+      {
+       "stream": "Talmadge River",
+       "type": "B3c",
+       "slope": 0.008,
+       "da": 5.13,
+       "width": 17.15,
+       "depth": 1.595,
+       "area": 27.25,
+       "site": "MPCA Biosite @ McDonnell Rd"
+      },
+      {
+       "stream": "Chester Creek",
+       "type": "B4c",
+       "slope": 0.0112,
+       "da": 5.84,
+       "width": null,
+       "depth": null,
+       "area": 17.7,
+       "site": "Gage Site"
+      },
+      {
+       "stream": "Beaver River",
+       "type": "B3c",
+       "slope": 0.0112,
+       "da": 9.63,
+       "width": 21.18,
+       "depth": 1.48,
+       "area": 31.27,
+       "site": "Upper DNR Biostation"
+      },
+      {
+       "stream": "Miller Creek",
+       "type": "B4c",
+       "slope": 0.0074,
+       "da": 10.01,
+       "width": null,
+       "depth": null,
+       "area": 32.4,
+       "site": "Gage Station @ bus garage"
+      },
+      {
+       "stream": "Two Island River",
+       "type": "B3",
+       "slope": 0.0245,
+       "da": 11.5,
+       "width": 20.6,
+       "depth": 1.38,
+       "area": 28.6,
+       "site": "MPCA Biosite 98LS028"
+      },
+      {
+       "stream": "W. Split Rock River",
+       "type": "B3c",
+       "slope": 0.0092,
+       "da": 12.5,
+       "width": 22.8,
+       "depth": 1.65,
+       "area": 37.55,
+       "site": "DNR Reference Reach downstream of Cnty Rd 3"
+      },
+      {
+       "stream": "Kimball Creek",
+       "type": "B3a",
+       "slope": 0.0561,
+       "da": 13.6,
+       "width": 18.9,
+       "depth": 1.47,
+       "area": 27.7,
+       "site": "MPCA Biosite 13LS011"
+      },
+      {
+       "stream": "Kimball Creek",
+       "type": "B3",
+       "slope": 0.031,
+       "da": 13.6,
+       "width": 24.5,
+       "depth": 1.37,
+       "area": 33.5,
+       "site": "MPCA Biosite 13LS011"
+      },
+      {
+       "stream": "Cedar Creek",
+       "type": "B3",
+       "slope": 0.0263,
+       "da": 14.5,
+       "width": 26.25,
+       "depth": 1.4367,
+       "area": 37.3,
+       "site": "MPCA Biosite 11LS023"
+      },
+      {
+       "stream": "Hockamin Creek",
+       "type": "B3c",
+       "slope": 0.0112,
+       "da": 15.65,
+       "width": 29.3,
+       "depth": 0.99,
+       "area": 29.0,
+       "site": "MPCA Biosite 13LS034"
+      },
+      {
+       "stream": "Beaver River",
+       "type": "B3",
+       "slope": 0.0198,
+       "da": 15.95,
+       "width": 35.9,
+       "depth": 1.46,
+       "area": 52.5,
+       "site": "MPCA Biosite 94LS007"
+      },
+      {
+       "stream": "Sucker River",
+       "type": "B3c",
+       "slope": 0.003,
+       "da": 25.88,
+       "width": 37.3,
+       "depth": 1.48,
+       "area": 55.25,
+       "site": "Reach 12"
+      },
+      {
+       "stream": "Sucker River",
+       "type": "B4c",
+       "slope": 0.005,
+       "da": 35.27,
+       "width": 40.6,
+       "depth": 1.71,
+       "area": 68.95,
+       "site": "Gage Reach"
+      },
+      {
+       "stream": "Manitou River",
+       "type": "B2c",
+       "slope": 0.0184,
+       "da": 92.0,
+       "width": 50.1667,
+       "depth": 2.02,
+       "area": 101.2,
+       "site": "Next to campsite #4 in Crosby Manitou S.P."
+      },
+      {
+       "stream": "Brule River",
+       "type": "F3/B3c",
+       "slope": 0.0088,
+       "da": 264.0,
+       "width": 91.2,
+       "depth": 2.74,
+       "area": 250.1,
+       "site": "Gage Site"
+      }
+     ]
+    },
+    "C": {
+     "label": "C channels (riffle-pool, moderate W/D)",
+     "equations": {
+      "area": {
+       "form": "power",
+       "a": 8.6326,
+       "b": 0.5962,
+       "unit": "ft\u00b2"
+      },
+      "width": {
+       "form": "power",
+       "a": 11.022,
+       "b": 0.3616,
+       "unit": "ft"
+      },
+      "depth": {
+       "form": "power",
+       "a": 0.7972,
+       "b": 0.2298,
+       "unit": "ft"
+      },
+      "discharge": {
+       "form": "power",
+       "a": 13.804,
+       "b": 0.9581,
+       "unit": "cfs"
+      }
+     },
+     "refit": {
+      "area": {
+       "a": 8.58536,
+       "b": 0.59373,
+       "n": 19,
+       "r2": 0.9696,
+       "da_min": 0.09,
+       "da_max": 160.4
+      },
+      "width": {
+       "a": 11.26259,
+       "b": 0.35318,
+       "n": 19,
+       "r2": 0.9336,
+       "da_min": 0.09,
+       "da_max": 160.4
+      },
+      "depth": {
+       "a": 0.77466,
+       "b": 0.23554,
+       "n": 19,
+       "r2": 0.8623,
+       "da_min": 0.09,
+       "da_max": 160.4
+      }
+     },
+     "sites": [
+      {
+       "stream": "Stewart Creek",
+       "type": "C(E)4b",
+       "slope": 0.0233,
+       "da": 0.09,
+       "width": 4.46,
+       "depth": 0.61,
+       "area": 2.74,
+       "site": "Downstream of Lindahl Rd"
+      },
+      {
+       "stream": "Sucker River Tributary",
+       "type": "C3b",
+       "slope": 0.0296,
+       "da": 0.5,
+       "width": 10.71,
+       "depth": 0.5025,
+       "area": 4.9025,
+       "site": "Adjacent to Fox Farm Rd"
+      },
+      {
+       "stream": "Dago Creek",
+       "type": "C4",
+       "slope": 0.0141,
+       "da": 2.49,
+       "width": 19.07,
+       "depth": 0.7,
+       "area": 13.08,
+       "site": "Reference Reach @ East Alger Grade"
+      },
+      {
+       "stream": "Keene Creek",
+       "type": "C4",
+       "slope": 0.0152,
+       "da": 3.15,
+       "width": 14.0667,
+       "depth": 0.9567,
+       "area": 13.4667,
+       "site": "Downstream of Keene Creek Park"
+      },
+      {
+       "stream": "McCarthy Creek",
+       "type": "C4",
+       "slope": 0.0079,
+       "da": 3.6,
+       "width": 18.9,
+       "depth": 1.12,
+       "area": 21.2,
+       "site": "MPCA Biosite 11LS007"
+      },
+      {
+       "stream": "Stanley Creek",
+       "type": "C4",
+       "slope": 0.0065,
+       "da": 3.71,
+       "width": 14.0,
+       "depth": 1.26,
+       "area": 17.6,
+       "site": "Reach 1"
+      },
+      {
+       "stream": "Silver Creek",
+       "type": "C4",
+       "slope": 0.0048,
+       "da": 9.23,
+       "width": 25.8,
+       "depth": 1.13,
+       "area": 29.2,
+       "site": "MPCA Biosite 02LS004"
+      },
+      {
+       "stream": "W. Branch Knife River",
+       "type": "C4",
+       "slope": 0.0102,
+       "da": 9.97,
+       "width": 33.9,
+       "depth": 1.07,
+       "area": 36.4,
+       "site": "Reach 12"
+      },
+      {
+       "stream": "E. Split Rock River",
+       "type": "C3",
+       "slope": 0.0191,
+       "da": 11.55,
+       "width": 20.8,
+       "depth": 1.31,
+       "area": 27.3,
+       "site": "DNR Reference Reach downstream of Alger Grade"
+      },
+      {
+       "stream": "Sucker River",
+       "type": "C4c-",
+       "slope": 0.0008,
+       "da": 12.93,
+       "width": 28.5,
+       "depth": 1.54,
+       "area": 43.9,
+       "site": "Reference Reach downstream of Fox Farm Rd"
+      },
+      {
+       "stream": "Beaver River",
+       "type": "C3",
+       "slope": 0.0015,
+       "da": 15.95,
+       "width": 34.6,
+       "depth": 1.7,
+       "area": 58.9,
+       "site": "MPCA Biosite 94LS007"
+      },
+      {
+       "stream": "Sucker River",
+       "type": "C3",
+       "slope": 0.0072,
+       "da": 25.86,
+       "width": 35.4,
+       "depth": 1.79,
+       "area": 63.3,
+       "site": "Reach 13"
+      },
+      {
+       "stream": "Gooseberry River",
+       "type": "C3",
+       "slope": 0.0079,
+       "da": 29.6,
+       "width": 35.25,
+       "depth": 1.875,
+       "area": 66.1,
+       "site": "Reference Reach @ North Shore State Trail"
+      },
+      {
+       "stream": "Gooseberry River",
+       "type": "C3",
+       "slope": 0.0051,
+       "da": 31.87,
+       "width": 41.7667,
+       "depth": 2.08,
+       "area": 86.8,
+       "site": "Reference Reach upstream of Cnty Rd 3"
+      },
+      {
+       "stream": "Sucker River",
+       "type": "C4",
+       "slope": 0.0028,
+       "da": 33.2,
+       "width": 38.4,
+       "depth": 1.8,
+       "area": 70.5,
+       "site": "Reach 20"
+      },
+      {
+       "stream": "Poplar River",
+       "type": "C4",
+       "slope": 0.0043,
+       "da": 45.7,
+       "width": 34.16,
+       "depth": 1.93,
+       "area": 65.11,
+       "site": "Reference Reach upstream of Barker Lake Rd"
+      },
+      {
+       "stream": "Cascade River",
+       "type": "C3",
+       "slope": 0.0045,
+       "da": 53.63,
+       "width": 42.9,
+       "depth": 2.14,
+       "area": 92.0,
+       "site": "MPCA Biosite 13LS013"
+      },
+      {
+       "stream": "Temperance River",
+       "type": "C4",
+       "slope": 0.0028,
+       "da": 160.4,
+       "width": 82.85,
+       "depth": 2.445,
+       "area": 202.25,
+       "site": "Reach at snowmobile bridge"
+      },
+      {
+       "stream": "E. Split Rock River",
+       "type": "B3c",
+       "slope": 0.018,
+       "da": 11.55,
+       "width": 23.63,
+       "depth": 1.22,
+       "area": 28.84,
+       "site": "DNR Reference Reach downstream of Alger Grade"
+      }
+     ]
+    },
+    "E": {
+     "label": "E channels (low W/D, meandering)",
+     "equations": {
+      "area": {
+       "form": "power",
+       "a": 7.2241,
+       "b": 0.6864,
+       "unit": "ft\u00b2"
+      },
+      "width": {
+       "form": "power",
+       "a": 7.0991,
+       "b": 0.3953,
+       "unit": "ft"
+      },
+      "depth": {
+       "form": "power",
+       "a": 1.0216,
+       "b": 0.2921,
+       "unit": "ft"
+      },
+      "discharge": {
+       "form": "power",
+       "a": 13.804,
+       "b": 0.9581,
+       "unit": "cfs"
+      }
+     },
+     "refit": {
+      "area": {
+       "a": 7.22436,
+       "b": 0.68643,
+       "n": 13,
+       "r2": 0.9786,
+       "da_min": 0.05,
+       "da_max": 46.0
+      },
+      "width": {
+       "a": 7.09435,
+       "b": 0.39477,
+       "n": 13,
+       "r2": 0.928,
+       "da_min": 0.05,
+       "da_max": 46.0
+      },
+      "depth": {
+       "a": 1.02235,
+       "b": 0.29269,
+       "n": 13,
+       "r2": 0.8772,
+       "da_min": 0.05,
+       "da_max": 46.0
+      }
+     },
+     "sites": [
+      {
+       "stream": "Gooseberry Tributary",
+       "type": "E",
+       "slope": null,
+       "da": 0.05,
+       "width": 2.33,
+       "depth": 0.38,
+       "area": 0.89,
+       "site": "Downstream of North Shore State Trail"
+      },
+      {
+       "stream": "Stewart River Tributary",
+       "type": "E",
+       "slope": 0.0006,
+       "da": 1.59,
+       "width": 6.7067,
+       "depth": 1.4733,
+       "area": 9.8167,
+       "site": "Reach adjacent to ATV trail"
+      },
+      {
+       "stream": "Brophy Creek",
+       "type": "E5",
+       "slope": 0.0028,
+       "da": 2.53,
+       "width": 10.4,
+       "depth": 1.5,
+       "area": 15.5,
+       "site": "MPCA Biosite 10EM141"
+      },
+      {
+       "stream": "Wanless Creek",
+       "type": "E4",
+       "slope": 0.0084,
+       "da": 3.58,
+       "width": 11.7,
+       "depth": 1.25,
+       "area": 14.65,
+       "site": "MPCA Biosite 13LS043"
+      },
+      {
+       "stream": "E. Amity Creek",
+       "type": "E4",
+       "slope": 0.0033,
+       "da": 3.67,
+       "width": 11.9,
+       "depth": 1.67,
+       "area": 19.9,
+       "site": "Reference Reach downstream of W. Tischer Rd"
+      },
+      {
+       "stream": "Sucker River",
+       "type": "E6",
+       "slope": 0.0004,
+       "da": 5.59,
+       "width": 18.2,
+       "depth": 1.6767,
+       "area": 28.6667,
+       "site": "Upstream of snowmobile trail"
+      },
+      {
+       "stream": "Silver Creek",
+       "type": "E5",
+       "slope": 0.0002,
+       "da": 5.78,
+       "width": 17.44,
+       "depth": 1.59,
+       "area": 27.7,
+       "site": "Reach 15"
+      },
+      {
+       "stream": "Lester River",
+       "type": "E6",
+       "slope": 0.0008,
+       "da": 8.22,
+       "width": 12.8,
+       "depth": 2.175,
+       "area": 27.825,
+       "site": "Reference Reach upstream of Arnold Rd"
+      },
+      {
+       "stream": "Little Gooseberry River",
+       "type": "E5",
+       "slope": 0.0018,
+       "da": 9.87,
+       "width": 19.45,
+       "depth": 1.505,
+       "area": 29.3,
+       "site": "MPCA Biosite 11LS004"
+      },
+      {
+       "stream": "West Branch Knife River",
+       "type": "E4",
+       "slope": 0.0011,
+       "da": 11.49,
+       "width": 14.7,
+       "depth": 1.82,
+       "area": 26.73,
+       "site": "Reach 13"
+      },
+      {
+       "stream": "Sucker River",
+       "type": "E6",
+       "slope": 0.0003,
+       "da": 11.95,
+       "width": 15.3,
+       "depth": 2.99,
+       "area": 45.8,
+       "site": "Reach 01"
+      },
+      {
+       "stream": "Gooseberry River",
+       "type": "E5/3",
+       "slope": 0.0024,
+       "da": 13.81,
+       "width": 22.97,
+       "depth": 2.07,
+       "area": 47.5,
+       "site": "MPCA Biosite 11LS030"
+      },
+      {
+       "stream": "Poplar River",
+       "type": "E4",
+       "slope": 0.001,
+       "da": 46.0,
+       "width": 36.55,
+       "depth": 2.875,
+       "area": 104.7,
+       "site": "Downstream of Barker Lake Rd"
+      }
+     ]
+    }
+   },
+   "all_sites": [
+    {
+     "stream": "Sucker River Tributary",
+     "type": "C3b",
+     "slope": 0.0296,
+     "da": 0.5,
+     "width": 10.71,
+     "depth": 0.5025,
+     "area": 4.9025,
+     "site": "Adjacent to Fox Farm Rd"
+    },
+    {
+     "stream": "Stewart Creek",
+     "type": "C(E)4b",
+     "slope": 0.0233,
+     "da": 0.09,
+     "width": 4.46,
+     "depth": 0.61,
+     "area": 2.74,
+     "site": "Downstream of Lindahl Rd"
+    },
+    {
+     "stream": "Merritt Creek Trib",
+     "type": "B3",
+     "slope": 0.0287,
+     "da": 1.13,
+     "width": 14.3,
+     "depth": 0.87,
+     "area": 12.3,
+     "site": "Reference Reach upstream of Skyline Pkwy"
+    },
+    {
+     "stream": "Chester Creek",
+     "type": "B3",
+     "slope": 0.0329,
+     "da": 1.34,
+     "width": 16.45,
+     "depth": 0.6,
+     "area": 9.905,
+     "site": "Downstream of Rice Lake Rd"
+    },
+    {
+     "stream": "Silver Creek",
+     "type": "B3",
+     "slope": 0.0236,
+     "da": 2.99,
+     "width": 14.3933,
+     "depth": 1.13,
+     "area": 16.0,
+     "site": "Upstream of North Shore State Trail"
+    },
+    {
+     "stream": "Talmadge River",
+     "type": "B3",
+     "slope": 0.0225,
+     "da": 3.16,
+     "width": 19.5,
+     "depth": 1.185,
+     "area": 23.05,
+     "site": "MPCA Biosite @ Wahl Rd"
+    },
+    {
+     "stream": "Stanley Creek",
+     "type": "B3",
+     "slope": 0.0209,
+     "da": 4.26,
+     "width": 18.15,
+     "depth": 0.92,
+     "area": 16.3,
+     "site": "Reach 4"
+    },
+    {
+     "stream": "Tischer Creek",
+     "type": "B4c",
+     "slope": 0.0187,
+     "da": 4.9,
+     "width": 21.7,
+     "depth": 1.29,
+     "area": 27.9,
+     "site": "Glen Avon Park"
+    },
+    {
+     "stream": "Captain Jacobson Creek",
+     "type": "B4c",
+     "slope": 0.0162,
+     "da": 5.11,
+     "width": 19.9,
+     "depth": 0.98,
+     "area": 19.6,
+     "site": "MPCA Biosite 11LS017"
+    },
+    {
+     "stream": "Talmadge River",
+     "type": "B3c",
+     "slope": 0.008,
+     "da": 5.13,
+     "width": 17.15,
+     "depth": 1.595,
+     "area": 27.25,
+     "site": "MPCA Biosite @ McDonnell Rd"
+    },
+    {
+     "stream": "Chester Creek",
+     "type": "B4c",
+     "slope": 0.0112,
+     "da": 5.84,
+     "width": null,
+     "depth": null,
+     "area": 17.7,
+     "site": "Gage Site"
+    },
+    {
+     "stream": "Beaver River",
+     "type": "B3c",
+     "slope": 0.0112,
+     "da": 9.63,
+     "width": 21.18,
+     "depth": 1.48,
+     "area": 31.27,
+     "site": "Upper DNR Biostation"
+    },
+    {
+     "stream": "Miller Creek",
+     "type": "B4c",
+     "slope": 0.0074,
+     "da": 10.01,
+     "width": null,
+     "depth": null,
+     "area": 32.4,
+     "site": "Gage Station @ bus garage"
+    },
+    {
+     "stream": "Two Island River",
+     "type": "B3",
+     "slope": 0.0245,
+     "da": 11.5,
+     "width": 20.6,
+     "depth": 1.38,
+     "area": 28.6,
+     "site": "MPCA Biosite 98LS028"
+    },
+    {
+     "stream": "E. Split Rock River",
+     "type": "C3",
+     "slope": 0.018,
+     "da": 11.55,
+     "width": 23.63,
+     "depth": 1.22,
+     "area": 28.84,
+     "site": "DNR Reference Reach downstream of Alger Grade"
+    },
+    {
+     "stream": "W. Split Rock River",
+     "type": "B3c",
+     "slope": 0.0092,
+     "da": 12.5,
+     "width": 22.8,
+     "depth": 1.65,
+     "area": 37.55,
+     "site": "DNR Reference Reach downstream of Cnty Rd 3"
+    },
+    {
+     "stream": "Kimball Creek",
+     "type": "B3a",
+     "slope": 0.0561,
+     "da": 13.6,
+     "width": 18.9,
+     "depth": 1.47,
+     "area": 27.7,
+     "site": "MPCA Biosite 13LS011"
+    },
+    {
+     "stream": "Kimball Creek",
+     "type": "B3",
+     "slope": 0.031,
+     "da": 13.6,
+     "width": 24.5,
+     "depth": 1.37,
+     "area": 33.5,
+     "site": "MPCA Biosite 13LS011"
+    },
+    {
+     "stream": "Cedar Creek",
+     "type": "B3",
+     "slope": 0.0263,
+     "da": 14.5,
+     "width": 26.25,
+     "depth": 1.4367,
+     "area": 37.3,
+     "site": "MPCA Biosite 11LS023"
+    },
+    {
+     "stream": "Hockamin Creek",
+     "type": "B3c",
+     "slope": 0.0112,
+     "da": 15.65,
+     "width": 29.3,
+     "depth": 0.99,
+     "area": 29.0,
+     "site": "MPCA Biosite 13LS034"
+    },
+    {
+     "stream": "Beaver River",
+     "type": "B3",
+     "slope": 0.0198,
+     "da": 15.95,
+     "width": 35.9,
+     "depth": 1.46,
+     "area": 52.5,
+     "site": "MPCA Biosite 94LS007"
+    },
+    {
+     "stream": "Sucker River",
+     "type": "B3c",
+     "slope": 0.003,
+     "da": 25.88,
+     "width": 37.3,
+     "depth": 1.48,
+     "area": 55.25,
+     "site": "Reach 12"
+    },
+    {
+     "stream": "Sucker River",
+     "type": "B4c",
+     "slope": 0.005,
+     "da": 35.27,
+     "width": 40.6,
+     "depth": 1.71,
+     "area": 68.95,
+     "site": "Gage Reach"
+    },
+    {
+     "stream": "Manitou River",
+     "type": "B2c",
+     "slope": 0.0184,
+     "da": 92.0,
+     "width": 50.1667,
+     "depth": 2.02,
+     "area": 101.2,
+     "site": "Next to campsite #4 in Crosby Manitou S.P."
+    },
+    {
+     "stream": "Brule River",
+     "type": "F3/B3c",
+     "slope": 0.0088,
+     "da": 264.0,
+     "width": 91.2,
+     "depth": 2.74,
+     "area": 250.1,
+     "site": "Gage Site"
+    },
+    {
+     "stream": "Sucker River Tributary",
+     "type": "C3b",
+     "slope": 0.0296,
+     "da": 0.5,
+     "width": 10.71,
+     "depth": 0.5025,
+     "area": 4.9025,
+     "site": "Adjacent to Fox Farm Rd"
+    },
+    {
+     "stream": "Dago Creek",
+     "type": "C4",
+     "slope": 0.0141,
+     "da": 2.49,
+     "width": 19.1,
+     "depth": 0.7,
+     "area": 13.1,
+     "site": "Reference Reach @ East Alger Grade"
+    },
+    {
+     "stream": "Keene Creek",
+     "type": "C4",
+     "slope": 0.0152,
+     "da": 3.15,
+     "width": 14.0667,
+     "depth": 0.9567,
+     "area": 13.4667,
+     "site": "Downstream of Keene Creek Park"
+    },
+    {
+     "stream": "McCarthy Creek",
+     "type": "C4",
+     "slope": 0.0079,
+     "da": 3.6,
+     "width": 18.9,
+     "depth": 1.12,
+     "area": 21.2,
+     "site": "MPCA Biosite 11LS007"
+    },
+    {
+     "stream": "Stanley Creek",
+     "type": "C4",
+     "slope": 0.0065,
+     "da": 3.71,
+     "width": 14.0,
+     "depth": 1.26,
+     "area": 17.6,
+     "site": "Reach 1"
+    },
+    {
+     "stream": "Silver Creek",
+     "type": "C4",
+     "slope": 0.0048,
+     "da": 9.23,
+     "width": 25.8,
+     "depth": 1.13,
+     "area": 29.2,
+     "site": "MPCA Biosite 02LS004"
+    },
+    {
+     "stream": "W. Branch Knife River",
+     "type": "C4",
+     "slope": 0.0102,
+     "da": 9.97,
+     "width": 33.9,
+     "depth": 1.07,
+     "area": 36.4,
+     "site": "Reach 12"
+    },
+    {
+     "stream": "E. Split Rock River",
+     "type": "C3",
+     "slope": 0.0191,
+     "da": 11.55,
+     "width": 20.8,
+     "depth": 1.31,
+     "area": 27.3,
+     "site": "DNR Reference Reach downstream of Alger Grade"
+    },
+    {
+     "stream": "Sucker River",
+     "type": "C4c-",
+     "slope": 0.0008,
+     "da": 12.93,
+     "width": 28.5,
+     "depth": 1.54,
+     "area": 43.9,
+     "site": "Reference Reach downstream of Fox Farm Rd"
+    },
+    {
+     "stream": "Beaver River",
+     "type": "C3",
+     "slope": 0.0015,
+     "da": 15.95,
+     "width": 34.6,
+     "depth": 1.7,
+     "area": 58.9,
+     "site": "MPCA Biosite 94LS007"
+    },
+    {
+     "stream": "Sucker River reach 13",
+     "type": "C3",
+     "slope": 0.0072,
+     "da": 25.86,
+     "width": 35.4,
+     "depth": 1.79,
+     "area": 63.3,
+     "site": "Reach 13"
+    },
+    {
+     "stream": "Gooseberry River",
+     "type": "C3",
+     "slope": 0.0079,
+     "da": 29.6,
+     "width": 35.25,
+     "depth": 1.875,
+     "area": 66.1,
+     "site": "Reference Reach @ North Shore State Trail"
+    },
+    {
+     "stream": "Gooseberry River",
+     "type": "C3",
+     "slope": 0.0051,
+     "da": 31.87,
+     "width": 41.7667,
+     "depth": 2.08,
+     "area": 86.8,
+     "site": "Reference Reach upstream of Cnty Rd 3"
+    },
+    {
+     "stream": "Sucker River",
+     "type": "C4",
+     "slope": 0.0028,
+     "da": 33.2,
+     "width": 38.43,
+     "depth": 1.84,
+     "area": 70.45,
+     "site": "Reach 20 avg of xss 4 and 7"
+    },
+    {
+     "stream": "Poplar River",
+     "type": "C4",
+     "slope": 0.0043,
+     "da": 45.7,
+     "width": 34.16,
+     "depth": 1.93,
+     "area": 65.11,
+     "site": "Reference Reach upstream of Barker Lake Rd"
+    },
+    {
+     "stream": "Cascade River",
+     "type": "C3",
+     "slope": 0.0045,
+     "da": 53.63,
+     "width": 42.9,
+     "depth": 2.14,
+     "area": 92.0,
+     "site": "MPCA Biosite 13LS013"
+    },
+    {
+     "stream": "Temperance River",
+     "type": "C4",
+     "slope": 0.0028,
+     "da": 160.4,
+     "width": 82.85,
+     "depth": 2.445,
+     "area": 202.25,
+     "site": "Reach at snowmobile bridge"
+    },
+    {
+     "stream": "Gooseberry Tributary",
+     "type": "E",
+     "slope": null,
+     "da": 0.05,
+     "width": 2.33,
+     "depth": 0.38,
+     "area": 0.89,
+     "site": "Downstream of North Shore State Trail"
+    },
+    {
+     "stream": "Stewart River Tributary",
+     "type": "E",
+     "slope": 0.0006,
+     "da": 1.59,
+     "width": 6.7067,
+     "depth": 1.4733,
+     "area": 9.8167,
+     "site": "Reach adjacent to ATV trail"
+    },
+    {
+     "stream": "Brophy Creek",
+     "type": "E5",
+     "slope": 0.0028,
+     "da": 2.53,
+     "width": 10.4,
+     "depth": 1.5,
+     "area": 15.5,
+     "site": "MPCA Biosite 10EM141"
+    },
+    {
+     "stream": "Wanless Creek",
+     "type": "E4",
+     "slope": 0.0084,
+     "da": 3.58,
+     "width": 11.7,
+     "depth": 1.25,
+     "area": 14.65,
+     "site": "MPCA Biosite 13LS043"
+    },
+    {
+     "stream": "E. Amity Creek",
+     "type": "E4",
+     "slope": 0.0033,
+     "da": 3.67,
+     "width": 11.9,
+     "depth": 1.67,
+     "area": 19.9,
+     "site": "Reference Reach downstream of W. Tischer Rd"
+    },
+    {
+     "stream": "Sucker River",
+     "type": "E6",
+     "slope": 0.0004,
+     "da": 5.59,
+     "width": 18.2,
+     "depth": 1.6767,
+     "area": 28.6667,
+     "site": "Upstream of snowmobile trail"
+    },
+    {
+     "stream": "Silver Creek",
+     "type": "E5",
+     "slope": 0.0002,
+     "da": 5.78,
+     "width": 17.44,
+     "depth": 1.59,
+     "area": 27.7,
+     "site": "Reach 15"
+    },
+    {
+     "stream": "Lester River",
+     "type": "E6",
+     "slope": 0.0008,
+     "da": 8.22,
+     "width": 12.8,
+     "depth": 2.175,
+     "area": 27.825,
+     "site": "Reference Reach upstream of Arnold Rd"
+    },
+    {
+     "stream": "Little Gooseberry River",
+     "type": "E5",
+     "slope": 0.0018,
+     "da": 9.87,
+     "width": 19.45,
+     "depth": 1.505,
+     "area": 29.3,
+     "site": "MPCA Biosite 11LS004"
+    },
+    {
+     "stream": "West Branch Knife River",
+     "type": "E4",
+     "slope": 0.0011,
+     "da": 11.49,
+     "width": 14.7,
+     "depth": 1.82,
+     "area": 26.73,
+     "site": "Reach 13"
+    },
+    {
+     "stream": "Sucker River",
+     "type": "E6",
+     "slope": 0.0003,
+     "da": 11.95,
+     "width": 15.3,
+     "depth": 2.99,
+     "area": 45.8,
+     "site": "Reach 01"
+    },
+    {
+     "stream": "Gooseberry River",
+     "type": "E5/3",
+     "slope": 0.0024,
+     "da": 13.81,
+     "width": 22.97,
+     "depth": 2.07,
+     "area": 47.5,
+     "site": "MPCA Biosite 11LS030"
+    },
+    {
+     "stream": "Poplar River",
+     "type": "E4",
+     "slope": 0.001,
+     "da": 46.0,
+     "width": 36.55,
+     "depth": 2.875,
+     "area": 104.7,
+     "site": "Downstream of Barker Lake Rd"
+    }
+   ],
+   "all_area_refit": {
+    "a": 8.0902,
+    "b": 0.60666,
+    "n": 55,
+    "r2": 0.9584,
+    "da_min": 0.05,
+    "da_max": 264.0
+   },
+   "discharge_sites": [
+    {
+     "stream": "Merritt Creek",
+     "da": 2,
+     "q": 33.8
+    },
+    {
+     "stream": "Talmadge River",
+     "da": 5.42,
+     "q": 100
+    },
+    {
+     "stream": "Keene Creek",
+     "da": 5.56,
+     "q": 72
+    },
+    {
+     "stream": "Chester Creek",
+     "da": 5.84,
+     "q": 70
+    },
+    {
+     "stream": "Tischer Creek",
+     "da": 6.96,
+     "q": 72
+    },
+    {
+     "stream": "Miller Creek",
+     "da": 10.01,
+     "q": 72
+    },
+    {
+     "stream": "Amity Creek",
+     "da": 16.5,
+     "q": 200
+    },
+    {
+     "stream": "Lester River",
+     "da": 29.6,
+     "q": 470
+    },
+    {
+     "stream": "Sucker River",
+     "da": 36.8,
+     "q": 378
+    },
+    {
+     "stream": "Gooseberry River",
+     "da": 74.5,
+     "q": 457
+    },
+    {
+     "stream": "Knife River",
+     "da": 84,
+     "q": 1800
+    },
+    {
+     "stream": "Beaver River",
+     "da": 122,
+     "q": 1410
+    },
+    {
+     "stream": "Poplar River",
+     "da": 113.26,
+     "q": 1325
+    },
+    {
+     "stream": "Brule River",
+     "da": 264,
+     "q": 3040
+    }
+   ],
+   "discharge_refit": {
+    "a": 13.80389,
+    "b": 0.95808,
+    "n": 14,
+    "r2": 0.9486,
+    "da_min": 2,
+    "da_max": 264
+   }
+  },
+  {
+   "id": "cloquet_st_louis",
+   "name": "Cloquet / St. Louis River Regional Curve",
+   "region": "Cloquet River and St. Louis River watersheds (HUC8 04010201, 04010202) and the Nemadji headwaters in Carlton County",
+   "source_file": "Cloquet St Louis Regional Curve_2019_11.xlsx",
+   "source_modified": "2025-12-05",
+   "reliability": "Single bankfull-area regression across all channel types (15 sites, several area-only). Width and depth are NOT regressed: they come from an assumed W/D ratio per stream type (B 18, C 20, E 12). Discharge assumes a bankfull velocity of 3.5 ft/s.",
+   "method": "Area = a\u00b7DA^b for all types; width = sqrt(area \u00d7 W/D); depth = width / W/D; Q = area \u00d7 3.5 ft/s.",
+   "types": {
+    "B": {
+     "label": "B channels (W/D 18 assumed)",
+     "equations": {
+      "area": {
+       "form": "power",
+       "a": 5.8271,
+       "b": 0.6997,
+       "unit": "ft\u00b2"
+      },
+      "wd_ratio": 18,
+      "velocity_fps": 3.5
+     }
+    },
+    "C": {
+     "label": "C channels (W/D 20 assumed)",
+     "equations": {
+      "area": {
+       "form": "power",
+       "a": 5.8271,
+       "b": 0.6997,
+       "unit": "ft\u00b2"
+      },
+      "wd_ratio": 20,
+      "velocity_fps": 3.5
+     }
+    },
+    "E": {
+     "label": "E channels (W/D 12 assumed)",
+     "equations": {
+      "area": {
+       "form": "power",
+       "a": 5.8271,
+       "b": 0.6997,
+       "unit": "ft\u00b2"
+      },
+      "wd_ratio": 12,
+      "velocity_fps": 3.5
+     }
+    }
+   },
+   "all_sites": [
+    {
+     "stream": "Blackhoof River",
+     "type": "E4/C4",
+     "slope": 0.0037,
+     "da": 48.99,
+     "width": 33.75,
+     "depth": 2.9175,
+     "area": 98.65,
+     "site": "Reference Reach @ Hwy 6"
+    },
+    {
+     "stream": "Hay Creek",
+     "type": "C4",
+     "slope": 0.0073,
+     "da": 11.78,
+     "width": 19.95,
+     "depth": 1.3325,
+     "area": 26.475,
+     "site": "Reference Reach @ N Cloquet Rd"
+    },
+    {
+     "stream": "Beartrap Creek",
+     "type": "E5",
+     "slope": 0.0022,
+     "da": 17.98,
+     "width": 20.4333,
+     "depth": 1.8567,
+     "area": 35.5,
+     "site": "Downstream of Bear Trap Rd"
+    },
+    {
+     "stream": "Pine River",
+     "type": "E4/C4",
+     "slope": 0.0041,
+     "da": 28.26,
+     "width": 20.8,
+     "depth": 1.8467,
+     "area": 38.4333,
+     "site": "Reference Reach @ Dutch confluence"
+    },
+    {
+     "stream": "West Rocky Run Trib",
+     "type": "E4",
+     "slope": null,
+     "da": 0.66,
+     "width": null,
+     "depth": null,
+     "area": 5.65,
+     "site": "Upstream of Hwy 2"
+    },
+    {
+     "stream": "Tributary 3.4-002 (Trib K)",
+     "type": "E5",
+     "slope": 0.0044,
+     "da": 0.4,
+     "width": 3.71,
+     "depth": 0.5925,
+     "area": 2.1625,
+     "site": "Upstream of Old Hwy 2"
+    },
+    {
+     "stream": "Hay Creek Trib 3",
+     "type": "Cb3",
+     "slope": null,
+     "da": 0.75,
+     "width": null,
+     "depth": null,
+     "area": 6.1533,
+     "site": "Near confluence with Hay Creek"
+    },
+    {
+     "stream": "Anderson Creek",
+     "type": "E5",
+     "slope": 0.0017,
+     "da": 2.2,
+     "width": 5.725,
+     "depth": 1.275,
+     "area": 7.22,
+     "site": "Downstream of railroad"
+    },
+    {
+     "stream": "Hay Creek",
+     "type": "C4",
+     "slope": null,
+     "da": 7.1,
+     "width": null,
+     "depth": null,
+     "area": 36.0,
+     "site": "Downstream of St. Louis River Rd"
+    },
+    {
+     "stream": "West Rocky Run",
+     "type": "C3",
+     "slope": null,
+     "da": 8.9,
+     "width": null,
+     "depth": null,
+     "area": 35.4,
+     "site": "Downstream of St. Louis River Rd"
+    },
+    {
+     "stream": "Hay Creek",
+     "type": "C4",
+     "slope": 0.0073,
+     "da": 11.78,
+     "width": 19.95,
+     "depth": 1.3325,
+     "area": 26.475,
+     "site": "Downstream of North Cloquet Rd"
+    },
+    {
+     "stream": "Midway River",
+     "type": "C3",
+     "slope": null,
+     "da": 23.9,
+     "width": null,
+     "depth": null,
+     "area": 73.95,
+     "site": "Downstream of Midway Rd"
+    },
+    {
+     "stream": "Midway River",
+     "type": "C4",
+     "slope": null,
+     "da": 65.0,
+     "width": null,
+     "depth": null,
+     "area": 114.1,
+     "site": "Up and down from Korby Rd"
+    }
+   ],
+   "all_area_refit": {
+    "a": 5.81891,
+    "b": 0.69815,
+    "n": 13,
+    "r2": 0.9372,
+    "da_min": 0.4,
+    "da_max": 65.0
+   }
+  },
+  {
+   "id": "eastern_mn",
+   "name": "Eastern MN Regional Curve",
+   "region": "Kanabec, Mille Lacs and Pine counties (Snake, Rum, Kettle and upper St. Croix basins)",
+   "source_file": "EasternMN_Regional_Curve.xlsx",
+   "source_modified": "2017-04-12",
+   "reliability": "Least reliable of the three: equations are fit to smoothed curve-read values, not to individual surveyed sites, and there is no stream-type split. The North Shore C and E curves are often closer for these counties; compare both.",
+   "method": "Bankfull area: cubic polynomial below 5 mi\u00b2, power law at or above 5 mi\u00b2. Width and depth: power laws. Discharge: 4th-order polynomial. All fit to digitized curve tables.",
+   "equations": {
+    "area_lt5": {
+     "form": "poly",
+     "coefs": [
+      0.0773,
+      -1.1993,
+      6.0889,
+      0.5281
+     ],
+     "unit": "ft\u00b2",
+     "valid": "DA < 5 mi\u00b2"
+    },
+    "area_ge5": {
+     "form": "power",
+     "a": 5.3937,
+     "b": 0.7031,
+     "unit": "ft\u00b2",
+     "valid": "DA \u2265 5 mi\u00b2"
+    },
+    "width": {
+     "form": "power",
+     "a": 6.7045,
+     "b": 0.4558,
+     "unit": "ft"
+    },
+    "depth": {
+     "form": "power",
+     "a": 0.8324,
+     "b": 0.2489,
+     "unit": "ft"
+    },
+    "discharge": {
+     "form": "poly",
+     "coefs": [
+      -8e-11,
+      6e-07,
+      -0.0017,
+      4.4659,
+      17.129
+     ],
+     "unit": "cfs"
+    }
+   },
+   "tables": {
+    "area": [
+     {
+      "da": 0.1,
+      "v": 1
+     },
+     {
+      "da": 0.2,
+      "v": 1.8
+     },
+     {
+      "da": 0.3,
+      "v": 2.4
+     },
+     {
+      "da": 0.4,
+      "v": 2.8
+     },
+     {
+      "da": 0.5,
+      "v": 3.3
+     },
+     {
+      "da": 0.6,
+      "v": 3.8
+     },
+     {
+      "da": 0.7,
+      "v": 4.1
+     },
+     {
+      "da": 0.8,
+      "v": 4.6
+     },
+     {
+      "da": 0.9,
+      "v": 5
+     },
+     {
+      "da": 1,
+      "v": 5.5
+     },
+     {
+      "da": 2,
+      "v": 8.6
+     },
+     {
+      "da": 3,
+      "v": 10.2
+     },
+     {
+      "da": 4,
+      "v": 10.5
+     },
+     {
+      "da": 5,
+      "v": 10.7
+     },
+     {
+      "da": 6,
+      "v": 19
+     },
+     {
+      "da": 7,
+      "v": 21
+     },
+     {
+      "da": 8,
+      "v": 24
+     },
+     {
+      "da": 9,
+      "v": 25
+     },
+     {
+      "da": 10,
+      "v": 27
+     },
+     {
+      "da": 20,
+      "v": 43
+     },
+     {
+      "da": 30,
+      "v": 59
+     },
+     {
+      "da": 40,
+      "v": 70
+     },
+     {
+      "da": 50,
+      "v": 85
+     },
+     {
+      "da": 60,
+      "v": 95
+     },
+     {
+      "da": 70,
+      "v": 110
+     },
+     {
+      "da": 80,
+      "v": 120
+     },
+     {
+      "da": 90,
+      "v": 130
+     },
+     {
+      "da": 100,
+      "v": 140
+     },
+     {
+      "da": 200,
+      "v": 220
+     },
+     {
+      "da": 300,
+      "v": 300
+     },
+     {
+      "da": 400,
+      "v": 370
+     },
+     {
+      "da": 500,
+      "v": 420
+     },
+     {
+      "da": 600,
+      "v": 490
+     },
+     {
+      "da": 700,
+      "v": 540
+     },
+     {
+      "da": 800,
+      "v": 590
+     },
+     {
+      "da": 900,
+      "v": 640
+     },
+     {
+      "da": 1000,
+      "v": 680
+     }
+    ],
+    "discharge": [
+     {
+      "da": 1,
+      "v": 8
+     },
+     {
+      "da": 2,
+      "v": 16
+     },
+     {
+      "da": 3,
+      "v": 22
+     },
+     {
+      "da": 4,
+      "v": 28
+     },
+     {
+      "da": 5,
+      "v": 34
+     },
+     {
+      "da": 6,
+      "v": 40
+     },
+     {
+      "da": 7,
+      "v": 44
+     },
+     {
+      "da": 8,
+      "v": 49
+     },
+     {
+      "da": 9,
+      "v": 54
+     },
+     {
+      "da": 10,
+      "v": 60
+     },
+     {
+      "da": 20,
+      "v": 110
+     },
+     {
+      "da": 30,
+      "v": 160
+     },
+     {
+      "da": 40,
+      "v": 200
+     },
+     {
+      "da": 50,
+      "v": 250
+     },
+     {
+      "da": 60,
+      "v": 290
+     },
+     {
+      "da": 70,
+      "v": 340
+     },
+     {
+      "da": 80,
+      "v": 380
+     },
+     {
+      "da": 90,
+      "v": 400
+     },
+     {
+      "da": 100,
+      "v": 450
+     },
+     {
+      "da": 200,
+      "v": 820
+     },
+     {
+      "da": 300,
+      "v": 1250
+     },
+     {
+      "da": 400,
+      "v": 1600
+     },
+     {
+      "da": 500,
+      "v": 1900
+     },
+     {
+      "da": 600,
+      "v": 2200
+     },
+     {
+      "da": 700,
+      "v": 2500
+     },
+     {
+      "da": 800,
+      "v": 2800
+     },
+     {
+      "da": 900,
+      "v": 3100
+     },
+     {
+      "da": 1000,
+      "v": 3400
+     },
+     {
+      "da": 2000,
+      "v": 6000
+     },
+     {
+      "da": 3000,
+      "v": 8700
+     }
+    ],
+    "width": [
+     {
+      "da": 0.1,
+      "v": 2.4
+     },
+     {
+      "da": 0.2,
+      "v": 3.1
+     },
+     {
+      "da": 0.3,
+      "v": 3.9
+     },
+     {
+      "da": 0.4,
+      "v": 4.3
+     },
+     {
+      "da": 0.5,
+      "v": 4.8
+     },
+     {
+      "da": 0.6,
+      "v": 5.2
+     },
+     {
+      "da": 0.7,
+      "v": 5.6
+     },
+     {
+      "da": 0.8,
+      "v": 5.9
+     },
+     {
+      "da": 0.9,
+      "v": 6.2
+     },
+     {
+      "da": 1,
+      "v": 6.5
+     },
+     {
+      "da": 2,
+      "v": 9
+     },
+     {
+      "da": 3,
+      "v": 11
+     },
+     {
+      "da": 4,
+      "v": 13
+     },
+     {
+      "da": 5,
+      "v": 15
+     },
+     {
+      "da": 6,
+      "v": 16
+     },
+     {
+      "da": 7,
+      "v": 17
+     },
+     {
+      "da": 8,
+      "v": 18
+     },
+     {
+      "da": 9,
+      "v": 19
+     },
+     {
+      "da": 10,
+      "v": 19.5
+     },
+     {
+      "da": 20,
+      "v": 27
+     },
+     {
+      "da": 30,
+      "v": 31
+     },
+     {
+      "da": 40,
+      "v": 36
+     },
+     {
+      "da": 50,
+      "v": 39
+     },
+     {
+      "da": 60,
+      "v": 43
+     },
+     {
+      "da": 70,
+      "v": 46
+     },
+     {
+      "da": 80,
+      "v": 49
+     },
+     {
+      "da": 90,
+      "v": 51
+     },
+     {
+      "da": 100,
+      "v": 53
+     },
+     {
+      "da": 200,
+      "v": 74
+     },
+     {
+      "da": 300,
+      "v": 88
+     },
+     {
+      "da": 400,
+      "v": 100
+     },
+     {
+      "da": 500,
+      "v": 115
+     },
+     {
+      "da": 600,
+      "v": 125
+     },
+     {
+      "da": 700,
+      "v": 135
+     },
+     {
+      "da": 800,
+      "v": 150
+     },
+     {
+      "da": 900,
+      "v": 160
+     },
+     {
+      "da": 1000,
+      "v": 165
+     },
+     {
+      "da": 2000,
+      "v": 210
+     },
+     {
+      "da": 3000,
+      "v": 250
+     },
+     {
+      "da": 4000,
+      "v": 290
+     },
+     {
+      "da": 5000,
+      "v": 320
+     },
+     {
+      "da": 6000,
+      "v": 350
+     },
+     {
+      "da": 7000,
+      "v": 375
+     },
+     {
+      "da": 8000,
+      "v": 395
+     },
+     {
+      "da": 9000,
+      "v": 420
+     },
+     {
+      "da": 10000,
+      "v": 440
+     }
+    ],
+    "depth": [
+     {
+      "da": 0.1,
+      "v": 0.47
+     },
+     {
+      "da": 0.2,
+      "v": 0.54
+     },
+     {
+      "da": 0.3,
+      "v": 0.6
+     },
+     {
+      "da": 0.4,
+      "v": 0.64
+     },
+     {
+      "da": 0.5,
+      "v": 0.68
+     },
+     {
+      "da": 0.6,
+      "v": 0.71
+     },
+     {
+      "da": 0.7,
+      "v": 0.74
+     },
+     {
+      "da": 0.8,
+      "v": 0.77
+     },
+     {
+      "da": 0.9,
+      "v": 0.8
+     },
+     {
+      "da": 1,
+      "v": 0.82
+     },
+     {
+      "da": 2,
+      "v": 0.98
+     },
+     {
+      "da": 3,
+      "v": 1.1
+     },
+     {
+      "da": 4,
+      "v": 1.2
+     },
+     {
+      "da": 5,
+      "v": 1.3
+     },
+     {
+      "da": 6,
+      "v": 1.35
+     },
+     {
+      "da": 7,
+      "v": 1.4
+     },
+     {
+      "da": 8,
+      "v": 1.45
+     },
+     {
+      "da": 9,
+      "v": 1.5
+     },
+     {
+      "da": 10,
+      "v": 1.55
+     },
+     {
+      "da": 20,
+      "v": 1.8
+     },
+     {
+      "da": 30,
+      "v": 1.95
+     },
+     {
+      "da": 40,
+      "v": 2.1
+     },
+     {
+      "da": 50,
+      "v": 2.22
+     },
+     {
+      "da": 60,
+      "v": 2.35
+     },
+     {
+      "da": 70,
+      "v": 2.45
+     },
+     {
+      "da": 80,
+      "v": 2.51
+     },
+     {
+      "da": 90,
+      "v": 2.58
+     },
+     {
+      "da": 100,
+      "v": 2.65
+     },
+     {
+      "da": 200,
+      "v": 3
+     },
+     {
+      "da": 300,
+      "v": 3.4
+     },
+     {
+      "da": 400,
+      "v": 3.7
+     },
+     {
+      "da": 500,
+      "v": 3.9
+     },
+     {
+      "da": 600,
+      "v": 4.05
+     },
+     {
+      "da": 700,
+      "v": 4.2
+     },
+     {
+      "da": 800,
+      "v": 4.4
+     },
+     {
+      "da": 900,
+      "v": 4.6
+     },
+     {
+      "da": 1000,
+      "v": 4.7
+     },
+     {
+      "da": 2000,
+      "v": 5.5
+     },
+     {
+      "da": 3000,
+      "v": 6
+     },
+     {
+      "da": 4000,
+      "v": 6.5
+     },
+     {
+      "da": 5000,
+      "v": 6.9
+     },
+     {
+      "da": 6000,
+      "v": 7.15
+     },
+     {
+      "da": 7000,
+      "v": 7.4
+     },
+     {
+      "da": 8000,
+      "v": 7.7
+     },
+     {
+      "da": 9000,
+      "v": 7.9
+     },
+     {
+      "da": 10000,
+      "v": 8.1
+     }
+    ]
+   }
+  }
+ ]
+}

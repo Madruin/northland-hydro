@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Northland Hydro — rain, rivers and Lake Superior for NE Minnesota</title>
+  <meta name="description" content="Live rainfall (CoCoRaHS/COOP/ASOS), radar precipitation estimates, USGS and MN DNR stream gauges, NWS forecasts and Lake Superior levels for the TSA3 counties of northeastern Minnesota." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌧️</text></svg>" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/5.6.0/maplibre-gl.css" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+  <header id="topbar">
+    <div class="brand">
+      <span class="logo">🌧️</span>
+      <div>
+        <div class="title">Northland Hydro</div>
+        <div class="subtitle">NE Minnesota rainfall · gauges · forecast · Lake Superior</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <label class="ctl">
+        <span>End date</span>
+        <input type="date" id="ctl-date" />
+      </label>
+      <label class="ctl">
+        <span>Window</span>
+        <select id="ctl-window"></select>
+      </label>
+      <div class="ctl toggles" role="group" aria-label="Layers">
+        <span>Layers</span>
+        <button class="toggle on" id="tg-precip" title="Observed precipitation at CoCoRaHS, COOP and ASOS stations (RCC-ACIS)">Stations</button>
+        <button class="toggle" id="tg-qpe" title="NWS radar-derived precipitation estimate (RFC QPE)">Radar QPE</button>
+        <select id="ctl-qpe" title="QPE accumulation window">
+          <option value="1h">1 h</option><option value="3h">3 h</option><option value="6h">6 h</option>
+          <option value="12h">12 h</option><option value="24h" selected>24 h</option><option value="since12z">Since 12Z</option>
+        </select>
+        <button class="toggle on" id="tg-gauges" title="USGS + MN DNR/MPCA stream gauges">Gauges</button>
+      </div>
+      <label class="ctl">
+        <span>Go to</span>
+        <select id="ctl-county"><option value="">Region</option></select>
+      </label>
+      <label class="ctl">
+        <span>Basemap</span>
+        <select id="ctl-basemap"></select>
+      </label>
+      <button id="btn-alerts" class="chip alerts" title="Active NWS alerts in the region">⚠ <span id="alerts-count">…</span></button>
+      <button id="btn-lake" class="chip lake" title="Lake Superior at Duluth (NOAA CO-OPS, IGLD85)">🌊 <span id="lake-level">…</span></button>
+    </div>
+  </header>
+
+  <main id="main">
+    <div id="map-wrap">
+      <div id="map" role="application" aria-label="Map"></div>
+      <div id="legend" class="floating"><button id="legend-toggle" class="legend-toggle" title="Show/hide legend">Legend ▾</button><div id="legend-body"></div></div>
+      <div id="status" class="floating"><span id="status-text">Loading…</span></div>
+    </div>
+
+    <aside id="panel" class="open">
+      <div class="panel-head">
+        <div class="tabs" role="tablist">
+          <button class="tab on" data-tab="region">Region</button>
+          <button class="tab" data-tab="projects">Projects</button>
+          <button class="tab" data-tab="station" disabled>Station</button>
+          <button class="tab" data-tab="gauge" disabled>Gauge</button>
+          <button class="tab" data-tab="point" disabled>Point</button>
+        </div>
+        <button id="panel-toggle" title="Collapse panel">›</button>
+      </div>
+      <div class="panel-body">
+        <section id="tab-region" class="tab-pane on"></section>
+        <section id="tab-projects" class="tab-pane"></section>
+        <section id="tab-station" class="tab-pane"></section>
+        <section id="tab-gauge" class="tab-pane"></section>
+        <section id="tab-point" class="tab-pane"></section>
+      </div>
+    </aside>
+  </main>
+
+  <footer id="attrib">
+    Data: <a href="https://www.rcc-acis.org/" target="_blank" rel="noopener">RCC-ACIS</a> (CoCoRaHS · COOP · ASOS) ·
+    <a href="https://waterdata.usgs.gov/" target="_blank" rel="noopener">USGS NWIS</a> ·
+    <a href="https://www.dnr.state.mn.us/waters/csg/index.html" target="_blank" rel="noopener">MN DNR/MPCA CSG</a> ·
+    <a href="https://www.weather.gov/documentation/services-web-api" target="_blank" rel="noopener">NWS API</a> ·
+    <a href="https://water.noaa.gov/precip" target="_blank" rel="noopener">NWS QPE</a> ·
+    <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> ·
+    <a href="https://tidesandcurrents.noaa.gov/stationhome.html?id=9099064" target="_blank" rel="noopener">NOAA CO-OPS</a> ·
+    <a href="https://hdsc.nws.noaa.gov/pfds/" target="_blank" rel="noopener">NOAA Atlas 14</a>.
+    Provisional data, subject to revision. No server, no accounts: everything loads from public APIs in your browser.
+  </footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/5.6.0/maplibre-gl.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/3.0.1/plotly-basic.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.min.js"></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

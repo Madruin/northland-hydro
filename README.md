@@ -1,0 +1,110 @@
+# Northland Hydro
+
+Rainfall, stream gauges, forecast and Lake Superior levels for northeastern Minnesota (the MN SWCD TSA3 counties), in one map. CoCoRaHS-grade station density, AquaScope-style "click anything" depth, and no server: every number comes from a public API straight into the browser.
+
+Live layers:
+
+| Layer | What it shows | Source | Access |
+|---|---|---|---|
+| Stations | Daily precipitation at ~440 CoCoRaHS, COOP and ASOS stations, summed over 1–90-day windows, with 1991–2020 normals where they exist | RCC-ACIS `MultiStnData` / `StnData` | CORS, POST JSON |
+| Radar QPE | NWS multi-sensor precipitation estimate, 1 h – 24 h and since 12Z | `mapservices.weather.noaa.gov/raster/rest/services/obs/rfc_qpe` | image export, no CORS needed |
+| Gauges | ~195 MN DNR/MPCA Cooperative Stream Gaging sites with the DNR's flow class (Q90…Q10), merged with USGS instantaneous values | DNR `csg.cgi` JSONP feed · USGS `waterservices` IV/DV/stat | JSONP + CORS |
+| Point | PRISM daily precipitation (365 d), % of normal from the nearest station with normals, NWS 7-day forecast + QPF, Open-Meteo soil moisture, NOAA Atlas 14 design-storm table and "how rare was that" return periods | ACIS `GridData` · api.weather.gov · Open-Meteo · precomputed Atlas 14 grid | CORS / static |
+| Region | Median/wettest station, gauges running high or low, active NWS alerts (Duluth office + TSA3 counties), Lake Superior at Duluth vs long-term average | api.weather.gov · NOAA CO-OPS 9099064 | CORS |
+
+## Team projects (Supabase)
+
+The **Projects** tab is a shared watch list for TSA3 projects. Each project is pinned on the map as a star, colored by status (red when its 1-day rain alert threshold is exceeded), and shows the current window's rain at its linked stations and the flow/class at its linked gauge. Members can add, edit, delete, pick locations by clicking the map, choose which stations and gauges to watch, set a rain alert threshold, and export the list as CSV.
+
+Backend: Supabase project **Dashboard** (`lwbatdclpclwyuglzwgg`), tables `hydro_projects` and `hydro_members`, both behind row-level security. Access is an email allowlist: anyone can create a Supabase auth user, but only emails in `hydro_members` pass the policies, so stray sign-ups see nothing. Admins add members from the Projects → members view (or by inserting into `hydro_members`). Sign-in is a magic link / 6-digit code by email; no passwords.
+
+One-time setup in the Supabase dashboard → Authentication → URL Configuration: set the Site URL to where the site is hosted and add these Redirect URLs: `http://localhost:8765/**` and the production URL (e.g. `https://<user>.github.io/northland-hydro/**`). Without that, the magic link lands on the wrong page; the 6-digit code path works regardless.
+
+The publishable key in `js/api/supabase.js` is meant to be public. Do not point the site at a Supabase project whose tables lack RLS.
+
+## Watershed analysis (StreamStats + regional curves)
+
+In the Point panel, **Delineate watershed** runs the current USGS StreamStats services from the browser (all CORS-enabled, no key):
+
+1. `ss-delineate` draws the upstream basin on the map (~3 s).
+2. `ss-hydro` computes the Minnesota basin characteristics (drainage area, slopes, lakes, soils, land cover, longest flow path; ~8 s).
+3. The StreamStats `nss/regions` layer identifies the regression region at the pour point, and `nssservices` returns the regression flow statistics: peak flows (SIR 2023-5079, 66.7% to 0.2% AEP with 90% prediction intervals and standard errors), low flows, flow duration and seasonal statistics (SIR 2015-5170). Parameters outside an equation's applicable range are flagged. The region is taken at the pour point, not area-weighted across a basin that straddles regions.
+
+Then **TSA3 regional curves** turn the drainage area into bankfull channel dimensions, reproducing the office spreadsheets exactly:
+
+| Curve | Source workbook | What it does |
+|---|---|---|
+| North Shore | `North Shore Regional Curve_updated 2026_01.xlsx` | Power-law fits of bankfull area, width and mean depth vs DA for B, C and E channels separately; bankfull Q from gage-site surveys; V = Q/A |
+| Cloquet / St. Louis | `Cloquet St Louis Regional Curve_2019_11.xlsx` | One area regression for all types; width and depth from assumed W/D (B 18, C 20, E 12); Q = A × 3.5 ft/s |
+| Eastern MN | `EasternMN_Regional_Curve.xlsx` | Cubic polynomial for area below 5 mi², power law above; power laws for width and depth; quartic for Q; no stream-type split, fit to curve-read values |
+
+`tools/build_regional_curves.py` reads the workbooks from `S:/TECH/20_North_Shore_Geomorph/02-Regional_Curves`, writes `data/regional_curves.json` (equations exactly as in each Prediction Equations sheet, every survey site, and a refit of each power law from the current rows), and prints published-vs-refit coefficients. Re-run it whenever a workbook changes. The site suggests a curve from the basin's HUC8 (Lake Superior direct tributaries → North Shore; St. Louis, Cloquet, Nemadji → Cloquet/St. Louis; Snake, Kettle, Rum, upper St. Croix → Eastern MN), shows the other curves' answers for comparison, warns when DA is outside the surveyed range, and plots the survey sites with the fitted curve on log-log axes with the basin marked. A drainage area can also be typed in to run the curves without delineating.
+
+## Run it
+
+No build step. Any static host works.
+
+```bash
+python -m http.server 8765 --directory northland-hydro
+```
+
+Then open http://localhost:8765/. The URL hash carries the full view state (date, window, layers, basemap, selection), so a link reproduces exactly what you were looking at.
+
+Keyboard: ← / → step the end date one day.
+
+## Deploy
+
+- **GitHub Pages**: push the folder as a repo, enable Pages on the `main` branch root. `.nojekyll` is included so the `js/` directory is served as-is.
+- **Railway** (if a backend ever becomes necessary): a static-site service pointed at this folder works, but there is nothing here that needs a server yet, so GitHub Pages is the default.
+- Anything else that serves static files (an SWCD web host, S3) also works.
+
+The only file that is not live is `data/atlas14_grid.json`. NOAA's Atlas 14 server has no CORS header, so `tools/build_atlas14_grid.py` samples it on a 0.2° grid over the region once (≈15 min, polite 0.4 s spacing). Atlas 14 Volume 8 is static, so this never needs to re-run unless the region or spacing changes. Nodes over Lake Superior and Ontario are intentionally absent.
+
+## Layout
+
+```
+index.html            page shell, controls, panel tabs
+css/app.css           dark UI, responsive (<900px stacks map over panel)
+js/app.js             state, controls, boot, URL sync, 10-minute live refresh
+js/config.js          region bbox, counties, endpoints, color scales, flow classes
+js/map.js             MapLibre map, basemaps (OpenFreeMap positron/liberty/dark, USGS imagery), county outlines, QPE raster, station/gauge layers
+js/precip.js          station layer + legend + regional summary
+js/gauges.js          USGS ⟷ DNR merge, flow-class coloring, legend
+js/panels.js          Region / Station / Gauge / Point panels (Plotly charts)
+js/lake.js            Lake Superior chip + charts
+js/alerts.js          NWS alert filter for the region
+js/url.js             hash state
+js/projects.js        team watch list (auth, CRUD, map stars, pick-on-map)
+js/watershed.js       StreamStats delineation → basin characteristics → NSS flows → regional curves
+js/regional.js        TSA3 regional-curve calculations and chart
+tools/build_regional_curves.py, data/regional_curves.json
+js/api/*.js           one thin client per upstream API (incl. supabase.js)
+tools/build_atlas14_grid.py
+data/atlas14_grid.json
+```
+
+## Data notes an engineer will care about
+
+- **Observation day.** CoCoRaHS/COOP values are the 24 h ending at the morning observation (~7 AM) on the date shown. "Sep 5" precipitation mostly fell on Sep 4. ASOS stations (DLH, HIB, INL…) are calendar-day totals.
+- **Flags.** `T` trace, `A` multi-day accumulation reported on that date (the preceding `S` days are inside it), `M` missing. Window sums come from ACIS's own reducer, which handles these consistently; "partial" marks windows with missing days.
+- **Percent of normal** is only shown for 7-day and longer windows (1-day normals are ~0.1" and the ratio is noise). It uses the station's own 1991–2020 normals if it has them (COOP/ASOS and a subset of CoCoRaHS), otherwise the nearest station that does.
+- **Return periods** interpolate log-linearly between Atlas 14 PDS depths at the nearest 0.2° node. Daily gauge totals are fixed-clock 24 h, which run about 13% under true peak 24 h depths (the Atlas 14 conversion factor is 1.13). Use the official PFDS point query for anything that goes in a report.
+- **Flow classes** are the DNR's: today's flow versus the site's period-of-record percentiles for this date. USGS-only sites without a DNR record show as unclassified. USGS values are provisional.
+- **PRISM** lags one to two days; the point panel says which date its windows end on.
+- **Lake Superior** at Duluth includes seiche and wind set-up; the monthly-mean chart is the real regime. Long-term average 601.4 ft IGLD85 (USACE, 1918–2023).
+
+## Phase 2 (needs a small scheduled harvester)
+
+These sources have no CORS header, so a GitHub Actions cron job (Python, every 1–3 h) writing static JSON into `data/` would add them at zero cost:
+
+- **CoCoRaHS direct export** (`data.cocorahs.org/export/exportreports.aspx`): same-morning reports before they reach ACIS, snow/SWE/depth, hail and significant-weather reports, multi-day reports.
+- **NWS NWPS** (`api.water.noaa.gov/nwps/v1`): official river forecasts, flood categories and crest history for the forecast points in the region (St. Louis at Scanlon, Nemadji, Kettle, Snake, Rainy…). The endpoint timed out during testing; retry with backoff.
+- **NDBC buoys** 45027 (McQuade Harbor) and 45028 (western Lake Superior): wave height/period for shoreline work, pairs with the wave-runup calculator.
+- **MN State Climatology MNGage/HIDEN** daily dumps for the observers that never reach GHCN.
+- **DNR CSG tabular series.** The CGI serves only PNG hydrographs; the site-report page's Data tab is HTML that a harvester could scrape for the ~150 DNR-only sites.
+
+Other ideas: area-weighted regression regions and gage-adjusted estimates as in the StreamStats app, saving delineations to projects, NLDI upstream flowlines, email/SMS rain alerts per project (Supabase cron + edge function), MRMS 1 km QPE as an alternative to the RFC mosaic, and a printable storm report for a project site (station totals, QPE, return period, gauge response) for construction-oversight files.
+
+## Credits
+
+Built on public data from NOAA RCC-ACIS, USGS, MN DNR / MPCA, NWS, Open-Meteo and NOAA CO-OPS. Basemaps by OpenFreeMap / OpenMapTiles / OpenStreetMap contributors and USGS The National Map. Inspired by the CoCoRaHS map and by Rekin226's AquaScope Explorer (MIT), whose "harvest to static files, compute in the browser, no server" approach this follows.
