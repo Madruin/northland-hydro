@@ -150,6 +150,13 @@ export function setBasin(polygonFeature, pourpointFeature) {
     map.fitBounds([[Math.min(...xs), Math.min(...ys)], [Math.max(...xs), Math.max(...ys)]], { padding: 60, maxZoom: 13 });
   }
 }
+export function snapshot() {
+  return new Promise((resolve) => {
+    if (!map) return resolve(null);
+    map.once("render", () => { try { resolve(map.getCanvas().toDataURL("image/jpeg", 0.85)); } catch (e) { resolve(null); } });
+    map.triggerRepaint();
+  });
+}
 export function setPickMode(cb) { pickCallback = cb; map.getCanvas().style.cursor = cb ? "crosshair" : ""; }
 export function setProjects(fc) { sources.projects = fc; if (map && map.getSource("projects")) map.getSource("projects").setData(fc); }
 function pinGeo() { return { type: "FeatureCollection", features: pinLngLat ? [{ type: "Feature", geometry: { type: "Point", coordinates: pinLngLat }, properties: {} }] : [] }; }

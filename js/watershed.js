@@ -160,3 +160,5 @@ function flowsHtml(st) {
 }
 
 export function clearBasin() { setBasin(null); }
+export function getLiveState(lon, lat) { return cache.get(`${lon.toFixed(5)},${lat.toFixed(5)}`) || null; }
+export function analysisToState(a) { return { basin: a.basin_geojson, huc: a.huc, bc: a.basin_chars || [], da: a.drainage_area_sqmi, flows: a.flows, regions: a.regions, state: a.state, manual: !a.basin_chars, missing: [], retrievedAt: a.sources?.retrieved_at || a.created_at, savedAt: a.created_at, savedBy: a.created_by, label: a.label, curveId: a.regional_curve_id }; }

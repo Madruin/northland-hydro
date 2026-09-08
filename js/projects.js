@@ -7,6 +7,7 @@ import { gauges, gaugeById } from "./gauges.js";
 import { setProjects, setPickMode, map } from "./map.js";
 import { FLOW_CLASSES } from "./config.js";
 import { renderSavedAnalysis, summarizeAnalysis } from "./watershed.js";
+import { openReport } from "./report.js";
 
 export let projects = [];
 export function authState() { return { user, member, projects }; }
@@ -134,7 +135,7 @@ export function openProject(id) {
   showProjectsTab();
   const live = projectLive(p);
   const c = $("tab-projects");
-  c.innerHTML = `<div class="actions"><button class="btn" id="pj-back">‹ All projects</button><button class="btn" id="pj-edit">Edit</button></div>
+  c.innerHTML = `<div class="actions"><button class="btn" id="pj-back">‹ All projects</button><button class="btn" id="pj-edit">Edit</button><button class="btn" id="pj-report" ${p.lat == null ? "disabled" : ""}>🖨 Print report</button><span id="pj-report-msg" class="small"></span></div>
     <h2><span class="dot" style="background:${STATUS_COLORS[p.status]}"></span> ${escapeHtml(p.name)}</h2>
     <div class="muted">${escapeHtml(KINDS[p.kind] || p.kind)} · ${STATUSES[p.status] || p.status}${p.county ? " · " + escapeHtml(p.county) + " County" : ""}${p.swcd ? " · " + escapeHtml(p.swcd) : ""}</div>
     <div class="small">${p.lat != null ? `${fmt(p.lat, 4)}, ${fmt(p.lon, 4)}` : "No location set"}${p.location_note ? " · " + escapeHtml(p.location_note) : ""}</div>
@@ -157,6 +158,15 @@ export function openProject(id) {
   $("pj-edit").onclick = () => openEditor(p);
   $("pj-point").onclick = () => { if (p.lat != null) emit("select:point", { lon: p.lon, lat: p.lat }); };
   renderAnalyses(p);
+  $("pj-report").onclick = async () => {
+    const m = $("pj-report-msg");
+    try {
+      let analysis = null;
+      try { const list = await db.listAnalyses(p.id); if (list[0]) analysis = await db.getAnalysis(list[0].id); } catch {}
+      await openReport({ lon: p.lon, lat: p.lat, project: p, analysis, onStatus: (t) => (m.textContent = t) });
+      m.textContent = analysis ? "" : "No saved watershed analysis; report covers rainfall, gauges, forecast and design storms.";
+    } catch (e) { m.textContent = "Report failed: " + e.message; }
+  };
   c.querySelectorAll("tr[data-sid]").forEach((tr) => tr.addEventListener("click", () => emit("select:station", { sid: tr.dataset.sid })));
   c.querySelectorAll("tr[data-gid]").forEach((tr) => tr.addEventListener("click", () => emit("select:gauge", { id: tr.dataset.gid })));
 }

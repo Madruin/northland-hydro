@@ -44,6 +44,10 @@ Then **TSA3 regional curves** turn the drainage area into bankfull channel dimen
 
 `tools/build_regional_curves.py` reads the workbooks from `S:/TECH/20_North_Shore_Geomorph/02-Regional_Curves`, writes `data/regional_curves.json` (equations exactly as in each Prediction Equations sheet, every survey site, and a refit of each power law from the current rows), and prints published-vs-refit coefficients. Re-run it whenever a workbook changes. The site suggests a curve from the basin's HUC8 (Lake Superior direct tributaries → North Shore; St. Louis, Cloquet, Nemadji → Cloquet/St. Louis; Snake, Kettle, Rum, upper St. Croix → Eastern MN), shows the other curves' answers for comparison, warns when DA is outside the surveyed range, and plots the survey sites with the fitted curve on log-log axes with the basin marked. A drainage area can also be typed in to run the curves without delineating.
 
+## Site hydrology report
+
+**Print site report** (Point panel) or **Print report** (project detail) opens `report.html`: a letter-size, print-ready summary with a map snapshot, the current window's rainfall at the nearest stations and PRISM point totals with percent of normal and Atlas 14 return periods, nearest gauges with flow class, NWS forecast and QPF, active alerts, the Atlas 14 design-storm table, the watershed analysis (live, or the project's latest saved one) with basin characteristics and regression flows, the regional-curve bankfull dimensions with the other curves for comparison, and a numbered sources-and-methods list with retrieval times and a permalink that reproduces the view. "Download JSON" saves the same document as data. Use the browser's print dialog to save a PDF; enable background graphics.
+
 ## Run it
 
 No build step. Any static host works.
@@ -81,6 +85,7 @@ js/url.js             hash state
 js/projects.js        team watch list (auth, CRUD, map stars, pick-on-map)
 js/watershed.js       StreamStats delineation → basin characteristics → NSS flows → regional curves
 js/regional.js        TSA3 regional-curve calculations and chart
+js/report.js          gathers the site hydrology summary document → report.html (js/report-view.js, css/report.css)
 tools/build_regional_curves.py, data/regional_curves.json
 js/api/*.js           one thin client per upstream API (incl. supabase.js)
 tools/build_atlas14_grid.py

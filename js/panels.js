@@ -13,6 +13,7 @@ import * as atlas from "./api/atlas14.js";
 import { setPin, map } from "./map.js";
 import { ENDPOINTS, FLOW_CLASSES, COUNTIES } from "./config.js";
 import { renderWatershed } from "./watershed.js";
+import { openReport } from "./report.js";
 const countyName = (fips) => { const c = COUNTIES.find((x) => x.fips === String(fips)); return c ? c.name.replace(" (WI)", "") + " County" : fips ? "FIPS " + fips : ""; };
 
 const DUR24 = 9, DUR48 = 10, DUR72 = 11; // indexes into Atlas 14 duration list (24-hr, 2-day, 3-day)
@@ -209,6 +210,7 @@ export async function renderPoint(lon, lat) {
   const c = $("tab-point");
   const endDate = precipWindow.endDate, days = precipWindow.days;
   c.innerHTML = `<h2>Point ${fmt(lat, 4)}, ${fmt(lon, 4)}</h2><div class="muted">Anything that isn't a station or gauge: gridded precip, nearby observers, forecast, soil moisture, design storms.</div>
+    <div class="actions"><button class="btn" id="pt-report">🖨 Print site report</button><span id="pt-report-msg" class="small"></span></div>
     <div id="pt-watershed"></div>
     <div id="pt-precip"><div class="spinner">PRISM + station normals…</div></div>
     <div id="pt-nearby"></div>
@@ -217,6 +219,7 @@ export async function renderPoint(lon, lat) {
     <div id="pt-a14"></div>`;
 
   renderWatershed($("pt-watershed"), lon, lat);
+  $("pt-report").onclick = async () => { const m = $("pt-report-msg"); try { await openReport({ lon, lat, onStatus: (t) => (m.textContent = t) }); m.textContent = ""; } catch (e) { m.textContent = "Report failed: " + e.message; } };
 
   // Nearby observers (from the already-loaded station layer)
   const near = precipStations.map((s) => ({ ...s, km: haversineKm(lat, lon, s.lat, s.lon) })).sort((a, b) => a.km - b.km).slice(0, 8);
