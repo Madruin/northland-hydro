@@ -45,22 +45,27 @@ function renderSignIn() {
   c.innerHTML = `<h2>Team projects</h2>
     <div class="muted">A shared watch list for TSA3 projects: each one pinned on the map with its nearest gauge and rain totals. Sign in with a team email to view and edit.</div>
     <div class="form"><label>Email<input id="pj-email" type="email" placeholder="you@tsa3.org" value="${escapeHtml(pendingEmail || "")}" /></label>
-      <div class="actions"><button class="btn primary" id="pj-send">Email me a sign-in link</button></div>
+      <div class="actions"><button class="btn primary" id="pj-send">Email me a sign-in code</button></div>
       <div id="pj-msg" class="small"></div>
-      <div id="pj-otp" hidden><label>Or paste the 6-digit code from the email<input id="pj-code" inputmode="numeric" maxlength="8" /></label><div class="actions"><button class="btn" id="pj-verify">Verify code</button></div></div>
+      <div id="pj-otp" ${pendingEmail ? "" : "hidden"}><label>Code from the email<input id="pj-code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="6 digits" /></label><div class="actions"><button class="btn primary" id="pj-verify">Sign in with code</button></div></div>
     </div>
-    <div class="small">Access is limited to emails on the team allowlist. Ask Matías to add yours.</div>`;
+    <div class="small">Use the code, not the link: work mailboxes often pre-open links for security scanning, which uses them up before you can click. Access is limited to emails on the team allowlist; ask Matías to add yours.</div>`;
   $("pj-send").onclick = async () => {
     const email = $("pj-email").value.trim();
     if (!email) return;
     pendingEmail = email;
     $("pj-msg").textContent = "Sending…";
-    try { await db.signInWithEmail(email); $("pj-msg").textContent = `Sent. Open the link in the email on this device, or paste the code below.`; $("pj-otp").hidden = false; }
+    try { await db.signInWithEmail(email); $("pj-msg").textContent = `Sent to ${email}. Paste the code below (the link in the email also works if nothing pre-opened it).`; $("pj-otp").hidden = false; $("pj-code").focus(); }
     catch (e) { $("pj-msg").textContent = "Failed: " + e.message; }
   };
   $("pj-verify").onclick = async () => {
-    try { await db.verifyOtp(pendingEmail, $("pj-code").value.trim()); } catch (e) { $("pj-msg").textContent = "Failed: " + e.message; }
+    const code = $("pj-code").value.replace(/\D/g, "");
+    if (!pendingEmail) { $("pj-msg").textContent = "Enter your email and request a code first."; return; }
+    if (!code) return;
+    $("pj-msg").textContent = "Verifying…";
+    try { await db.verifyOtp(pendingEmail, code); } catch (e) { $("pj-msg").textContent = "Failed: " + e.message + (/expired|invalid/i.test(e.message) ? " Request a new code." : ""); }
   };
+  $("pj-code")?.addEventListener("keydown", (e) => { if (e.key === "Enter") $("pj-verify").click(); });
 }
 function renderNotMember() {
   $("tab-projects").innerHTML = `<h2>Team projects</h2><div class="notice">Signed in as ${escapeHtml(user.email)}, but that address is not on the team allowlist yet.</div>

@@ -18,7 +18,9 @@ The **Projects** tab is a shared watch list for TSA3 projects. Each project is p
 
 Backend: Supabase project **Dashboard** (`lwbatdclpclwyuglzwgg`), tables `hydro_projects` and `hydro_members`, both behind row-level security. Access is an email allowlist: anyone can create a Supabase auth user, but only emails in `hydro_members` pass the policies, so stray sign-ups see nothing. Admins add members from the Projects → members view (or by inserting into `hydro_members`). Sign-in is a magic link / 6-digit code by email; no passwords.
 
-One-time setup in the Supabase dashboard → Authentication → URL Configuration: set the Site URL to where the site is hosted and add these Redirect URLs: `http://localhost:8765/**` and the production URL (e.g. `https://<user>.github.io/northland-hydro/**`). Without that, the magic link lands on the wrong page; the 6-digit code path works regardless.
+One-time setup in the Supabase dashboard:
+- Authentication → Email Templates: add `{{ .Token }}` to the **Magic Link** and **Confirm signup** templates (e.g. "Your code: {{ .Token }}"). Work mailboxes with link scanners (Microsoft Defender Safe Links, Google) pre-open one-time links and consume them, so the site leads with the code.
+- Authentication → URL Configuration: Site URL `https://madruin.github.io/northland-hydro/`; Redirect URLs `https://madruin.github.io/northland-hydro/**` and `http://localhost:8765/**`. Without this the emailed link points at localhost:3000.
 
 The publishable key in `js/api/supabase.js` is meant to be public. Do not point the site at a Supabase project whose tables lack RLS.
 
