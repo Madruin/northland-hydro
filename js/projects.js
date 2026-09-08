@@ -6,8 +6,10 @@ import { stations as precipStations, current as precipWindow } from "./precip.js
 import { gauges, gaugeById } from "./gauges.js";
 import { setProjects, setPickMode, map } from "./map.js";
 import { FLOW_CLASSES } from "./config.js";
+import { renderSavedAnalysis, summarizeAnalysis } from "./watershed.js";
 
 export let projects = [];
+export function authState() { return { user, member, projects }; }
 let user = null;
 let member = false;
 let editing = null; // project object being edited (or {} for new)
@@ -146,13 +148,36 @@ export function openProject(id) {
     ${live.stations.length ? `<table class="data"><thead><tr><th>Station</th><th class="num">mi</th><th class="num">in</th><th class="num">max 1-day</th></tr></thead><tbody>${live.stations.map((s) => `<tr class="clickable" data-sid="${escapeHtml(s.sid)}"><td>${escapeHtml(s.name)}</td><td class="num">${s.km != null ? fmt(kmToMi(s.km), 1) : "–"}</td><td class="num">${fmt(s.total)}</td><td class="num">${fmt(s.max1 ?? s.total)}</td></tr>`).join("")}</tbody></table>` : `<div class="notice">Set a location to see nearby stations.</div>`}
     <h3>Linked gauges</h3>
     ${live.gauges.length ? `<table class="data"><thead><tr><th>Gauge</th><th class="num">cfs</th><th class="num">ft</th><th>Class</th></tr></thead><tbody>${live.gauges.map((g) => `<tr class="clickable" data-gid="${escapeHtml(g.id)}"><td>${escapeHtml(g.name)}</td><td class="num">${fmtNum(g.flow, g.flow < 10 ? 1 : 0)}</td><td class="num">${fmt(g.stage)}</td><td><span class="pill class" style="background:${g.color}">${FLOW_CLASSES[g.flowClass].label.split(" (")[0]}</span></td></tr>`).join("")}</tbody></table>` : `<div class="notice">No gauge linked.</div>`}
-    <div class="actions"><button class="btn" id="pj-point">Open point analysis here</button></div>
+    <h3>Saved watershed analyses</h3>
+    <div id="pj-analyses"><div class="spinner">Loading…</div></div>
+    <div class="actions"><button class="btn" id="pj-point">Analyze watershed at this location</button></div>
+    <div id="pj-analysis-view"></div>
     <div class="small">Created ${p.created_at?.slice(0, 10)} by ${escapeHtml(p.created_by || "?")} · updated ${p.updated_at?.slice(0, 10)} by ${escapeHtml(p.updated_by || "?")}</div>`;
   $("pj-back").onclick = () => renderList();
   $("pj-edit").onclick = () => openEditor(p);
   $("pj-point").onclick = () => { if (p.lat != null) emit("select:point", { lon: p.lon, lat: p.lat }); };
+  renderAnalyses(p);
   c.querySelectorAll("tr[data-sid]").forEach((tr) => tr.addEventListener("click", () => emit("select:station", { sid: tr.dataset.sid })));
   c.querySelectorAll("tr[data-gid]").forEach((tr) => tr.addEventListener("click", () => emit("select:gauge", { id: tr.dataset.gid })));
+}
+
+async function renderAnalyses(p) {
+  const box = $("pj-analyses");
+  let list = [];
+  try { list = await db.listAnalyses(p.id); } catch (e) { box.innerHTML = `<div class="notice">${escapeHtml(e.message)}</div>`; return; }
+  if (!list.length) { box.innerHTML = `<div class="small">None yet. Run "Analyze watershed at this location" (or click any point on the map), delineate, and use "Save to project".</div>`; return; }
+  box.innerHTML = `<table class="data"><thead><tr><th>Saved</th><th>Label</th><th class="num">DA mi²</th><th class="num">Q1% cfs</th><th>Curve</th><th></th></tr></thead><tbody>
+    ${list.map((a) => { const s = summarizeAnalysis(a); return `<tr><td>${fmtDate(a.created_at.slice(0, 10), { month: "short", day: "numeric", year: "2-digit" })}<div class="small">${escapeHtml(a.created_by || "")}</div></td><td>${escapeHtml(a.label || "")}</td><td class="num">${fmt(a.drainage_area_sqmi, 2)}</td><td class="num">${s.q100 != null ? fmtNum(s.q100, 0) : "–"}</td><td class="small">${escapeHtml(s.curveName || "")}</td><td><button class="btn" data-view="${a.id}">View</button> <button class="btn danger" data-del="${a.id}" title="Delete">✕</button></td></tr>`; }).join("")}</tbody></table>`;
+  box.querySelectorAll("[data-view]").forEach((b) => b.onclick = async () => {
+    b.textContent = "…";
+    try { const a = await db.getAnalysis(b.dataset.view); renderSavedAnalysis($("pj-analysis-view"), a); $("pj-analysis-view").scrollIntoView({ behavior: "smooth", block: "start" }); }
+    catch (e) { $("pj-analysis-view").innerHTML = `<div class="notice">${escapeHtml(e.message)}</div>`; }
+    b.textContent = "View";
+  });
+  box.querySelectorAll("[data-del]").forEach((b) => b.onclick = async () => {
+    if (!confirm("Delete this saved analysis?")) return;
+    try { await db.deleteAnalysis(b.dataset.del); renderAnalyses(p); $("pj-analysis-view").innerHTML = ""; } catch (e) { alert(e.message); }
+  });
 }
 
 function openEditor(p) {

@@ -51,6 +51,25 @@ export async function deleteProject(id) {
   const { error } = await sb().from("hydro_projects").delete().eq("id", id);
   if (error) throw error;
 }
+export async function listAnalyses(projectId) {
+  const { data, error } = await sb().from("hydro_project_analyses").select("id,project_id,kind,label,pour_lat,pour_lon,state,huc,drainage_area_sqmi,regional_curve_id,regional,created_by,created_at").eq("project_id", projectId).order("created_at", { ascending: false });
+  if (error) throw error;
+  return data;
+}
+export async function getAnalysis(id) {
+  const { data, error } = await sb().from("hydro_project_analyses").select("*").eq("id", id).single();
+  if (error) throw error;
+  return data;
+}
+export async function insertAnalysis(rec) {
+  const { data, error } = await sb().from("hydro_project_analyses").insert(rec).select("id").single();
+  if (error) throw error;
+  return data;
+}
+export async function deleteAnalysis(id) {
+  const { error } = await sb().from("hydro_project_analyses").delete().eq("id", id);
+  if (error) throw error;
+}
 export async function listMembers() {
   const { data, error } = await sb().from("hydro_members").select("*").order("email");
   if (error) throw error;

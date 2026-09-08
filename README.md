@@ -32,6 +32,8 @@ In the Point panel, **Delineate watershed** runs the current USGS StreamStats se
 2. `ss-hydro` computes the Minnesota basin characteristics (drainage area, slopes, lakes, soils, land cover, longest flow path; ~8 s).
 3. The StreamStats `nss/regions` layer identifies the regression region at the pour point, and `nssservices` returns the regression flow statistics: peak flows (SIR 2023-5079, 66.7% to 0.2% AEP with 90% prediction intervals and standard errors), low flows, flow duration and seasonal statistics (SIR 2015-5170). Parameters outside an equation's applicable range are flagged. The region is taken at the pour point, not area-weighted across a basin that straddles regions.
 
+**Saving to a project.** When signed in, a "Save to project" row under the results stores the whole analysis on the chosen project in `hydro_project_analyses`: pour point, HUC, basin polygon, all basin characteristics, the NSS flow statistics as returned, the regression regions, the chosen regional curve with its computed rows and the other curves' rows, and a `sources` block with the exact service URLs, the regional-curve workbook names and dates, and the retrieval time. The project detail lists saved analyses (date, author, DA, Q1%, curve); View redraws the basin and re-renders the tables from the stored data, so a design basis from months ago is reproducible without re-querying USGS.
+
 Then **TSA3 regional curves** turn the drainage area into bankfull channel dimensions, reproducing the office spreadsheets exactly:
 
 | Curve | Source workbook | What it does |
