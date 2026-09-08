@@ -12,6 +12,7 @@ import { readUrl, writeUrl } from "./url.js";
 import { renderRegion, renderStation, renderGauge, renderPoint, showTab } from "./panels.js";
 import { initProjects, openProject } from "./projects.js";
 import { track } from "./loader.js";
+import { initExport } from "./export.js";
 
 const state = {
   endDate: isoDate(), days: 1, zoom: HOME.zoom, center: HOME.center, basemap: "light",
@@ -132,6 +133,7 @@ async function boot() {
   else if (state.selection.type === "point") { const [lon, lat] = state.selection.id.split(",").map(Number); renderPoint(lon, lat); }
 
   track("projects", initProjects());
+  initExport();
   on("map:moveend", ({ center, zoom }) => { state.center = [center.lng, center.lat]; state.zoom = zoom; syncUrl(); });
   on("select:station", (p) => { state.selection = { type: "station", id: p.sid }; syncUrl(); renderStation(p.sid); });
   on("select:gauge", (p) => { state.selection = { type: "gauge", id: p.id }; syncUrl(); renderGauge(p.id); });

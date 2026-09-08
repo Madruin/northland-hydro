@@ -53,6 +53,7 @@
         <span>Basemap</span>
         <select id="ctl-basemap"></select>
       </label>
+      <button id="btn-export" class="chip" title="Export imagery, DEM and contours for AutoCAD (UTM 15N, US ft)">⬇ CAD export</button>
       <button id="btn-alerts" class="chip alerts" title="Active NWS alerts in the region">⚠ <span id="alerts-count">…</span></button>
       <button id="btn-lake" class="chip lake" title="Lake Superior at Duluth (NOAA CO-OPS, IGLD85)">🌊 <span id="lake-level">…</span></button>
     </div>
@@ -74,6 +75,7 @@
           <button class="tab" data-tab="station" disabled>Station</button>
           <button class="tab" data-tab="gauge" disabled>Gauge</button>
           <button class="tab" data-tab="point" disabled>Point</button>
+          <button class="tab" data-tab="export" disabled>Export</button>
         </div>
         <button id="panel-toggle" title="Collapse panel">›</button>
       </div>
@@ -83,6 +85,7 @@
         <section id="tab-station" class="tab-pane"></section>
         <section id="tab-gauge" class="tab-pane"></section>
         <section id="tab-point" class="tab-pane"></section>
+        <section id="tab-export" class="tab-pane"></section>
       </div>
     </aside>
   </main>
@@ -103,6 +106,7 @@
   <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/3.0.1/plotly-basic.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.15.0/proj4.js"></script>
   <script type="module" src="js/app.js"></script>
 </body>
 </html>

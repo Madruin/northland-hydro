@@ -60,6 +60,17 @@ The cached MapServers number their levels from their coarsest LOD (hillshade lev
 
 For the future CAD export: the second-generation DEM is also available as 0.5 m cloud-optimized GeoTIFFs (BigTIFF, 512 px LZW tiles, 8 overviews, EPSG 6344 NAD83(2011) UTM 15N, elevations in meters NAVD88) in MnGeo's STAC catalog (`stac.gisdata.mn.gov`, collections `minnesota-100km-sections` and `lake-superior-work-units`); Azure serves byte ranges with CORS and geotiff.js reads a 256 px window in about 0.2 s. The ImageServer's `exportImage` also returns float32 GeoTIFF clips in UTM (`imageSR=26915`, 1000×1000 in 1.7 s).
 
+## CAD export (area of interest)
+
+**CAD export** in the header opens the Export tab: click two corners on the map and build a ZIP for AutoCAD in **NAD83 UTM zone 15N, US survey feet** (Civil 3D coordinate system UTM83-15F), elevations NAVD88 feet:
+
+- **Aerial imagery** as JPG + JGW world file + PRJ, from MnGeo's WMS in EPSG:26915 (composite "best available" or FSA/NAIP by year, 0.3/0.5/1 m pixels, up to 8,191 px a side). The world file is written in feet.
+- **Lidar DEM** as GeoTIFF (left as served: EPSG:26915 meters, float32) and as an ESRI ASCII grid in UTM feet with foot elevations, from the MnTOPO ImageServer (2nd generation 0.5 m or 1st generation 1 m; 0.5/1/2 m cells, up to 4,000 cells a side).
+- **Contours** as DXF R12 3D polylines (Z = elevation, layers CONTOUR-INDEX every fifth interval and CONTOUR-INTER), generated in the browser from the DEM by marching squares with light simplification, at 0.5/1/2/5 ft intervals. The AOI boundary and a coordinate-system note are included. These are derived contours, not an official MnGeo product.
+- A README in the ZIP restates the coordinate system, extents in meters and feet, and sources.
+
+The rectangle drawn in lon/lat is snapped to a north-up, whole-meter rectangle in UTM so every product shares the same grid. Coordinates and elevations use 1 m = 3937/1200 US survey feet. Verified: the ImageServer returns exactly the requested UTM extent and cell count, so the world file, ASCII grid and contours line up with the GeoTIFF.
+
 ## Site hydrology report
 
 **Print site report** (Point panel) or **Print report** (project detail) opens `report.html`: a letter-size, print-ready summary with a map snapshot, the current window's rainfall at the nearest stations and PRISM point totals with percent of normal and Atlas 14 return periods, nearest gauges with flow class, NWS forecast and QPF, active alerts, the Atlas 14 design-storm table, the watershed analysis (live, or the project's latest saved one) with basin characteristics and regression flows, the regional-curve bankfull dimensions with the other curves for comparison, and a numbered sources-and-methods list with retrieval times and a permalink that reproduces the view. "Download JSON" saves the same document as data. Use the browser's print dialog to save a PDF; enable background graphics.
@@ -103,6 +114,7 @@ js/watershed.js       StreamStats delineation → basin characteristics → NSS 
 js/regional.js        TSA3 regional-curve calculations and chart
 js/report.js          gathers the site hydrology summary document → report.html (js/report-view.js, css/report.css)
 js/terrain.js         MnTOPO lidar layers, mnlod:// tile protocol, legend
+js/export.js          AOI export: imagery + world file, DEM GeoTIFF/ASCII, DXF contours (UTM 15N US ft)
 tools/build_regional_curves.py, data/regional_curves.json
 js/api/*.js           one thin client per upstream API (incl. supabase.js)
 tools/build_atlas14_grid.py
@@ -128,8 +140,6 @@ These sources have no CORS header, so a GitHub Actions cron job (Python, every 1
 - **NDBC buoys** 45027 (McQuade Harbor) and 45028 (western Lake Superior): wave height/period for shoreline work, pairs with the wave-runup calculator.
 - **MN State Climatology MNGage/HIDEN** daily dumps for the observers that never reach GHCN.
 - **DNR CSG tabular series.** The CGI serves only PNG hydrographs; the site-report page's Data tab is HTML that a harvester could scrape for the ~150 DNR-only sites.
-
-**AOI export for AutoCAD (next).** Draw a rectangle → aerial imagery (MnGeo composite WMS `mncomp`, CORS-enabled) as GeoTIFF or JPG + world file; clipped DEM as GeoTIFF from the second-generation ImageServer (`exportImage`, float32, UTM 15N) or straight from the COGs; contours generated client-side (d3-contour) at 1 or 2 ft as DXF in the project's coordinate system (Minnesota county systems or UTM 15N) via proj4js.
 
 Other ideas: area-weighted regression regions and gage-adjusted estimates as in the StreamStats app, saving delineations to projects, NLDI upstream flowlines, email/SMS rain alerts per project (Supabase cron + edge function), MRMS 1 km QPE as an alternative to the RFC mosaic, and a printable storm report for a project site (station totals, QPE, return period, gauge response) for construction-oversight files.
 

@@ -9,6 +9,7 @@ let currentBasemap = "light";
 let overlaysReady = false;
 const sources = { stations: { type: "FeatureCollection", features: [] }, gauges: { type: "FeatureCollection", features: [] }, projects: { type: "FeatureCollection", features: [] } };
 let pickCallback = null;
+let rect = null; // { cb, onFirst, a: [lon,lat] | null }
 const visibility = { stations: true, gauges: true, qpe: false };
 let terrainVis = {}; let terrainOpacity = 0.6;
 let qpeWindow = "24h";
@@ -26,6 +27,12 @@ export function initMap({ center = HOME.center, zoom = HOME.zoom, basemap = "lig
   map.on("style.load", () => addOverlays());
   map.on("moveend", () => emit("map:moveend", { center: map.getCenter(), zoom: map.getZoom() }));
   map.on("click", (e) => {
+    if (rect) {
+      if (!rect.a) { rect.a = [e.lngLat.lng, e.lngLat.lat]; rect.onFirst?.(); return; }
+      const a = rect.a, b = [e.lngLat.lng, e.lngLat.lat]; const cb = rect.cb; endRect();
+      cb([Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1])]);
+      return;
+    }
     if (pickCallback) { const cb = pickCallback; pickCallback = null; map.getCanvas().style.cursor = ""; cb({ lon: e.lngLat.lng, lat: e.lngLat.lat }); return; }
     const feats = map.queryRenderedFeatures(e.point, { layers: ["projects-symbol", "stations-circle", "gauges-circle"].filter((l) => map.getLayer(l)) });
     if (feats.length) {
@@ -41,9 +48,19 @@ export function initMap({ center = HOME.center, zoom = HOME.zoom, basemap = "lig
     map.on("mouseenter", layer, () => (map.getCanvas().style.cursor = "pointer"));
     map.on("mouseleave", layer, () => (map.getCanvas().style.cursor = ""));
   }
+  map.on("mousemove", (e) => { if (rect?.a) setAoiPreview([rect.a, [e.lngLat.lng, e.lngLat.lat]]); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && rect) { const cb = rect.cb; endRect(); setAoi(null); cb(null); } });
   setupHover();
   return map;
 }
+function endRect() { rect = null; map.getCanvas().style.cursor = ""; map.dragPan.enable(); }
+export function startRectDraw(cb, onFirst) { rect = { cb, onFirst, a: null }; map.getCanvas().style.cursor = "crosshair"; }
+function setAoiPreview([a, b]) {
+  const ring = [[a[0], a[1]], [b[0], a[1]], [b[0], b[1]], [a[0], b[1]], [a[0], a[1]]];
+  setAoi({ type: "Feature", geometry: { type: "Polygon", coordinates: [ring] }, properties: {} });
+}
+let aoiFeature = null;
+export function setAoi(f) { aoiFeature = f; if (map && map.getSource("aoi")) map.getSource("aoi").setData({ type: "FeatureCollection", features: f ? [f] : [] }); }
 
 export function setBasemap(id) {
   if (!BASEMAPS[id] || id === currentBasemap) return;
@@ -120,6 +137,11 @@ async function addOverlays() {
     map.addLayer({ id: "projects-symbol", type: "symbol", source: "projects", layout: { "icon-image": "project-star", "icon-size": ["interpolate", ["linear"], ["zoom"], 6, 0.6, 10, 1], "icon-allow-overlap": true,
         "text-field": ["get", "name"], "text-size": 11, "text-offset": [0, 1.3], "text-anchor": "top", "text-font": ["Noto Sans Bold"], "text-optional": true },
       paint: { "icon-color": ["get", "color"], "icon-halo-color": "#fff", "icon-halo-width": 1.5, "text-color": "#fff", "text-halo-color": "#0f172a", "text-halo-width": 1.4 } });
+  }
+  if (!map.getSource("aoi")) {
+    map.addSource("aoi", { type: "geojson", data: { type: "FeatureCollection", features: aoiFeature ? [aoiFeature] : [] } });
+    map.addLayer({ id: "aoi-fill", type: "fill", source: "aoi", paint: { "fill-color": "#f59e0b", "fill-opacity": 0.12 } });
+    map.addLayer({ id: "aoi-line", type: "line", source: "aoi", paint: { "line-color": "#f59e0b", "line-width": 2, "line-dasharray": [2, 1.5] } });
   }
   if (!map.getSource("pin")) {
     map.addSource("pin", { type: "geojson", data: pinGeo() });
