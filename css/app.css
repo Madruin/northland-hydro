@@ -161,3 +161,9 @@ table.data sub { font-size: 9px; }
 .save-row select, .save-row input { background: var(--bg2); border: 1px solid var(--line); border-radius: 6px; padding: 5px 7px; color: var(--fg); font-size: 12px; }
 .save-row input { flex: 1; min-width: 140px; }
 .btn.danger { margin-left: 0; }
+
+/* loading bar */
+#loadbar { position: relative; height: 0; overflow: visible; flex: none; z-index: 30; }
+#loadbar-fill { position: absolute; left: 0; top: 0; height: 3px; width: 0; background: linear-gradient(90deg, #38bdf8, #22c55e); transition: width .35s ease; opacity: 0; box-shadow: 0 0 8px rgba(56,189,248,.6); }
+#loadbar-text { position: absolute; right: 12px; top: 6px; font-size: 11px; color: var(--fg2); background: rgba(22,33,58,.9); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+#loadbar.on #loadbar-fill, #loadbar.on #loadbar-text { opacity: 1; }

@@ -10,6 +10,7 @@ import { loadAtlas14 } from "./api/atlas14.js";
 import { readUrl, writeUrl } from "./url.js";
 import { renderRegion, renderStation, renderGauge, renderPoint, showTab } from "./panels.js";
 import { initProjects, openProject } from "./projects.js";
+import { track } from "./loader.js";
 
 const state = {
   endDate: isoDate(), days: 1, zoom: HOME.zoom, center: HOME.center, basemap: "light",
@@ -80,7 +81,7 @@ const refreshPrecip = debounce(async () => {
   setStatus(`Loading precipitation (${state.days === 1 ? state.endDate : state.days + " days to " + state.endDate})…`);
   syncUrl();
   try {
-    const list = await loadPrecip({ endDate: state.endDate, days: state.days });
+    const list = await track("stations", loadPrecip({ endDate: state.endDate, days: state.days }));
     setStatus(`${list.filter((s) => !s.missingAll).length} stations reporting · ${state.days === 1 ? state.endDate : state.days + "-day window ending " + state.endDate}`);
     renderLegend();
     if (!state.selection || state.selection.type === "region") renderRegion();
@@ -96,10 +97,11 @@ async function boot() {
   setLayerVisible("stations", state.layers.stations); setLayerVisible("gauges", state.layers.gauges); setLayerVisible("qpe", state.layers.qpe);
   setQpeWindow(state.qpeWindow);
   renderLegend();
-  loadAtlas14();
-  loadAlerts().catch((e) => { $("alerts-count").textContent = "n/a"; console.warn(e); });
-  loadLake();
-  const gaugesP = loadGauges().catch((e) => { console.warn(e); return []; });
+  track("map", new Promise((res) => on("map:ready", res)));
+  track("design storms", loadAtlas14());
+  track("alerts", loadAlerts()).catch((e) => { $("alerts-count").textContent = "n/a"; console.warn(e); });
+  track("lake level", loadLake());
+  const gaugesP = track("gauges", loadGauges()).catch((e) => { console.warn(e); return []; });
   await refreshPrecip();
   await gaugesP;
   if (!state.selection || state.selection.type === "region") renderRegion();
@@ -107,14 +109,14 @@ async function boot() {
   else if (state.selection.type === "station") renderStation(state.selection.id);
   else if (state.selection.type === "point") { const [lon, lat] = state.selection.id.split(",").map(Number); renderPoint(lon, lat); }
 
-  initProjects();
+  track("projects", initProjects());
   on("map:moveend", ({ center, zoom }) => { state.center = [center.lng, center.lat]; state.zoom = zoom; syncUrl(); });
   on("select:station", (p) => { state.selection = { type: "station", id: p.sid }; syncUrl(); renderStation(p.sid); });
   on("select:gauge", (p) => { state.selection = { type: "gauge", id: p.id }; syncUrl(); renderGauge(p.id); });
   on("select:project", (p) => { state.selection = { type: "project", id: p.id }; syncUrl(); });
   on("select:point", ({ lon, lat }) => { state.selection = { type: "point", id: `${lon.toFixed(4)},${lat.toFixed(4)}` }; syncUrl(); renderPoint(lon, lat); });
   // refresh live layers every 10 min
-  setInterval(() => { loadGauges().catch(() => {}); loadAlerts().catch(() => {}); loadLake(); }, 10 * 60_000);
+  setInterval(() => { track("gauges", loadGauges()).catch(() => {}); track("alerts", loadAlerts()).catch(() => {}); track("lake level", loadLake()); }, 10 * 60_000);
   window.__nh = { state, map };
   console.info(`${APP.name} ${APP.version} ready`);
 }
