@@ -19,6 +19,26 @@ const IMAGERY = [
 ];
 const PRJ_USFT = 'PROJCS["NAD_1983_UTM_Zone_15N_USFT",GEOGCS["GCS_North_American_1983",DATUM["D_North_American_1983",SPHEROID["GRS_1980",6378137.0,298.257222101]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["False_Easting",1640416.666666667],PARAMETER["False_Northing",0.0],PARAMETER["Central_Meridian",-93.0],PARAMETER["Scale_Factor",0.9996],PARAMETER["Latitude_Of_Origin",0.0],UNIT["Foot_US",0.3048006096012192]]';
 
+const CAD_STEPS_HTML = `<details class="steps"><summary>Bringing these into Civil 3D (step by step)</summary>
+<ol>
+<li><b>Set the drawing coordinate system first.</b> Toolspace → Settings → right-click the drawing → Edit Drawing Settings → Units and Zone: units Feet, zone <b>UTM83-15F</b> (USA, Minnesota: NAD83 UTM Zone 15N, US Foot). Use a fresh drawing or your survey template.</li>
+<li><b>Aerial imagery.</b> Insert → Attach, pick the JPG. The JGW world file beside it (same base name) is read automatically and places the image. If it lands at 0,0 or looks scaled, use <code>MAPIINSERT</code> instead, or <code>IMAGEATTACH</code> with "Use correlation file".</li>
+<li><b>Contours as a surface.</b> Insert the DXF (Insert → Block, or copy/paste at 0,0; never "specify on-screen"). Prospector → Surfaces → Create Surface (TIN). Expand it → Definition → Contours → Add; select the polylines on CONTOUR-INDEX and CONTOUR-INTER. Z values are elevations in feet. Freeze the DXF layers once the surface exists.</li>
+<li><b>DEM as a surface</b> (use for the full 0.5 m or 1 m grid). Create Surface (TIN) → Definition → DEM Files → Add → pick the <code>.asc</code> file; coordinate system UTM83-15F; leave elevations as-is. The <code>.tif</code> is in UTM meters (code UTM83-15) and Civil 3D would not convert its elevations, so prefer the <code>.asc</code>. A 0.5 m grid over a large box makes a slow surface; use 1 m for site scale or add a surface boundary.</li>
+<li><b>Check.</b> <code>ID</code> a contour vertex: eastings around 1.8–1.9 million ft and northings around 17.0 million ft for the Duluth area, Z near the elevations shown here. The DXF carries a text note with the coordinate system and date on layer AOI-BOUNDARY.</li>
+</ol></details>`;
+const CAD_STEPS_TEXT = `BRINGING THESE INTO CIVIL 3D
+ 1. Set the drawing coordinate system first: Toolspace > Settings > right-click drawing > Edit Drawing Settings > Units and Zone:
+    units Feet, zone UTM83-15F (USA, Minnesota: NAD83 UTM Zone 15N, US Foot). Use a fresh drawing or your survey template.
+ 2. Imagery: Insert > Attach, pick the JPG. The JGW world file (same base name) is read automatically. If it lands at 0,0 or
+    looks scaled, use MAPIINSERT, or IMAGEATTACH with "Use correlation file".
+ 3. Contours as a surface: insert the DXF at 0,0 (never "specify on-screen"). Prospector > Surfaces > Create Surface (TIN) >
+    Definition > Contours > Add; select polylines on CONTOUR-INDEX and CONTOUR-INTER. Z = elevation in feet. Freeze the DXF layers after.
+ 4. DEM as a surface: Create Surface (TIN) > Definition > DEM Files > Add > the .asc file; coordinate system UTM83-15F; elevations as-is.
+    The .tif is UTM meters (UTM83-15) and Civil 3D does not convert its elevations, so prefer the .asc. Use 1 m cells for site scale.
+ 5. Check with ID on a contour vertex: E ~1.8-1.9 million ft, N ~17.0 million ft near Duluth, Z near the elevations reported on the site.
+`;
+
 let aoi = null; // { m: [xmin,ymin,xmax,ymax] in UTM meters, ft: [...] , lonlat: [[...]] }
 
 export function initExport() {
@@ -35,7 +55,8 @@ function renderIntro() {
   $("tab-export").innerHTML = `<h2>Export for AutoCAD</h2>
     <div class="muted">Draw a rectangle on the map, then download aerial imagery, the lidar DEM and contours clipped to it, in NAD83 UTM zone 15N, US survey feet (Civil 3D UTM83-15F), elevations NAVD88 feet.</div>
     <div class="actions"><button class="btn primary" id="ex-draw">Draw area on map</button></div>
-    <div class="small">Click one corner, then the opposite corner. Esc cancels. Keep the area under about 2 km on a side for 0.5 m data.</div>`;
+    <div class="small">Click one corner, then the opposite corner. Esc cancels. Keep the area under about 2 km on a side for 0.5 m data.</div>
+    ${CAD_STEPS_HTML}`;
   $("ex-draw").onclick = draw;
 }
 function draw() {
@@ -95,7 +116,8 @@ function renderPanel() {
       <div class="actions"><button class="btn primary" id="ex-go">Build ZIP</button><span id="ex-msg" class="small"></span></div>
       <div id="ex-log" class="small"></div>
     </div>
-    <div class="small">Imagery: MnGeo WMS (composite = most recent, highest-resolution available per area; FSA/NAIP by year). DEM: MnTOPO seamless lidar via MnGeo ImageServer, float32. Contours are generated here from the DEM (marching squares, light simplification) and are not an official product; index contours every 5th interval on layer CONTOUR-INDEX. A README in the ZIP repeats the coordinate-system details.</div>`;
+    <div class="small">Imagery: MnGeo WMS (composite = most recent, highest-resolution available per area; FSA/NAIP by year). DEM: MnTOPO seamless lidar via MnGeo ImageServer, float32. Contours are generated here from the DEM (marching squares, light simplification) and are not an official product; index contours every 5th interval on layer CONTOUR-INDEX. A README in the ZIP repeats the coordinate-system details and the Civil 3D steps below.</div>
+    ${CAD_STEPS_HTML}`;
   $("ex-redraw").onclick = draw;
   $("ex-clear").onclick = () => { aoi = null; setAoi(null); renderIntro(); };
   $("ex-go").onclick = build;
@@ -188,6 +210,7 @@ AREA (UTM 15N)
   meters: E ${a.m[0]}–${a.m[2]}, N ${a.m[1]}–${a.m[3]}  (${a.w} x ${a.h} m)
   feet:   E ${a.ft[0].toFixed(2)}–${a.ft[2].toFixed(2)}, N ${a.ft[1].toFixed(2)}–${a.ft[3].toFixed(2)}
 
+${CAD_STEPS_TEXT}
 SOURCES
   Imagery: MnGeo Geospatial Image Service (imageserver.gisdata.mn.gov), WMS GetMap in EPSG:26915.
   DEM: MnTOPO lidar via MnGeo ImageServer (enterprise.gisdata.mn.gov/agsimg), 2nd generation 0.5 m (2021-2024 3DEP) or 1st generation 1 m (2008-2012).

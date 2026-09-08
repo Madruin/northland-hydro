@@ -67,7 +67,7 @@ For the future CAD export: the second-generation DEM is also available as 0.5 m 
 - **Aerial imagery** as JPG + JGW world file + PRJ, from MnGeo's WMS in EPSG:26915 (composite "best available" or FSA/NAIP by year, 0.3/0.5/1 m pixels, up to 8,191 px a side). The world file is written in feet.
 - **Lidar DEM** as GeoTIFF (left as served: EPSG:26915 meters, float32) and as an ESRI ASCII grid in UTM feet with foot elevations, from the MnTOPO ImageServer (2nd generation 0.5 m or 1st generation 1 m; 0.5/1/2 m cells, up to 4,000 cells a side).
 - **Contours** as DXF R12 3D polylines (Z = elevation, layers CONTOUR-INDEX every fifth interval and CONTOUR-INTER), generated in the browser from the DEM by marching squares with light simplification, at 0.5/1/2/5 ft intervals. The AOI boundary and a coordinate-system note are included. These are derived contours, not an official MnGeo product.
-- A README in the ZIP restates the coordinate system, extents in meters and feet, and sources.
+- A README in the ZIP restates the coordinate system, extents in meters and feet, sources, and step-by-step Civil 3D import instructions; the same steps are on the Export panel (collapsible "Bringing these into Civil 3D").
 
 The rectangle drawn in lon/lat is snapped to a north-up, whole-meter rectangle in UTM so every product shares the same grid. Coordinates and elevations use 1 m = 3937/1200 US survey feet. Verified: the ImageServer returns exactly the requested UTM extent and cell count, so the world file, ASCII grid and contours line up with the GeoTIFF.
 

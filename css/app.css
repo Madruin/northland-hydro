@@ -176,3 +176,9 @@ table.data sub { font-size: 9px; }
 .menu-row input[type=checkbox] { margin: 0; }
 .menu-row input[type=range] { flex: 1; }
 .menu .small { margin-top: 6px; }
+
+details.steps { background: var(--bg3); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; margin: 10px 0; font-size: 12px; }
+details.steps summary { cursor: pointer; font-weight: 600; color: var(--fg); }
+details.steps ol { padding-left: 18px; margin: 6px 0 2px; }
+details.steps li { margin: 5px 0; line-height: 1.4; color: var(--fg2); }
+details.steps code { background: var(--bg2); padding: 0 4px; border-radius: 3px; font-size: 11px; }
