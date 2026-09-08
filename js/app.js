@@ -13,6 +13,9 @@ import { renderRegion, renderStation, renderGauge, renderPoint, showTab } from "
 import { initProjects, openProject } from "./projects.js";
 import { track } from "./loader.js";
 import { initExport } from "./export.js";
+import { initSearch } from "./search.js";
+import { setHideUnclassified } from "./gauges.js";
+import { setGaugeFilter } from "./map.js";
 
 const state = {
   endDate: isoDate(), days: 1, zoom: HOME.zoom, center: HOME.center, basemap: "light",
@@ -23,6 +26,7 @@ const state = {
 if (state.endDate > isoDate()) state.endDate = isoDate();
 if (!readUrl().endDate && new Date().getHours() < 9) state.endDate = addDays(isoDate(), -1);
 
+let firstLoadDone = false;
 function setStatus(msg, isError = false) { $("status-text").textContent = msg; $("status").classList.toggle("error", isError); }
 function syncUrl() { writeUrl(state); }
 
@@ -41,6 +45,17 @@ function buildControls() {
   $("tg-gauges").classList.toggle("on", state.layers.gauges);
   $("tg-qpe").classList.toggle("on", state.layers.qpe);
 
+  const stepDate = (n) => { const d = n === 0 ? isoDate() : addDays(state.endDate, n); if (d <= isoDate()) { state.endDate = d; $("ctl-date").value = d; refreshPrecip(); } };
+  $("date-prev").addEventListener("click", () => stepDate(-1));
+  $("date-next").addEventListener("click", () => stepDate(1));
+  $("date-today").addEventListener("click", () => stepDate(0));
+  $("btn-share").addEventListener("click", async () => { syncUrl(); try { await navigator.clipboard.writeText(location.href); $("btn-share").textContent = "🔗 Copied"; } catch { prompt("Copy this link:", location.href); } setTimeout(() => ($("btn-share").textContent = "🔗 Link"), 1500); });
+  $("btn-help").addEventListener("click", () => ($("help").hidden = false));
+  $("help-close").addEventListener("click", () => ($("help").hidden = true));
+  $("help").addEventListener("click", (e) => { if (e.target.id === "help") $("help").hidden = true; });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") $("help").hidden = true; if (e.key === "?" && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) $("help").hidden = !$("help").hidden; });
+  $("legend").addEventListener("change", (e) => { if (e.target.id === "lg-hide-unclassified") { setHideUnclassified(e.target.checked); setGaugeFilter(e.target.checked); try { localStorage.setItem("nh-hide-unclassified", e.target.checked ? "1" : "0"); } catch {} } });
+  try { if (localStorage.getItem("nh-hide-unclassified") === "1") { setHideUnclassified(true); on("map:ready", () => setGaugeFilter(true)); } } catch {}
   $("ctl-date").addEventListener("change", (e) => { if (e.target.value && e.target.value <= isoDate()) { state.endDate = e.target.value; refreshPrecip(); } });
   win.addEventListener("change", (e) => { state.days = Number(e.target.value); refreshPrecip(); });
   cty.addEventListener("change", (e) => { flyToCounty(e.target.value); e.target.value = ""; });
@@ -104,6 +119,7 @@ const refreshPrecip = debounce(async () => {
   try {
     const list = await track("stations", loadPrecip({ endDate: state.endDate, days: state.days }));
     setStatus(`${list.filter((s) => !s.missingAll).length} stations reporting · ${state.days === 1 ? state.endDate : state.days + "-day window ending " + state.endDate}`);
+    if (!firstLoadDone) { firstLoadDone = true; try { if (localStorage.getItem("nh-visited") !== "1") { localStorage.setItem("nh-visited", "1"); $("help").hidden = false; } } catch {} }
     renderLegend();
     if (!state.selection || state.selection.type === "region") renderRegion();
     else if (state.selection.type === "station") renderStation(state.selection.id);
@@ -134,6 +150,7 @@ async function boot() {
 
   track("projects", initProjects());
   initExport();
+  initSearch();
   on("map:moveend", ({ center, zoom }) => { state.center = [center.lng, center.lat]; state.zoom = zoom; syncUrl(); });
   on("select:station", (p) => { state.selection = { type: "station", id: p.sid }; syncUrl(); renderStation(p.sid); });
   on("select:gauge", (p) => { state.selection = { type: "gauge", id: p.id }; syncUrl(); renderGauge(p.id); });

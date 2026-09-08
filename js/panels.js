@@ -35,6 +35,7 @@ export function renderRegion() {
   c.innerHTML = `
     <h2>Region overview</h2>
     <div class="muted">Precipitation ${label} · ${s.reporting} of ${s.n} stations reporting</div>
+    <div class="hint">Click a station dot or gauge triangle for its record, or anywhere else on the map for rainfall, forecast, design storms and watershed tools at that point. Search with <b>/</b>. Press <b>?</b> for help.</div>
     <div class="stat-row">
       <div class="stat"><div class="v">${fmt(s.median)}"</div><div class="l">median station</div></div>
       <div class="stat ${s.max > 2 ? "warn" : ""}"><div class="v">${fmt(s.max)}"</div><div class="l">wettest station</div></div>

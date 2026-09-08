@@ -8,6 +8,7 @@ import { escapeHtml, fmtNum, fmt, ago, emit } from "./util.js";
 export let gauges = [];   // merged list
 
 export async function loadGauges() {
+  if (!gauges.length) { try { const c = JSON.parse(localStorage.getItem("nh-gauges") || "null"); if (c && Date.now() - c.t < 3 * 86400e3) { gauges = c.gauges; setGauges(toFeatureCollection(gauges)); emit("gauges:loaded", { gauges, stale: true }); } } catch {} }
   const [usgsRes, dnrRes] = await Promise.allSettled([latestInBbox(REGION_BBOX), loadCsgSites(REGION_BBOX)]);
   const usgs = usgsRes.status === "fulfilled" ? usgsRes.value : {};
   const dnr = dnrRes.status === "fulfilled" ? dnrRes.value : [];
@@ -33,6 +34,7 @@ export async function loadGauges() {
       flowClass: 0, flow: u.values.discharge?.value ?? null, flowTime: u.values.discharge?.time, stage: u.values.stage?.value ?? null, stageTime: u.values.stage?.time, source: "USGS" });
   }
   gauges = [...merged.values()].map((g) => ({ ...g, color: flowClassInfo(g.flowClass).color, stale: isStale(g) }));
+  try { localStorage.setItem("nh-gauges", JSON.stringify({ t: Date.now(), gauges })); } catch {}
   setGauges(toFeatureCollection(gauges));
   emit("gauges:loaded", { gauges });
   return gauges;
@@ -57,9 +59,11 @@ function popupHtml(g) {
     <div class="popup-sub">${g.flowClass ? `<span class="pill class" style="background:${cls.color}">${cls.label}</span>` : ""}${g.flowTime ? ago(g.flowTime) : "no recent data"} · ${escapeHtml(g.source)}</div>`;
 }
 
+export let hideUnclassified = false;
+export function setHideUnclassified(v) { hideUnclassified = v; }
 export function renderGaugeLegend(container) {
   const rows = FLOW_CLASSES.slice(1).concat(FLOW_CLASSES[0]).map((c) => `<div class="legend-row"><span class="swatch sq" style="background:${c.color}"></span>${c.label}</div>`).join("");
-  container.insertAdjacentHTML("beforeend", `<h4>Gauge flow vs. period of record</h4>${rows}<div class="legend-row"><span class="swatch sq" style="background:#6b7280"></span>Stale (&gt;3 days)</div><div class="small">Classes from MN DNR CSG percentiles for this date; unclassified = no percentile record.</div>`);
+  container.insertAdjacentHTML("beforeend", `<h4>Gauge flow vs. period of record</h4>${rows}<div class="legend-row"><span class="swatch sq" style="background:#6b7280"></span>Stale (&gt;3 days)</div><div class="small">Classes from MN DNR CSG percentiles for this date; unclassified = no percentile record.</div><label class="legend-toggle-row"><input type="checkbox" id="lg-hide-unclassified" ${hideUnclassified ? "checked" : ""}/> hide unclassified gauges</label>`);
 }
 
 export function gaugeById(id) { return gauges.find((g) => g.id === id); }

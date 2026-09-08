@@ -112,6 +112,7 @@ async function addOverlays() {
   }
   if (!map.hasImage("gauge-tri")) map.addImage("gauge-tri", triangleImage(), { sdf: true });
   map.setLayoutProperty("gauges-circle", "icon-image", "gauge-tri");
+  if (gaugeFilterHideUnclassified) map.setFilter("gauges-circle", ["!=", ["get", "flowClass"], 0]);
   map.setPaintProperty("gauges-circle", "icon-color", ["get", "color"]);
   map.setPaintProperty("gauges-circle", "icon-halo-color", "#0f172a");
   map.setPaintProperty("gauges-circle", "icon-halo-width", 1);
@@ -195,6 +196,11 @@ export function setLayerVisible(name, on) {
   if (!overlaysReady) return;
   const ids = { stations: ["stations-circle", "stations-label"], gauges: ["gauges-circle"], qpe: ["qpe"] }[name] || [];
   for (const id of ids) if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
+}
+let gaugeFilterHideUnclassified = false;
+export function setGaugeFilter(hideUnclassified) {
+  gaugeFilterHideUnclassified = hideUnclassified;
+  if (map.getLayer("gauges-circle")) map.setFilter("gauges-circle", hideUnclassified ? ["!=", ["get", "flowClass"], 0] : null);
 }
 export function setTerrainVisible(id, on) { terrainVis[id] = on; if (overlaysReady) _stv(map, id, on); }
 export function setTerrainOpacity(v) { terrainOpacity = v; if (overlaysReady) _sto(map, v); }

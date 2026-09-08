@@ -85,7 +85,7 @@ python -m http.server 8765 --directory northland-hydro
 
 Then open http://localhost:8765/. The URL hash carries the full view state (date, window, layers, basemap, selection), so a link reproduces exactly what you were looking at.
 
-Keyboard: ← / → step the end date one day.
+Keyboard: ← / → step the end date one day (also the ‹ › Today buttons); `/` focuses search; `?` opens help; Esc closes dialogs. Search covers gauges, stations, projects and place names (Photon geocoder). The last station and gauge results are cached in the browser, so a revisit draws the map immediately while fresh data loads. The help dialog opens automatically on a first visit.
 
 ## Deploy
 

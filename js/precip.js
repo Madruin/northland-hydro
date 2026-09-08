@@ -13,9 +13,8 @@ export function colorFor(total, missingAll) {
   return PRECIP_BINS[PRECIP_BINS.length - 1].color;
 }
 
-export async function loadPrecip({ endDate, days }) {
-  current = { endDate, days };
-  const list = await windowTotals({ bbox: REGION_BBOX, endDate, days });
+const CACHE_KEY = (endDate, days) => `nh-precip-${endDate}-${days}`;
+function finalize(list, endDate, days, stale) {
   const startDate = addDays(endDate, -(days - 1));
   stations = list.map((s) => {
     const missingAll = s.total == null || s.missing >= days;
@@ -23,8 +22,21 @@ export async function loadPrecip({ endDate, days }) {
     return { ...s, missingAll, partial, color: colorFor(s.total, missingAll), startDate };
   }).sort((a, b) => (b.total ?? -1) - (a.total ?? -1));
   setStations(toFeatureCollection(stations, days));
-  emit("precip:loaded", { stations, endDate, days });
+  emit("precip:loaded", { stations, endDate, days, stale });
   return stations;
+}
+// Shows the last cached result for this window immediately (if any), then replaces it with fresh data.
+export async function loadPrecip({ endDate, days }) {
+  current = { endDate, days };
+  try { const c = JSON.parse(localStorage.getItem(CACHE_KEY(endDate, days)) || "null"); if (c && Date.now() - c.t < 3 * 86400e3) finalize(c.list, endDate, days, true); } catch {}
+  const list = await windowTotals({ bbox: REGION_BBOX, endDate, days });
+  if (current.endDate !== endDate || current.days !== days) return stations; // superseded by a newer request
+  try { localStorage.setItem(CACHE_KEY(endDate, days), JSON.stringify({ t: Date.now(), list })); pruneCache(); } catch {}
+  return finalize(list, endDate, days, false);
+}
+function pruneCache() {
+  const keys = Object.keys(localStorage).filter((k) => k.startsWith("nh-precip-"));
+  if (keys.length > 6) keys.map((k) => ({ k, t: JSON.parse(localStorage.getItem(k) || "{}").t || 0 })).sort((a, b) => a.t - b.t).slice(0, keys.length - 6).forEach(({ k }) => localStorage.removeItem(k));
 }
 
 function toFeatureCollection(list, days) {

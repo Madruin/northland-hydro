@@ -20,9 +20,16 @@
     </div>
 
     <div class="controls">
+      <div class="ctl search-wrap">
+        <input type="search" id="ctl-search" placeholder="Search gauge, station, project, place  ( / )" autocomplete="off" />
+        <div id="search-results" class="menu" hidden></div>
+      </div>
       <label class="ctl">
         <span>End date</span>
+        <button class="step" id="date-prev" title="Previous day (←)">‹</button>
         <input type="date" id="ctl-date" />
+        <button class="step" id="date-next" title="Next day (→)">›</button>
+        <button class="step" id="date-today" title="Jump to today">Today</button>
       </label>
       <label class="ctl">
         <span>Window</span>
@@ -56,6 +63,8 @@
       <button id="btn-export" class="chip" title="Export imagery, DEM and contours for AutoCAD (UTM 15N, US ft)">⬇ CAD export</button>
       <button id="btn-alerts" class="chip alerts" title="Active NWS alerts in the region">⚠ <span id="alerts-count">…</span></button>
       <button id="btn-lake" class="chip lake" title="Lake Superior at Duluth (NOAA CO-OPS, IGLD85)">🌊 <span id="lake-level">…</span></button>
+      <button id="btn-share" class="chip" title="Copy a link to this exact view">🔗 Link</button>
+      <button id="btn-help" class="chip" title="What is this? Layers, clicks, sources">?</button>
     </div>
   </header>
 
@@ -90,6 +99,39 @@
     </aside>
   </main>
 
+  <div id="help" class="modal" hidden>
+    <div class="modal-box">
+      <div class="modal-head"><b>Northland Hydro</b> · how to use it <button id="help-close" title="Close">✕</button></div>
+      <div class="modal-body">
+        <p>One map for rainfall, stream gauges, forecast, Lake Superior, watersheds and lidar across the TSA3 counties. Everything loads live from public agency APIs; nothing is stored except the team project list.</p>
+        <h4>Reading the map</h4>
+        <ul>
+          <li><b>Dots</b> are precipitation stations (CoCoRaHS, COOP, ASOS via RCC-ACIS), colored by the total for the window set at the top. Grey = no report. Hover for the value; click for the station's record.</li>
+          <li><b>Triangles</b> are stream gauges (MN DNR/MPCA cooperative gaging merged with USGS), colored by today's flow relative to the site's record for this date. Click for hydrographs with percentile bands.</li>
+          <li><b>Stars</b> are team projects (sign in on the Projects tab).</li>
+          <li><b>Click anywhere else</b> for a point: gridded rainfall and percent of normal, forecast and QPF, soil moisture, Atlas 14 design storms, and the watershed tools.</li>
+        </ul>
+        <h4>Controls</h4>
+        <ul>
+          <li><b>End date / Window</b>: the station colors and all totals follow these. ← → step the date; the ‹ › buttons do the same.</li>
+          <li><b>Layers</b>: Stations, radar QPE (NWS estimate for the last 1–24 h), Gauges, and Terrain (MnTOPO lidar hillshade, DEM and contours).</li>
+          <li><b>Search</b> ( / ): gauge, station, project or place name.</li>
+          <li><b>Watershed</b> (Point tab): delineates with USGS StreamStats, returns basin characteristics and regression flows, and runs the TSA3 regional curves for bankfull dimensions. Save results to a project.</li>
+          <li><b>CAD export</b>: draw a rectangle and download imagery, lidar DEM and contours in UTM 15N US feet, with Civil 3D steps.</li>
+          <li><b>Print site report</b> (Point tab or a project): a one-document hydrology summary with sources.</li>
+          <li><b>Link</b> copies a URL that reproduces the exact view, date, layers and selection.</li>
+        </ul>
+        <h4>Caveats</h4>
+        <ul>
+          <li>Station values are the 24 h ending the morning of the date shown; today's reports arrive through the morning.</li>
+          <li>Percent of normal is only shown for 7-day and longer windows.</li>
+          <li>PRISM grids lag 1–2 days. USGS and DNR values are provisional. Return periods use the nearest Atlas 14 grid node; use the official PFDS query for submittals.</li>
+          <li>Regression flows take the region at the pour point, without area weighting or gage adjustment. Regional-curve dimensions are planning-level; verify with a bankfull survey.</li>
+        </ul>
+        <p class="small">Sources: RCC-ACIS · USGS NWIS · MN DNR/MPCA CSG · NWS API & RFC QPE · Open-Meteo · NOAA CO-OPS · NOAA Atlas 14 · USGS StreamStats · MnGeo/MnTOPO · TSA3 regional curve workbooks. Code: <a href="https://github.com/Madruin/northland-hydro" target="_blank" rel="noopener">github.com/Madruin/northland-hydro</a> (MIT).</p>
+      </div>
+    </div>
+  </div>
   <footer id="attrib">
     Data: <a href="https://www.rcc-acis.org/" target="_blank" rel="noopener">RCC-ACIS</a> (CoCoRaHS · COOP · ASOS) ·
     <a href="https://waterdata.usgs.gov/" target="_blank" rel="noopener">USGS NWIS</a> ·
