@@ -1,7 +1,8 @@
 // Wiring: state, controls, data loads, URL sync.
 import { APP, BASEMAPS, COUNTIES, HOME, WINDOWS } from "./config.js";
 import { $, isoDate, addDays, on, debounce } from "./util.js";
-import { initMap, map, setBasemap, setLayerVisible, setQpeWindow, flyToCounty } from "./map.js";
+import { initMap, map, setBasemap, setLayerVisible, setQpeWindow, flyToCounty, setTerrainVisible, setTerrainOpacity } from "./map.js";
+import { TERRAIN, terrainLegendHtml } from "./terrain.js";
 import { loadPrecip, renderPrecipLegend } from "./precip.js";
 import { loadGauges, renderGaugeLegend } from "./gauges.js";
 import { loadAlerts } from "./alerts.js";
@@ -14,7 +15,7 @@ import { track } from "./loader.js";
 
 const state = {
   endDate: isoDate(), days: 1, zoom: HOME.zoom, center: HOME.center, basemap: "light",
-  layers: { stations: true, gauges: true, qpe: false }, qpeWindow: "24h", selection: null,
+  layers: { stations: true, gauges: true, qpe: false }, qpeWindow: "24h", selection: null, terrain: {}, terrainOpacity: 0.6,
   ...readUrl(),
 };
 // Never allow a future end date; default to yesterday before ~9 AM (today's CoCoRaHS reports are still arriving)
@@ -47,6 +48,19 @@ function buildControls() {
   $("tg-precip").addEventListener("click", () => toggleLayer("stations"));
   $("tg-gauges").addEventListener("click", () => toggleLayer("gauges"));
   $("tg-qpe").addEventListener("click", () => toggleLayer("qpe"));
+  // Terrain menu
+  const tl = $("terrain-list");
+  for (const [id, t] of Object.entries(TERRAIN)) {
+    const row = document.createElement("label"); row.className = "menu-row";
+    row.innerHTML = `<input type="checkbox" data-terrain="${id}" ${state.terrain[id] ? "checked" : ""}/> <span>${t.label}</span>`;
+    row.title = t.note; tl.append(row);
+  }
+  tl.addEventListener("change", (e) => { const id = e.target.dataset.terrain; if (!id) return; state.terrain[id] = e.target.checked; setTerrainVisible(id, e.target.checked); updateTerrainButton(); renderLegend(); syncUrl(); });
+  $("terrain-opacity").value = String(Math.round(state.terrainOpacity * 100));
+  $("terrain-opacity").addEventListener("input", (e) => { state.terrainOpacity = Number(e.target.value) / 100; setTerrainOpacity(state.terrainOpacity); syncUrl(); });
+  $("tg-terrain").addEventListener("click", (e) => { e.stopPropagation(); $("terrain-menu").hidden = !$("terrain-menu").hidden; });
+  document.addEventListener("click", (e) => { if (!e.target.closest(".menu-wrap")) $("terrain-menu").hidden = true; });
+  updateTerrainButton();
   $("panel-toggle").addEventListener("click", () => $("panel").classList.toggle("open"));
   $("legend-toggle").addEventListener("click", () => $("legend").classList.toggle("collapsed"));
   if (window.matchMedia("(max-width: 900px)").matches) $("legend").classList.add("collapsed");
@@ -61,6 +75,11 @@ function buildControls() {
     }
   });
 }
+function updateTerrainButton() {
+  const n = Object.values(state.terrain).filter(Boolean).length;
+  $("tg-terrain").classList.toggle("on", n > 0);
+  $("tg-terrain").textContent = n ? `Terrain (${n}) ▾` : "Terrain ▾";
+}
 function toggleLayer(name, force) {
   const on = force ?? !state.layers[name];
   state.layers[name] = on;
@@ -74,6 +93,7 @@ function renderLegend() {
   lg.innerHTML = "";
   if (state.layers.stations) renderPrecipLegend(lg, { days: state.days });
   if (state.layers.gauges) renderGaugeLegend(lg);
+  lg.insertAdjacentHTML("beforeend", terrainLegendHtml(state.terrain));
   if (state.layers.qpe) lg.insertAdjacentHTML("beforeend", `<h4>Radar QPE (${$("ctl-qpe").selectedOptions[0].text})</h4><div class="small">NWS RFC multi-sensor estimate, inches; colors per NWS scale (light green &lt;0.1 → purple/white &gt;5). <a href="https://water.noaa.gov/precip" target="_blank" rel="noopener">Legend</a></div>`);
 }
 
@@ -96,6 +116,8 @@ async function boot() {
   initMap({ center: state.center, zoom: state.zoom, basemap: state.basemap });
   setLayerVisible("stations", state.layers.stations); setLayerVisible("gauges", state.layers.gauges); setLayerVisible("qpe", state.layers.qpe);
   setQpeWindow(state.qpeWindow);
+  for (const [id, on] of Object.entries(state.terrain)) setTerrainVisible(id, on);
+  setTerrainOpacity(state.terrainOpacity);
   renderLegend();
   track("map", new Promise((res) => on("map:ready", res)));
   track("design storms", loadAtlas14());

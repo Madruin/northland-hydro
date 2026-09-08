@@ -1,6 +1,7 @@
 // MapLibre map, basemaps, county outlines, QPE raster overlay and point layers.
 import { BASEMAPS, COUNTIES, ENDPOINTS, HOME, QPE_LAYERS, REGION_BBOX } from "./config.js";
 import { getJSON, emit } from "./util.js";
+import { addTerrainLayers, setTerrainVisible as _stv, setTerrainOpacity as _sto } from "./terrain.js";
 
 export let map = null;
 let countiesGeo = null;
@@ -9,6 +10,7 @@ let overlaysReady = false;
 const sources = { stations: { type: "FeatureCollection", features: [] }, gauges: { type: "FeatureCollection", features: [] }, projects: { type: "FeatureCollection", features: [] } };
 let pickCallback = null;
 const visibility = { stations: true, gauges: true, qpe: false };
+let terrainVis = {}; let terrainOpacity = 0.6;
 let qpeWindow = "24h";
 let pinLngLat = null;
 
@@ -72,6 +74,7 @@ async function addOverlays() {
     map.addSource("qpe", { type: "raster", tiles: [qpeTileUrl(qpeWindow)], tileSize: 512, attribution: "NWS RFC QPE" });
     map.addLayer({ id: "qpe", type: "raster", source: "qpe", paint: { "raster-opacity": 0.65 }, layout: { visibility: visibility.qpe ? "visible" : "none" } }, firstSymbol);
   }
+  try { addTerrainLayers(map, firstSymbol, terrainVis, terrainOpacity); } catch (e) { console.warn("terrain layers failed", e); }
   try {
     const geo = await loadCounties();
     if (!map.getSource("counties")) {
@@ -171,6 +174,8 @@ export function setLayerVisible(name, on) {
   const ids = { stations: ["stations-circle", "stations-label"], gauges: ["gauges-circle"], qpe: ["qpe"] }[name] || [];
   for (const id of ids) if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
 }
+export function setTerrainVisible(id, on) { terrainVis[id] = on; if (overlaysReady) _stv(map, id, on); }
+export function setTerrainOpacity(v) { terrainOpacity = v; if (overlaysReady) _sto(map, v); }
 export function setQpeWindow(win) {
   qpeWindow = win;
   if (!overlaysReady || !map.getSource("qpe")) return;

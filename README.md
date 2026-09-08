@@ -44,6 +44,22 @@ Then **TSA3 regional curves** turn the drainage area into bankfull channel dimen
 
 `tools/build_regional_curves.py` reads the workbooks from `S:/TECH/20_North_Shore_Geomorph/02-Regional_Curves`, writes `data/regional_curves.json` (equations exactly as in each Prediction Equations sheet, every survey site, and a refit of each power law from the current rows), and prints published-vs-refit coefficients. Re-run it whenever a workbook changes. The site suggests a curve from the basin's HUC8 (Lake Superior direct tributaries → North Shore; St. Louis, Cloquet, Nemadji → Cloquet/St. Louis; Snake, Kettle, Rum, upper St. Croix → Eastern MN), shows the other curves' answers for comparison, warns when DA is outside the surveyed range, and plots the survey sites with the fitted curve on log-log axes with the basin marked. A drainage area can also be typed in to run the curves without delineating.
 
+## Terrain (MnTOPO lidar)
+
+The **Terrain** menu in the header adds MnGeo/MnTOPO lidar layers, all from `enterprise.gisdata.mn.gov` (CORS-enabled):
+
+| Layer | Source | Notes |
+|---|---|---|
+| Hillshade 1 m (2008–12) | `1st_Generation_Hillshade` cached MapServer | Statewide first-generation lidar; fast default |
+| Hillshade 0.5 m (2021–24) | `agsimg/.../MnTopo/2nd_Generation_Seamless_Lidar_DEM` ImageServer, `exportImage` with a Hillshade rendering rule per 512 px tile | Second-generation 3DEP lidar rendered on demand; enabled from zoom 12 to keep requests small |
+| Elevation color ramp 1 m | `elevation_mn_1mDEM_cache` cached MapServer | |
+| Contours 2 ft | `MnTopo/1st_Generation_2ft_Contours` VectorTileServer | Index/intermediate/depression styled here; labels from zoom 14 |
+| Contours 10 ft (raster) | `1st_Generation_10ft_Contours` cached MapServer | Pre-rendered with labels, zoom 14+ |
+
+The cached MapServers number their levels from their coarsest LOD (hillshade level 0 = zoom 6, DEM = zoom 7, 10 ft contours = zoom 14), so `js/terrain.js` registers an `mnlod://` MapLibre protocol that rewrites `{z}` to the service's level. Opacity slider applies to the raster layers; terrain state is in the URL (`t=`, `to=`).
+
+For the future CAD export: the second-generation DEM is also available as 0.5 m cloud-optimized GeoTIFFs (BigTIFF, 512 px LZW tiles, 8 overviews, EPSG 6344 NAD83(2011) UTM 15N, elevations in meters NAVD88) in MnGeo's STAC catalog (`stac.gisdata.mn.gov`, collections `minnesota-100km-sections` and `lake-superior-work-units`); Azure serves byte ranges with CORS and geotiff.js reads a 256 px window in about 0.2 s. The ImageServer's `exportImage` also returns float32 GeoTIFF clips in UTM (`imageSR=26915`, 1000×1000 in 1.7 s).
+
 ## Site hydrology report
 
 **Print site report** (Point panel) or **Print report** (project detail) opens `report.html`: a letter-size, print-ready summary with a map snapshot, the current window's rainfall at the nearest stations and PRISM point totals with percent of normal and Atlas 14 return periods, nearest gauges with flow class, NWS forecast and QPF, active alerts, the Atlas 14 design-storm table, the watershed analysis (live, or the project's latest saved one) with basin characteristics and regression flows, the regional-curve bankfull dimensions with the other curves for comparison, and a numbered sources-and-methods list with retrieval times and a permalink that reproduces the view. "Download JSON" saves the same document as data. Use the browser's print dialog to save a PDF; enable background graphics.
@@ -86,6 +102,7 @@ js/projects.js        team watch list (auth, CRUD, map stars, pick-on-map)
 js/watershed.js       StreamStats delineation → basin characteristics → NSS flows → regional curves
 js/regional.js        TSA3 regional-curve calculations and chart
 js/report.js          gathers the site hydrology summary document → report.html (js/report-view.js, css/report.css)
+js/terrain.js         MnTOPO lidar layers, mnlod:// tile protocol, legend
 tools/build_regional_curves.py, data/regional_curves.json
 js/api/*.js           one thin client per upstream API (incl. supabase.js)
 tools/build_atlas14_grid.py
@@ -112,10 +129,7 @@ These sources have no CORS header, so a GitHub Actions cron job (Python, every 1
 - **MN State Climatology MNGage/HIDEN** daily dumps for the observers that never reach GHCN.
 - **DNR CSG tabular series.** The CGI serves only PNG hydrographs; the site-report page's Data tab is HTML that a harvester could scrape for the ~150 DNR-only sites.
 
-**LiDAR and CAD export (requested 2026-09-08).** Two elevation tiers, per Matías: a light default and a detailed option.
-- *Default, 1 m (first-generation lidar, 2008–2012):* MnGeo's cached tile services on `enterprise.gisdata.mn.gov/aghost/rest/services` (`elevation_mn_1mDEM_cache`, `1st_Generation_Hillshade`, `1st_Generation_10ft_Contours`), CORS-enabled for the Pages origin. Cheap to show as map layers everywhere.
-- *Detailed, 0.5 m (second-generation 3DEP lidar, 2021–2024):* cloud-optimized GeoTIFFs in MnGeo's STAC catalog (`stac.gisdata.mn.gov`; the `lake-superior-work-units` collection is the 2021 Arrowhead block, `minnesota-virtual-raster-tile` is the statewide VRT). Read by byte range in the browser with geotiff.js for the area of interest only, so a small AOI stays fast. CORS on the COG hosts still to be verified.
-- *AOI export for AutoCAD:* draw a rectangle → aerial imagery (MnGeo composite WMS `mncomp`, CORS-enabled) as GeoTIFF or JPG + world file; clipped DEM as GeoTIFF at the chosen tier; contours generated client-side (d3-contour) at 1 or 2 ft from the 0.5 m DEM as DXF; all in the project's coordinate system (Minnesota county systems or UTM 15N) via proj4js. Replaces the several-tool workflow used at the start of every project.
+**AOI export for AutoCAD (next).** Draw a rectangle → aerial imagery (MnGeo composite WMS `mncomp`, CORS-enabled) as GeoTIFF or JPG + world file; clipped DEM as GeoTIFF from the second-generation ImageServer (`exportImage`, float32, UTM 15N) or straight from the COGs; contours generated client-side (d3-contour) at 1 or 2 ft as DXF in the project's coordinate system (Minnesota county systems or UTM 15N) via proj4js.
 
 Other ideas: area-weighted regression regions and gage-adjusted estimates as in the StreamStats app, saving delineations to projects, NLDI upstream flowlines, email/SMS rain alerts per project (Supabase cron + edge function), MRMS 1 km QPE as an alternative to the RFC mosaic, and a printable storm report for a project site (station totals, QPE, return period, gauge response) for construction-oversight files.
 

@@ -167,3 +167,12 @@ table.data sub { font-size: 9px; }
 #loadbar-fill { position: absolute; left: 0; top: 0; height: 3px; width: 0; background: linear-gradient(90deg, #38bdf8, #22c55e); transition: width .35s ease; opacity: 0; box-shadow: 0 0 8px rgba(56,189,248,.6); }
 #loadbar-text { position: absolute; right: 12px; top: 6px; font-size: 11px; color: var(--fg2); background: rgba(22,33,58,.9); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; opacity: 0; transition: opacity .2s; pointer-events: none; }
 #loadbar.on #loadbar-fill, #loadbar.on #loadbar-text { opacity: 1; }
+
+/* terrain menu */
+.menu-wrap { position: relative; }
+.menu { position: absolute; top: 34px; left: 0; z-index: 40; width: 320px; background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; box-shadow: 0 10px 30px rgba(0,0,0,.45); font-size: 12px; color: var(--fg); text-transform: none; letter-spacing: 0; }
+.menu-title { font-weight: 600; margin-bottom: 6px; }
+.menu-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; cursor: pointer; text-transform: none; letter-spacing: 0; font-size: 12px; color: var(--fg); }
+.menu-row input[type=checkbox] { margin: 0; }
+.menu-row input[type=range] { flex: 1; }
+.menu .small { margin-top: 6px; }
