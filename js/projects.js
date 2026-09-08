@@ -48,6 +48,9 @@ function renderSignIn() {
       <div class="actions"><button class="btn primary" id="pj-send">Email me a sign-in code</button></div>
       <div id="pj-msg" class="small"></div>
       <div id="pj-otp" ${pendingEmail ? "" : "hidden"}><label>Code from the email<input id="pj-code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="6 digits" /></label><div class="actions"><button class="btn primary" id="pj-verify">Sign in with code</button></div></div>
+      <details id="pj-pw-wrap" ${pendingEmail ? "" : "open"}><summary class="small" style="cursor:pointer">Or sign in with a password</summary>
+        <label>Password<input id="pj-pw" type="password" autocomplete="current-password" /></label>
+        <div class="actions"><button class="btn" id="pj-pw-go">Sign in with password</button></div></details>
     </div>
     <div class="small">Use the code, not the link: work mailboxes often pre-open links for security scanning, which uses them up before you can click. Access is limited to emails on the team allowlist; ask Matías to add yours.</div>`;
   $("pj-send").onclick = async () => {
@@ -66,6 +69,13 @@ function renderSignIn() {
     try { await db.verifyOtp(pendingEmail, code); } catch (e) { $("pj-msg").textContent = "Failed: " + e.message + (/expired|invalid/i.test(e.message) ? " Request a new code." : ""); }
   };
   $("pj-code")?.addEventListener("keydown", (e) => { if (e.key === "Enter") $("pj-verify").click(); });
+  $("pj-pw-go").onclick = async () => {
+    const email = $("pj-email").value.trim(), pw = $("pj-pw").value;
+    if (!email || !pw) { $("pj-msg").textContent = "Enter email and password."; return; }
+    $("pj-msg").textContent = "Signing in…";
+    try { await db.signInWithPassword(email, pw); } catch (e) { $("pj-msg").textContent = "Failed: " + e.message; }
+  };
+  $("pj-pw")?.addEventListener("keydown", (e) => { if (e.key === "Enter") $("pj-pw-go").click(); });
 }
 function renderNotMember() {
   $("tab-projects").innerHTML = `<h2>Team projects</h2><div class="notice">Signed in as ${escapeHtml(user.email)}, but that address is not on the team allowlist yet.</div>
@@ -92,13 +102,14 @@ function renderList() {
   for (const p of projects) (groups[p.status] ||= []).push(p);
   const order = ["active", "construction", "design", "monitoring", "on_hold", "complete"];
   c.innerHTML = `<h2>Team projects <span class="pill">${projects.length}</span></h2>
-    <div class="muted">${escapeHtml(user.email)} · <a href="#" id="pj-out">sign out</a> · <a href="#" id="pj-members">members</a></div>
+    <div class="muted">${escapeHtml(user.email)} · <a href="#" id="pj-out">sign out</a> · <a href="#" id="pj-members">members</a> · <a href="#" id="pj-account">password</a></div>
     <div class="actions"><button class="btn primary" id="pj-new">+ Add project</button><button class="btn" id="pj-csv">Export CSV</button></div>
     <div class="small">Rain totals are ${w.days === 1 ? "for " + fmtDate(w.endDate) : w.days + "-day totals ending " + fmtDate(w.endDate)} at each project's linked stations (or the 3 nearest reporting).</div>
     ${order.filter((s) => groups[s]).map((s) => `<h3>${STATUSES[s]} <span class="pill">${groups[s].length}</span></h3>${groups[s].map(card).join("")}`).join("")}`;
   $("pj-out").onclick = (e) => { e.preventDefault(); db.signOut(); };
   $("pj-new").onclick = () => openEditor({ status: "active", kind: "stream", gauge_ids: [], station_ids: [], tags: [] });
   $("pj-members").onclick = (e) => { e.preventDefault(); renderMembers(); };
+  $("pj-account").onclick = (e) => { e.preventDefault(); renderAccount(); };
   $("pj-csv").onclick = () => exportCsv();
   c.querySelectorAll(".pcard").forEach((el) => el.addEventListener("click", () => openProject(el.dataset.id)));
 }
@@ -218,6 +229,24 @@ function readForm() {
   });
   for (const k of ["created_at", "updated_at", "created_by", "updated_by"]) delete editing[k];
   if (!editing.id) delete editing.id;
+}
+
+function renderAccount() {
+  const c = $("tab-projects");
+  c.innerHTML = `<div class="actions"><button class="btn" id="pj-back">‹ All projects</button></div><h2>Account</h2>
+    <div class="muted">${escapeHtml(user.email)}</div>
+    <div class="form"><label>New password <span class="small">(8+ characters)</span><input id="acct-pw" type="password" autocomplete="new-password" /></label>
+      <label>Repeat<input id="acct-pw2" type="password" autocomplete="new-password" /></label>
+      <div class="actions"><button class="btn primary" id="acct-save">Set password</button></div><div id="acct-msg" class="small"></div></div>
+    <div class="small">A password lets you sign in without waiting for an email. Emailed codes keep working too.</div>`;
+  $("pj-back").onclick = () => renderList();
+  $("acct-save").onclick = async () => {
+    const a = $("acct-pw").value, b = $("acct-pw2").value;
+    if (a.length < 8) { $("acct-msg").textContent = "Use at least 8 characters."; return; }
+    if (a !== b) { $("acct-msg").textContent = "Passwords don't match."; return; }
+    try { await db.setPassword(a); $("acct-msg").textContent = "Password updated."; $("acct-pw").value = $("acct-pw2").value = ""; }
+    catch (e) { $("acct-msg").textContent = "Failed: " + e.message; }
+  };
 }
 
 async function renderMembers() {

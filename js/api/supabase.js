@@ -22,6 +22,14 @@ export async function verifyOtp(email, token) {
   const { error } = await sb().auth.verifyOtp({ email, token, type: "email" });
   if (error) throw error;
 }
+export async function signInWithPassword(email, password) {
+  const { error } = await sb().auth.signInWithPassword({ email, password });
+  if (error) throw error;
+}
+export async function setPassword(password) {
+  const { error } = await sb().auth.updateUser({ password });
+  if (error) throw error;
+}
 export async function signOut() { await sb().auth.signOut(); }
 
 export async function isMember() {
