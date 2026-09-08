@@ -103,6 +103,8 @@ These sources have no CORS header, so a GitHub Actions cron job (Python, every 1
 - **MN State Climatology MNGage/HIDEN** daily dumps for the observers that never reach GHCN.
 - **DNR CSG tabular series.** The CGI serves only PNG hydrographs; the site-report page's Data tab is HTML that a harvester could scrape for the ~150 DNR-only sites.
 
+**LiDAR and CAD export (requested 2026-09-08).** Add MnTOPO LiDAR hillshade and contours as map layers (MnGeo's hillshade WMS at `imageserver.gisdata.mn.gov/cgi-bin/wms` is CORS-enabled; the new MnTOPO app at mntopo.gis.data.mn.gov exposes Esri tile services for contours, DEM and hillshade plus a STAC catalog of cloud-optimized GeoTIFFs). Then an area-of-interest tool that exports, for the drawn rectangle: aerial imagery (MnGeo composite WMS `mncomp`, CORS-enabled) as GeoTIFF or JPG + world file, the clipped 1 m DEM as GeoTIFF (read straight from the COGs in the browser with geotiff.js), and contours generated client-side (d3-contour) as DXF in the project's coordinate system (Minnesota county coordinate systems or UTM 15N). Replaces the several-tool workflow used at the start of every project.
+
 Other ideas: area-weighted regression regions and gage-adjusted estimates as in the StreamStats app, saving delineations to projects, NLDI upstream flowlines, email/SMS rain alerts per project (Supabase cron + edge function), MRMS 1 km QPE as an alternative to the RFC mosaic, and a printable storm report for a project site (station totals, QPE, return period, gauge response) for construction-oversight files.
 
 ## Credits
