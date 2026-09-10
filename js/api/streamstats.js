@@ -13,13 +13,45 @@ const REGION_LAYER_ID = { MN: 19, WI: null }; // Minnesota regression-region pol
 
 export const STATE_FOR = (lon, lat) => (lon > -92.29 && lat < 46.75 && lon > -92.1 ? "WI" : "MN"); // rough: Douglas/Bayfield WI are east of the St. Louis estuary
 
-// 1) Delineate. Returns { pourpoint, splitCatchment, basin (Polygon|MultiPolygon), huc12, area_sqmi (from shape if given) }
+// 1) Delineate. StreamStats returns the watershed in pieces: split_catchment (local area between the point and the
+// nearest catchment divide), adjoint_catchment (everything upstream of that divide) and sometimes upstream_basin
+// (already merged). The full basin is the union of the pieces; the drainage area from ss-hydro is independent of this.
 export async function delineate(state, lat, lon) {
   const fc = await getJSON(`${SSD}/delineate/features/${state}?lat=${lat.toFixed(6)}&lon=${lon.toFixed(6)}`, { ttl: 60 * 60_000 });
   const by = {};
   for (const f of fc.features || []) by[f.properties?.scope] = f;
-  const basin = by.adjoint_catchment?.geometry?.coordinates?.length ? by.adjoint_catchment : by.split_catchment;
-  return { raw: fc, pourpoint: by.pourpoint, splitCatchment: by.split_catchment, basin, huc: basin?.properties?.HUCID || by.split_catchment?.properties?.HUCID || null };
+  const has = (f) => f?.geometry?.coordinates?.length > 0;
+  const pieces = [by.upstream_basin, by.adjoint_catchment, by.split_catchment].filter(has);
+  let basin = null;
+  if (has(by.upstream_basin)) basin = by.upstream_basin;
+  else if (pieces.length > 1) basin = await unionFeatures(pieces);
+  else basin = pieces[0] || null;
+  const huc = by.adjoint_catchment?.properties?.HUCID || by.split_catchment?.properties?.HUCID || by.upstream_basin?.properties?.HUCID || null;
+  return { raw: fc, pourpoint: by.pourpoint, splitCatchment: by.split_catchment, basin, huc, areaSqMi: basin ? approxAreaSqMi(basin.geometry) : 0 };
+}
+async function unionFeatures(features) {
+  await loadScript("https://cdn.jsdelivr.net/npm/polygon-clipping@0.15.7/dist/polygon-clipping.umd.js", "polygonClipping");
+  const geoms = features.map((f) => (f.geometry.type === "Polygon" ? [f.geometry.coordinates] : f.geometry.coordinates));
+  const merged = window.polygonClipping.union(...geoms);
+  return { type: "Feature", properties: { scope: "watershed", HUCID: features[0].properties?.HUCID }, geometry: { type: "MultiPolygon", coordinates: merged } };
+}
+function approxAreaSqMi(g) {
+  const polys = g.type === "Polygon" ? [g.coordinates] : g.coordinates;
+  const ring = (r) => { let s = 0; for (let i = 0; i < r.length - 1; i++) s += r[i][0] * r[i + 1][1] - r[i + 1][0] * r[i][1]; return Math.abs(s) / 2; };
+  let a = 0, lat = 47;
+  for (const p of polys) { if (!p.length) continue; lat = p[0][0][1]; a += ring(p[0]) - p.slice(1).reduce((s, h) => s + ring(h), 0); }
+  return a * 111.32 * Math.cos((lat * Math.PI) / 180) * 110.57 * 0.386102;
+}
+function loadScript(src, globalName) {
+  if (window[globalName]) return Promise.resolve();
+  return new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => rej(new Error("failed to load " + src)); document.head.appendChild(s); });
+}
+
+// 1b) Snap a clicked point onto the stream grid (StreamStats does this before delineating; ~180 m search radius).
+export async function snap(state, lat, lon) {
+  const d = await getJSON(`https://streamstats.usgs.gov/pourpoint/v1/snap/str900?region=${state}&lat=${lat.toFixed(6)}&lon=${lon.toFixed(6)}`, { ttl: 60 * 60_000 });
+  const c = d.output?.coordinates;
+  return { snapped: !!d.couldSnap && !!c, lon: c ? c[0] : lon, lat: c ? c[1] : lat };
 }
 
 // 2) Basin characteristics (runs its own delineation server-side; ~8 s). Returns [{code,name,value,unit,description}]

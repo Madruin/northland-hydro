@@ -28,7 +28,7 @@ The publishable key in `js/api/supabase.js` is meant to be public. Do not point 
 
 In the Point panel, **Delineate watershed** runs the current USGS StreamStats services from the browser (all CORS-enabled, no key):
 
-1. `ss-delineate` draws the upstream basin on the map (~3 s).
+1. `ss-delineate` returns the basin in pieces (a local "split catchment" from the point to the nearest divide, and the "adjoint catchment" upstream of it); the site unions them (polygon-clipping) so the drawn basin reaches the pour point (~3 s). A click that is not on a mapped stream cell yields a tiny sliver; the tool says so and asks for a click on the stream line. The drawn area is cross-checked against the computed drainage area.
 2. `ss-hydro` computes the Minnesota basin characteristics (drainage area, slopes, lakes, soils, land cover, longest flow path; ~8 s).
 3. The StreamStats `nss/regions` layer identifies the regression region at the pour point, and `nssservices` returns the regression flow statistics: peak flows (SIR 2023-5079, 66.7% to 0.2% AEP with 90% prediction intervals and standard errors), low flows, flow duration and seasonal statistics (SIR 2015-5170). Parameters outside an equation's applicable range are flagged. The region is taken at the pour point, not area-weighted across a basin that straddles regions.
 

@@ -4,7 +4,7 @@
 import { $, escapeHtml, fmt, fmtNum, fmtDateTime } from "./util.js";
 import * as ss from "./api/streamstats.js";
 import * as db from "./api/supabase.js";
-import { setBasin } from "./map.js";
+import { setBasin, setPin } from "./map.js";
 import { loadCurves, renderRegional, suggestCurve, compute, curves } from "./regional.js";
 import { authState } from "./projects.js";
 
@@ -32,6 +32,13 @@ async function run(container, lon, lat, key) {
   const state = ss.STATE_FOR(lon, lat);
   body.innerHTML = `<div class="spinner">Delineating (StreamStats ${state})…</div>`;
   try {
+    // Snap to the stream grid first, as the StreamStats app does; an off-stream click otherwise delineates a sliver.
+    let snapNote = "";
+    try {
+      const sn = await ss.snap(state, lat, lon);
+      const moved = sn.snapped ? haversineM(lat, lon, sn.lat, sn.lon) : 0;
+      if (sn.snapped && moved > 3) { snapNote = `Point snapped ${Math.round(moved * 3.28084)} ft onto the mapped stream.`; lat = sn.lat; lon = sn.lon; setPin([lon, lat]); }
+    } catch (e) { console.warn("snap failed", e); }
     const [del] = await Promise.all([ss.delineate(state, lat, lon), loadCurves()]);
     if (!del.basin) throw new Error("No basin returned. The point may be off the stream network or in an exclusion area; try clicking on the blue line.");
     setBasin(del.basin, del.pourpoint);
@@ -47,7 +54,11 @@ async function run(container, lon, lat, key) {
         try { const est = await ss.estimate(state, matched, bcByCode); flows = est.result; missing = est.missing; } catch (e) { console.warn("NSS estimate failed", e); }
       }
     }
-    cache.set(key, { basin: del.basin, huc: del.huc, bc, bcByCode, da, flows, missing, regions, state, manual: false, retrievedAt: new Date().toISOString() });
+    const warnings = [];
+    if (snapNote) warnings.push(snapNote);
+    if (del.areaSqMi < 0.02) warnings.push("The delineated area is a tiny sliver: this point is not on a mapped stream cell. Zoom in and click on the stream line, then re-run.");
+    else if (da && Math.abs(del.areaSqMi - da) / da > 0.05) warnings.push(`Drawn basin (${del.areaSqMi.toFixed(1)} mi²) and computed drainage area (${da.toFixed(1)} mi²) differ by more than 5%; the computed value is authoritative.`);
+    cache.set(key, { basin: del.basin, huc: del.huc, bc, bcByCode, da, flows, missing, regions, state, manual: false, retrievedAt: new Date().toISOString(), pour: { lat, lon }, warnings });
     $("ws-da").value = da != null ? da.toFixed(2) : "";
     renderLive(container, lon, lat, key);
   } catch (e) {
@@ -77,6 +88,7 @@ function renderResultsInto(body, st, lon, lat, { curveId, onChangeCurve, saveUI 
       <input class="ws-save-label" placeholder="label (optional), e.g. Alt 2 culvert site" />
       <button class="btn primary ws-save">Save</button><span class="small ws-save-msg"></span></div>` : saveUI && !auth.user ? `<div class="small">Sign in on the Projects tab to save this analysis to a project.</div>` : ""}
     ${saved ? `<div class="notice">Saved analysis from ${fmtDateTime(saved.created_at)} by ${escapeHtml(saved.created_by || "?")}${saved.label ? ` · ${escapeHtml(saved.label)}` : ""}. Numbers below are as retrieved then; re-run at the point for current values.</div>` : ""}
+    ${(st.warnings || []).map((w) => `<div class="notice">⚠ ${escapeHtml(w)}</div>`).join("")}
     ${st.manual ? `<div class="notice">Drainage area entered manually (${fmt(da, 2)} mi²); no delineation. Regional-curve suggestion is based on location only.</div>` : `
     <div class="stat-row">
       <div class="stat"><div class="v">${fmt(da, 2)}</div><div class="l">drainage area, mi²</div><div class="s">HUC ${escapeHtml(st.huc || "?")}</div></div>
@@ -160,5 +172,6 @@ function flowsHtml(st) {
 }
 
 export function clearBasin() { setBasin(null); }
+function haversineM(lat1, lon1, lat2, lon2) { const R = 6371000, r = Math.PI / 180; const a = Math.sin(((lat2 - lat1) * r) / 2) ** 2 + Math.cos(lat1 * r) * Math.cos(lat2 * r) * Math.sin(((lon2 - lon1) * r) / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(a)); }
 export function getLiveState(lon, lat) { return cache.get(`${lon.toFixed(5)},${lat.toFixed(5)}`) || null; }
 export function analysisToState(a) { return { basin: a.basin_geojson, huc: a.huc, bc: a.basin_chars || [], da: a.drainage_area_sqmi, flows: a.flows, regions: a.regions, state: a.state, manual: !a.basin_chars, missing: [], retrievedAt: a.sources?.retrieved_at || a.created_at, savedAt: a.created_at, savedBy: a.created_by, label: a.label, curveId: a.regional_curve_id }; }
