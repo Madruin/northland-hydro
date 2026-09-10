@@ -45,6 +45,10 @@ Then **TSA3 regional curves** turn the drainage area into bankfull channel dimen
 
 `tools/build_regional_curves.py` reads the workbooks from `S:/TECH/20_North_Shore_Geomorph/02-Regional_Curves`, writes `data/regional_curves.json` (equations exactly as in each Prediction Equations sheet, every survey site, and a refit of each power law from the current rows), and prints published-vs-refit coefficients. Re-run it whenever a workbook changes. The site suggests a curve from the basin's HUC8 (Lake Superior direct tributaries → North Shore; St. Louis, Cloquet, Nemadji → Cloquet/St. Louis; Snake, Kettle, Rum, upper St. Croix → Eastern MN), shows the other curves' answers for comparison, warns when DA is outside the surveyed range, and plots the survey sites with the fitted curve on log-log axes with the basin marked. A drainage area can also be typed in to run the curves without delineating.
 
+## Soils (NRCS SSURGO via Soil Data Access)
+
+The **Soils** layer colors SSURGO map units by the dominant component's hydrologic soil group (A, B, C, D and the dual A/D, B/D, C/D classes) with map-unit outlines and symbols. It loads for the current view at zoom 12 and closer (views under about 7 km wide) by sending a spatial SQL query to NRCS Soil Data Access (`sdmdataaccess.sc.egov.usda.gov`, CORS-enabled, no key) that returns simplified polygons as WKT; hover for the unit name, group, dominant component and drainage class. The Point panel gets a **Soils at this point** section: map unit and survey area, then every component with percent, hydrologic group, drainage class, hydric rating, flooding frequency, shallowest wet-state water-table depth, surface texture, Kw, surface Ksat, and depth to a restrictive layer (the slower per-component lookups fill in a second stage), with links to Web Soil Survey and SoilWeb. St. Louis County is five survey areas (MN613–MN621); the query does not care which.
+
 ## Terrain (MnTOPO lidar)
 
 The **Terrain** menu in the header adds MnGeo/MnTOPO lidar layers, all from `enterprise.gisdata.mn.gov` (CORS-enabled):
@@ -119,6 +123,7 @@ js/watershed.js       StreamStats delineation → basin characteristics → NSS 
 js/regional.js        TSA3 regional-curve calculations and chart
 js/report.js          gathers the site hydrology summary document → report.html (js/report-view.js, css/report.css)
 js/terrain.js         MnTOPO lidar layers, mnlod:// tile protocol, legend
+js/soils.js, js/api/sda.js   SSURGO hydrologic-group layer and point soils section (Soil Data Access SQL)
 js/export.js          AOI export: imagery + world file, DEM GeoTIFF/ASCII, DXF contours (UTM 15N US ft)
 tools/build_regional_curves.py, data/regional_curves.json
 js/api/*.js           one thin client per upstream API (incl. supabase.js)

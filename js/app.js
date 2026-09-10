@@ -14,12 +14,13 @@ import { initProjects, openProject } from "./projects.js";
 import { track } from "./loader.js";
 import { initExport } from "./export.js";
 import { initSearch } from "./search.js";
+import { initSoils, setSoilsEnabled, soilsLegendHtml } from "./soils.js";
 import { setHideUnclassified } from "./gauges.js";
 import { setGaugeFilter } from "./map.js";
 
 const state = {
   endDate: isoDate(), days: 1, zoom: HOME.zoom, center: HOME.center, basemap: "light",
-  layers: { stations: true, gauges: true, qpe: false, streams: false }, qpeWindow: "24h", selection: null, terrain: {}, terrainOpacity: 0.6,
+  layers: { stations: true, gauges: true, qpe: false, streams: false, soils: false }, qpeWindow: "24h", selection: null, terrain: {}, terrainOpacity: 0.6,
   ...readUrl(),
 };
 // Never allow a future end date; default to yesterday before ~9 AM (today's CoCoRaHS reports are still arriving)
@@ -46,6 +47,8 @@ function buildControls() {
   $("tg-qpe").classList.toggle("on", state.layers.qpe);
   $("tg-streams").classList.toggle("on", !!state.layers.streams);
   $("tg-streams").addEventListener("click", () => toggleLayer("streams"));
+  $("tg-soils").classList.toggle("on", !!state.layers.soils);
+  $("tg-soils").addEventListener("click", () => toggleLayer("soils"));
 
   const stepDate = (n) => { const d = n === 0 ? isoDate() : addDays(state.endDate, n); if (d <= isoDate()) { state.endDate = d; $("ctl-date").value = d; refreshPrecip(); } };
   $("date-prev").addEventListener("click", () => stepDate(-1));
@@ -120,7 +123,8 @@ function toggleLayer(name, force) {
   const on = force ?? !state.layers[name];
   state.layers[name] = on;
   setLayerVisible(name, on);
-  const btn = { stations: "tg-precip", gauges: "tg-gauges", qpe: "tg-qpe", streams: "tg-streams" }[name];
+  const btn = { stations: "tg-precip", gauges: "tg-gauges", qpe: "tg-qpe", streams: "tg-streams", soils: "tg-soils" }[name];
+  if (name === "soils") setSoilsEnabled(on);
   $(btn).classList.toggle("on", on);
   renderLegend(); syncUrl();
 }
@@ -129,12 +133,13 @@ function renderLegend() {
   lg.innerHTML = "";
   if (state.layers.stations) renderPrecipLegend(lg, { days: state.days });
   if (state.layers.gauges) renderGaugeLegend(lg);
+  if (state.layers.soils) lg.insertAdjacentHTML("beforeend", soilsLegendHtml());
   if (state.layers.streams) lg.insertAdjacentHTML("beforeend", `<h4>Streams (StreamStats grid)</h4><div class="legend-row"><span class="swatch sq" style="background:#0070ff"></span>Mapped stream cells (zoom 13+)</div><div class="small">The 10 m cells StreamStats delineates on; snap targets these.</div>`);
   lg.insertAdjacentHTML("beforeend", terrainLegendHtml(state.terrain));
   if (state.layers.qpe) lg.insertAdjacentHTML("beforeend", `<h4>Radar QPE (${$("ctl-qpe").selectedOptions[0].text})</h4><div class="small">NWS RFC multi-sensor estimate, inches; colors per NWS scale (light green &lt;0.1 → purple/white &gt;5). <a href="https://water.noaa.gov/precip" target="_blank" rel="noopener">Legend</a></div>`);
 }
 
-const refreshPrecip = debounce(async () => {
+async function refreshPrecipNow() {
   setStatus(`Loading precipitation (${state.days === 1 ? state.endDate : state.days + " days to " + state.endDate})…`);
   syncUrl();
   try {
@@ -147,7 +152,8 @@ const refreshPrecip = debounce(async () => {
     else if (state.selection.type === "point") { const [lon, lat] = state.selection.id.split(",").map(Number); renderPoint(lon, lat); }
     else renderRegion();
   } catch (e) { setStatus("Precipitation load failed: " + e.message, true); console.error(e); }
-}, 150);
+}
+const refreshPrecip = debounce(refreshPrecipNow, 150);
 
 // If a newer build was deployed, refetch every asset past the CDN cache and reload once (see tools/stamp_version.py).
 async function checkBuild() {
@@ -167,7 +173,7 @@ async function boot() {
   if (await checkBuild()) return;
   buildControls();
   initMap({ center: state.center, zoom: state.zoom, basemap: state.basemap });
-  setLayerVisible("stations", state.layers.stations); setLayerVisible("gauges", state.layers.gauges); setLayerVisible("qpe", state.layers.qpe); setLayerVisible("streams", !!state.layers.streams);
+  setLayerVisible("stations", state.layers.stations); setLayerVisible("gauges", state.layers.gauges); setLayerVisible("qpe", state.layers.qpe); setLayerVisible("streams", !!state.layers.streams); setLayerVisible("soils", !!state.layers.soils);
   setQpeWindow(state.qpeWindow);
   for (const [id, on] of Object.entries(state.terrain)) setTerrainVisible(id, on);
   setTerrainOpacity(state.terrainOpacity);
@@ -177,7 +183,7 @@ async function boot() {
   track("alerts", loadAlerts()).catch((e) => { $("alerts-count").textContent = "n/a"; console.warn(e); });
   track("lake level", loadLake());
   const gaugesP = track("gauges", loadGauges()).catch((e) => { console.warn(e); return []; });
-  await refreshPrecip();
+  await refreshPrecipNow();
   // Don't block the UI on gauges: USGS can take 30+ s on a bad day. Cached gauges already show; re-render when live ones land.
   gaugesP.then(() => { if (!state.selection || state.selection.type === "region") renderRegion(); });
   if (!state.selection || state.selection.type === "region") renderRegion();
@@ -188,6 +194,8 @@ async function boot() {
   track("projects", initProjects());
   initExport();
   initSearch();
+  initSoils();
+  if (state.layers.soils) { if (map.getSource("soils")) setSoilsEnabled(true); else on("map:ready", () => setSoilsEnabled(true)); }
   on("map:moveend", ({ center, zoom }) => { state.center = [center.lng, center.lat]; state.zoom = zoom; syncUrl(); });
   on("select:station", (p) => { state.selection = { type: "station", id: p.sid }; syncUrl(); renderStation(p.sid); });
   on("select:gauge", (p) => { state.selection = { type: "gauge", id: p.id }; syncUrl(); renderGauge(p.id); });

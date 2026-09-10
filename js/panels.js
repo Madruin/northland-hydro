@@ -13,6 +13,7 @@ import * as atlas from "./api/atlas14.js";
 import { setPin, map } from "./map.js";
 import { ENDPOINTS, FLOW_CLASSES, COUNTIES } from "./config.js";
 import { renderWatershed } from "./watershed.js";
+import { renderSoilsAt } from "./soils.js";
 import { openReport } from "./report.js";
 const countyName = (fips) => { const c = COUNTIES.find((x) => x.fips === String(fips)); return c ? c.name.replace(" (WI)", "") + " County" : fips ? "FIPS " + fips : ""; };
 
@@ -28,8 +29,9 @@ export function showTab(name) {
 // ---------------- Region ----------------
 export function renderRegion() {
   const c = $("tab-region");
-  const s = summarize(precipStations);
   const w = precipWindow;
+  if (!w.endDate) return; // precipitation window not set yet (first paint)
+  const s = summarize(precipStations);
   const label = w.days === 1 ? `on ${fmtDate(w.endDate)}` : `${w.days} days ending ${fmtDate(w.endDate)}`;
   const hot = gauges.filter((g) => g.flowClass >= 5 && !g.stale).sort((a, b) => b.flowClass - a.flowClass);
   const low = gauges.filter((g) => g.flowClass > 0 && g.flowClass <= 2 && !g.stale);
@@ -214,6 +216,7 @@ export async function renderPoint(lon, lat) {
   c.innerHTML = `<h2>Point ${fmt(lat, 4)}, ${fmt(lon, 4)}</h2><div class="muted">Anything that isn't a station or gauge: gridded precip, nearby observers, forecast, soil moisture, design storms.</div>
     <div class="actions"><button class="btn" id="pt-report">🖨 Print site report</button><span id="pt-report-msg" class="small"></span></div>
     <div id="pt-watershed"></div>
+    <div id="pt-soils"></div>
     <div id="pt-precip"><div class="spinner">PRISM + station normals…</div></div>
     <div id="pt-nearby"></div>
     <div id="pt-wx"><div class="spinner">NWS forecast…</div></div>
@@ -221,6 +224,7 @@ export async function renderPoint(lon, lat) {
     <div id="pt-a14"></div>`;
 
   renderWatershed($("pt-watershed"), lon, lat);
+  renderSoilsAt($("pt-soils"), lon, lat);
   $("pt-report").onclick = async () => { const m = $("pt-report-msg"); try { await openReport({ lon, lat, onStatus: (t) => (m.textContent = t) }); m.textContent = ""; } catch (e) { m.textContent = "Report failed: " + e.message; } };
 
   // Nearby observers (from the already-loaded station layer)

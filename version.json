@@ -1,5 +1,5 @@
 {
- "build": "20260910-1415-818bf67",
+ "build": "20260910-1429-0a5c85f",
  "files": [
   "css/app.css",
   "css/report.css",
@@ -11,6 +11,7 @@
   "js/api/dnr.js",
   "js/api/nws.js",
   "js/api/openmeteo.js",
+  "js/api/sda.js",
   "js/api/streamstats.js",
   "js/api/supabase.js",
   "js/api/usgs.js",
@@ -28,6 +29,7 @@
   "js/report-view.js",
   "js/report.js",
   "js/search.js",
+  "js/soils.js",
   "js/terrain.js",
   "js/url.js",
   "js/util.js",
