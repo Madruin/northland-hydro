@@ -11,7 +11,9 @@ let overlaysReady = false;
 const sources = { stations: { type: "FeatureCollection", features: [] }, gauges: { type: "FeatureCollection", features: [] }, projects: { type: "FeatureCollection", features: [] } };
 let pickCallback = null;
 let rect = null; // { cb, onFirst, a: [lon,lat] | null }
-const visibility = { stations: true, gauges: true, qpe: false, streams: false, soils: false };
+const visibility = { stations: true, gauges: true, qpe: false, streams: false, soils: false, parcels: false };
+let parcelsData = { type: "FeatureCollection", features: [] };
+let countyBboxCache = null;
 let soilsData = { type: "FeatureCollection", features: [] };
 let terrainVis = {}; let terrainOpacity = 0.6;
 let qpeWindow = "24h";
@@ -81,6 +83,17 @@ async function loadCounties() {
   return countiesGeo;
 }
 
+export function countyBboxes() {
+  if (countyBboxCache || !countiesGeo) return countyBboxCache || {};
+  countyBboxCache = {};
+  for (const f of countiesGeo.features) {
+    const polys = f.geometry.type === "Polygon" ? [f.geometry.coordinates] : f.geometry.coordinates;
+    let w = 180, s = 90, e = -180, n = -90;
+    for (const p of polys) for (const pt of p[0]) { if (pt[0] < w) w = pt[0]; if (pt[0] > e) e = pt[0]; if (pt[1] < s) s = pt[1]; if (pt[1] > n) n = pt[1]; }
+    countyBboxCache[f.properties.fips] = [w, s, e, n];
+  }
+  return countyBboxCache;
+}
 function qpeTileUrl(win) {
   const layer = QPE_LAYERS[win] ?? QPE_LAYERS["24h"];
   return `${ENDPOINTS.rfcQpe}/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&layers=show:${layer}&format=png32&transparent=true&f=image&_t=${Math.floor(Date.now() / 600000)}`;
@@ -152,6 +165,13 @@ async function addOverlays() {
     map.addLayer({ id: "soils-label", type: "symbol", source: "soils", minzoom: 14, layout: { visibility: visibility.soils ? "visible" : "none", "symbol-placement": "point", "text-field": ["get", "label"], "text-size": 10, "text-font": ["Noto Sans Regular"], "text-allow-overlap": false },
       paint: { "text-color": "#3e2723", "text-halo-color": "#fff", "text-halo-width": 1.2 } });
   }
+  if (!map.getSource("parcels")) {
+    map.addSource("parcels", { type: "geojson", data: parcelsData });
+    map.addLayer({ id: "parcels-fill", type: "fill", source: "parcels", layout: { visibility: visibility.parcels ? "visible" : "none" }, paint: { "fill-color": "#f59e0b", "fill-opacity": 0.03 } });
+    map.addLayer({ id: "parcels-line", type: "line", source: "parcels", layout: { visibility: visibility.parcels ? "visible" : "none" }, paint: { "line-color": "#f59e0b", "line-width": ["interpolate", ["linear"], ["zoom"], 14, 0.8, 17, 1.6], "line-opacity": 0.9 } });
+    map.addLayer({ id: "parcels-label", type: "symbol", source: "parcels", minzoom: 16, layout: { visibility: visibility.parcels ? "visible" : "none", "symbol-placement": "point", "text-field": ["get", "label"], "text-size": 10, "text-font": ["Noto Sans Regular"], "text-max-width": 8 },
+      paint: { "text-color": "#7c2d12", "text-halo-color": "#fff", "text-halo-width": 1.3 } });
+  }
   if (!map.getSource("aoi")) {
     map.addSource("aoi", { type: "geojson", data: { type: "FeatureCollection", features: aoiFeature ? [aoiFeature] : [] } });
     map.addLayer({ id: "aoi-fill", type: "fill", source: "aoi", paint: { "fill-color": "#f59e0b", "fill-opacity": 0.12 } });
@@ -201,6 +221,7 @@ export function setProjects(fc) { sources.projects = fc; if (map && map.getSourc
 function pinGeo() { return { type: "FeatureCollection", features: pinLngLat ? [{ type: "Feature", geometry: { type: "Point", coordinates: pinLngLat }, properties: {} }] : [] }; }
 export function setPin(lngLat) { pinLngLat = lngLat; if (map.getSource("pin")) map.getSource("pin").setData(pinGeo()); }
 
+export function setParcels(fc) { parcelsData = fc; if (map && map.getSource("parcels")) map.getSource("parcels").setData(fc); }
 export function setSoils(fc) { soilsData = fc; if (map && map.getSource("soils")) map.getSource("soils").setData(fc); }
 export function setStations(fc) { sources.stations = fc; if (map.getSource("stations")) map.getSource("stations").setData(fc); }
 export function setGauges(fc) { sources.gauges = fc; if (map.getSource("gauges")) map.getSource("gauges").setData(fc); }
@@ -208,7 +229,7 @@ export function setGauges(fc) { sources.gauges = fc; if (map.getSource("gauges")
 export function setLayerVisible(name, on) {
   visibility[name] = on;
   if (!overlaysReady) return;
-  const ids = { stations: ["stations-circle", "stations-label"], gauges: ["gauges-circle"], qpe: ["qpe"], streams: ["streams"], soils: ["soils-fill", "soils-line", "soils-label"] }[name] || [];
+  const ids = { stations: ["stations-circle", "stations-label"], gauges: ["gauges-circle"], qpe: ["qpe"], streams: ["streams"], soils: ["soils-fill", "soils-line", "soils-label"], parcels: ["parcels-fill", "parcels-line", "parcels-label"] }[name] || [];
   for (const id of ids) if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
 }
 let gaugeFilterHideUnclassified = false;
@@ -242,6 +263,7 @@ function setupHover() {
     if (!layers.length) return;
     let feats = map.queryRenderedFeatures(e.point, { layers });
     let anchor = feats.length ? feats[0].geometry.coordinates : e.lngLat;
+    if (!feats.length && map.getLayer("parcels-fill") && map.getLayoutProperty("parcels-fill", "visibility") === "visible") { feats = map.queryRenderedFeatures(e.point, { layers: ["parcels-fill"] }); anchor = e.lngLat; }
     if (!feats.length && map.getLayer("soils-fill") && map.getLayoutProperty("soils-fill", "visibility") === "visible") { feats = map.queryRenderedFeatures(e.point, { layers: ["soils-fill"] }); anchor = e.lngLat; }
     if (!feats.length) { popup.remove(); return; }
     const p = feats[0].properties;
