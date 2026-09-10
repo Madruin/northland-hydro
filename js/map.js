@@ -2,6 +2,7 @@
 import { BASEMAPS, COUNTIES, ENDPOINTS, HOME, QPE_LAYERS, REGION_BBOX } from "./config.js";
 import { getJSON, emit } from "./util.js";
 import { addTerrainLayers, setTerrainVisible as _stv, setTerrainOpacity as _sto } from "./terrain.js";
+import { streamGridTileUrl } from "./api/streamstats.js";
 
 export let map = null;
 let countiesGeo = null;
@@ -10,7 +11,7 @@ let overlaysReady = false;
 const sources = { stations: { type: "FeatureCollection", features: [] }, gauges: { type: "FeatureCollection", features: [] }, projects: { type: "FeatureCollection", features: [] } };
 let pickCallback = null;
 let rect = null; // { cb, onFirst, a: [lon,lat] | null }
-const visibility = { stations: true, gauges: true, qpe: false };
+const visibility = { stations: true, gauges: true, qpe: false, streams: false };
 let terrainVis = {}; let terrainOpacity = 0.6;
 let qpeWindow = "24h";
 let pinLngLat = null;
@@ -92,6 +93,10 @@ async function addOverlays() {
     map.addLayer({ id: "qpe", type: "raster", source: "qpe", paint: { "raster-opacity": 0.65 }, layout: { visibility: visibility.qpe ? "visible" : "none" } }, firstSymbol);
   }
   try { addTerrainLayers(map, firstSymbol, terrainVis, terrainOpacity); } catch (e) { console.warn("terrain layers failed", e); }
+  if (!map.getSource("streams")) {
+    map.addSource("streams", { type: "raster", tiles: [streamGridTileUrl("MN")], tileSize: 512, minzoom: 13, maxzoom: 19, attribution: "USGS StreamStats stream grid" });
+    map.addLayer({ id: "streams", type: "raster", source: "streams", layout: { visibility: visibility.streams ? "visible" : "none" }, paint: { "raster-opacity": 0.85, "raster-resampling": "nearest" } }, firstSymbol);
+  }
   try {
     const geo = await loadCounties();
     if (!map.getSource("counties")) {
@@ -194,7 +199,7 @@ export function setGauges(fc) { sources.gauges = fc; if (map.getSource("gauges")
 export function setLayerVisible(name, on) {
   visibility[name] = on;
   if (!overlaysReady) return;
-  const ids = { stations: ["stations-circle", "stations-label"], gauges: ["gauges-circle"], qpe: ["qpe"] }[name] || [];
+  const ids = { stations: ["stations-circle", "stations-label"], gauges: ["gauges-circle"], qpe: ["qpe"], streams: ["streams"] }[name] || [];
   for (const id of ids) if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
 }
 let gaugeFilterHideUnclassified = false;

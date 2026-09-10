@@ -19,7 +19,7 @@ import { setGaugeFilter } from "./map.js";
 
 const state = {
   endDate: isoDate(), days: 1, zoom: HOME.zoom, center: HOME.center, basemap: "light",
-  layers: { stations: true, gauges: true, qpe: false }, qpeWindow: "24h", selection: null, terrain: {}, terrainOpacity: 0.6,
+  layers: { stations: true, gauges: true, qpe: false, streams: false }, qpeWindow: "24h", selection: null, terrain: {}, terrainOpacity: 0.6,
   ...readUrl(),
 };
 // Never allow a future end date; default to yesterday before ~9 AM (today's CoCoRaHS reports are still arriving)
@@ -44,6 +44,8 @@ function buildControls() {
   $("tg-precip").classList.toggle("on", state.layers.stations);
   $("tg-gauges").classList.toggle("on", state.layers.gauges);
   $("tg-qpe").classList.toggle("on", state.layers.qpe);
+  $("tg-streams").classList.toggle("on", !!state.layers.streams);
+  $("tg-streams").addEventListener("click", () => toggleLayer("streams"));
 
   const stepDate = (n) => { const d = n === 0 ? isoDate() : addDays(state.endDate, n); if (d <= isoDate()) { state.endDate = d; $("ctl-date").value = d; refreshPrecip(); } };
   $("date-prev").addEventListener("click", () => stepDate(-1));
@@ -100,7 +102,7 @@ function toggleLayer(name, force) {
   const on = force ?? !state.layers[name];
   state.layers[name] = on;
   setLayerVisible(name, on);
-  const btn = { stations: "tg-precip", gauges: "tg-gauges", qpe: "tg-qpe" }[name];
+  const btn = { stations: "tg-precip", gauges: "tg-gauges", qpe: "tg-qpe", streams: "tg-streams" }[name];
   $(btn).classList.toggle("on", on);
   renderLegend(); syncUrl();
 }
@@ -109,6 +111,7 @@ function renderLegend() {
   lg.innerHTML = "";
   if (state.layers.stations) renderPrecipLegend(lg, { days: state.days });
   if (state.layers.gauges) renderGaugeLegend(lg);
+  if (state.layers.streams) lg.insertAdjacentHTML("beforeend", `<h4>Streams (StreamStats grid)</h4><div class="legend-row"><span class="swatch sq" style="background:#0070ff"></span>Mapped stream cells (zoom 13+)</div><div class="small">The 10 m cells StreamStats delineates on; snap targets these.</div>`);
   lg.insertAdjacentHTML("beforeend", terrainLegendHtml(state.terrain));
   if (state.layers.qpe) lg.insertAdjacentHTML("beforeend", `<h4>Radar QPE (${$("ctl-qpe").selectedOptions[0].text})</h4><div class="small">NWS RFC multi-sensor estimate, inches; colors per NWS scale (light green &lt;0.1 → purple/white &gt;5). <a href="https://water.noaa.gov/precip" target="_blank" rel="noopener">Legend</a></div>`);
 }
@@ -131,7 +134,7 @@ const refreshPrecip = debounce(async () => {
 async function boot() {
   buildControls();
   initMap({ center: state.center, zoom: state.zoom, basemap: state.basemap });
-  setLayerVisible("stations", state.layers.stations); setLayerVisible("gauges", state.layers.gauges); setLayerVisible("qpe", state.layers.qpe);
+  setLayerVisible("stations", state.layers.stations); setLayerVisible("gauges", state.layers.gauges); setLayerVisible("qpe", state.layers.qpe); setLayerVisible("streams", !!state.layers.streams);
   setQpeWindow(state.qpeWindow);
   for (const [id, on] of Object.entries(state.terrain)) setTerrainVisible(id, on);
   setTerrainOpacity(state.terrainOpacity);

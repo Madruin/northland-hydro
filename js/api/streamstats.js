@@ -47,11 +47,38 @@ function loadScript(src, globalName) {
   return new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => rej(new Error("failed to load " + src)); document.head.appendChild(s); });
 }
 
-// 1b) Snap a clicked point onto the stream grid (StreamStats does this before delineating; ~180 m search radius).
-export async function snap(state, lat, lon) {
-  const d = await getJSON(`https://streamstats.usgs.gov/pourpoint/v1/snap/str900?region=${state}&lat=${lat.toFixed(6)}&lon=${lon.toFixed(6)}`, { ttl: 60 * 60_000 });
-  const c = d.output?.coordinates;
-  return { snapped: !!d.couldSnap && !!c, lon: c ? c[0] : lon, lat: c ? c[1] : lat };
+// 1b) StreamStats stream grid (the blue cells delineation runs on). Layer 74 of the Minnesota state service.
+export const STREAMGRID = { MN: { url: "https://gis.streamstats.usgs.gov/arcgis/rest/services/stateServices/mn/MapServer/export", layer: 74 }, WI: { url: "https://gis.streamstats.usgs.gov/arcgis/rest/services/stateServices/wi/MapServer/export", layer: null } };
+export function streamGridTileUrl(state = "MN") {
+  const g = STREAMGRID[state] || STREAMGRID.MN;
+  return `${g.url}?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&layers=show:${g.layer ?? 74}&format=png32&transparent=true&f=image`;
+}
+// Snap a clicked point to the nearest stream-grid cell within `radiusM` (StreamStats uses 180 m), by sampling
+// the grid image around the point. Returns { snapped, lat, lon, distM }.
+export async function snapToStreamGrid(state, lat, lon, radiusM = 200) {
+  const g = STREAMGRID[state] || STREAMGRID.MN;
+  const R = 6378137, toM = (lo, la) => [R * (lo * Math.PI) / 180, R * Math.log(Math.tan(Math.PI / 4 + (la * Math.PI) / 360))];
+  const toLL = (x, y) => [(x / R) * (180 / Math.PI), ((2 * Math.atan(Math.exp(y / R)) - Math.PI / 2) * 180) / Math.PI];
+  const k = 1 / Math.cos((lat * Math.PI) / 180);          // mercator meters per ground meter at this latitude
+  const half = radiusM * k, px = 2 * k;                     // ~2 m ground per pixel
+  const [cx, cy] = toM(lon, lat);
+  const size = Math.round((2 * half) / px);
+  const url = `${g.url}?bbox=${cx - half},${cy - half},${cx + half},${cy + half}&bboxSR=3857&imageSR=3857&size=${size},${size}&layers=show:${g.layer ?? 74}&format=png32&transparent=true&f=image`;
+  const r = await fetch(url); if (!r.ok) throw new Error("stream grid " + r.status);
+  const bmp = await createImageBitmap(await r.blob());
+  const c = document.createElement("canvas"); c.width = bmp.width; c.height = bmp.height;
+  const ctx = c.getContext("2d"); ctx.drawImage(bmp, 0, 0);
+  const d = ctx.getImageData(0, 0, c.width, c.height).data;
+  let best = null, bestD = Infinity; const mid = c.width / 2;
+  for (let j = 0; j < c.height; j++) for (let i = 0; i < c.width; i++) {
+    if (d[(j * c.width + i) * 4 + 3] < 64) continue;
+    const dd = (i + 0.5 - mid) ** 2 + (j + 0.5 - mid) ** 2;
+    if (dd < bestD) { bestD = dd; best = [i, j]; }
+  }
+  if (!best) return { snapped: false, lat, lon, distM: null };
+  const mx = cx - half + (best[0] + 0.5) * ((2 * half) / c.width), my = cy + half - (best[1] + 0.5) * ((2 * half) / c.height);
+  const [slon, slat] = toLL(mx, my);
+  return { snapped: true, lat: slat, lon: slon, distM: (Math.sqrt(bestD) * (2 * half)) / c.width / k };
 }
 
 // 2) Basin characteristics (runs its own delineation server-side; ~8 s). Returns [{code,name,value,unit,description}]

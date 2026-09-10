@@ -21,8 +21,10 @@ export function renderWatershed(container, lon, lat) {
       <button class="btn" id="ws-da-go">Curves only</button>
       <a class="btn" href="${ss.streamstatsUrl(lat, lon)}" target="_blank" rel="noopener">Open in StreamStats</a>
     </div>
+    <label class="chk" title="Move the point to the nearest StreamStats stream-grid cell within 200 m before delineating (what the StreamStats app does). Uncheck to delineate exactly where you clicked."><input type="checkbox" id="ws-snap" ${snapPref() ? "checked" : ""}/> snap to nearest mapped stream before delineating</label>
     <div id="ws-body">${st ? "" : `<div class="small">Delineation calls USGS servers (about 15 s total) and draws the basin on the map. Use the drainage-area box to run the regional curves without delineating.</div>`}</div>`;
   $("ws-run").onclick = () => run(container, lon, lat, key);
+  $("ws-snap").onchange = (e) => { try { localStorage.setItem("nh-snap", e.target.checked ? "1" : "0"); } catch {} };
   $("ws-da-go").onclick = () => { const da = Number($("ws-da").value); if (da > 0) { cache.set(key, { ...(cache.get(key) || {}), da, manual: true }); renderLive(container, lon, lat, key); } };
   if (st) renderLive(container, lon, lat, key);
 }
@@ -34,11 +36,15 @@ async function run(container, lon, lat, key) {
   try {
     // Snap to the stream grid first, as the StreamStats app does; an off-stream click otherwise delineates a sliver.
     let snapNote = "";
-    try {
-      const sn = await ss.snap(state, lat, lon);
-      const moved = sn.snapped ? haversineM(lat, lon, sn.lat, sn.lon) : 0;
-      if (sn.snapped && moved > 3) { snapNote = `Point snapped ${Math.round(moved * 3.28084)} ft onto the mapped stream.`; lat = sn.lat; lon = sn.lon; setPin([lon, lat]); }
-    } catch (e) { console.warn("snap failed", e); }
+    if ($("ws-snap")?.checked) {
+      body.innerHTML = `<div class="spinner">Snapping to the nearest mapped stream…</div>`;
+      try {
+        const sn = await ss.snapToStreamGrid(state, lat, lon, 200);
+        if (sn.snapped && sn.distM > 2) { snapNote = `Point snapped ${Math.round(sn.distM * 3.28084)} ft to the nearest mapped stream cell.`; lat = sn.lat; lon = sn.lon; setPin([lon, lat]); }
+        else if (!sn.snapped) snapNote = "No mapped stream within 200 m of the click; delineating at the click itself.";
+      } catch (e) { console.warn("snap failed", e); snapNote = "Stream-grid snap unavailable (service error); delineating at the click itself."; }
+      body.innerHTML = `<div class="spinner">Delineating (StreamStats ${state})…</div>`;
+    }
     const [del] = await Promise.all([ss.delineate(state, lat, lon), loadCurves()]);
     if (!del.basin) throw new Error("No basin returned. The point may be off the stream network or in an exclusion area; try clicking on the blue line.");
     setBasin(del.basin, del.pourpoint);
@@ -57,7 +63,7 @@ async function run(container, lon, lat, key) {
     const warnings = [];
     if (snapNote) warnings.push(snapNote);
     if (del.areaSqMi < 0.02) warnings.push("The delineated area is a tiny sliver: this point is not on a mapped stream cell. Zoom in and click on the stream line, then re-run.");
-    else if (da && Math.abs(del.areaSqMi - da) / da > 0.05) warnings.push(`Drawn basin (${del.areaSqMi.toFixed(1)} mi²) and computed drainage area (${da.toFixed(1)} mi²) differ by more than 5%; the computed value is authoritative.`);
+    else if (da > 0.5 && Math.abs(del.areaSqMi - da) / da > 0.05) warnings.push(`Drawn basin (${del.areaSqMi.toFixed(1)} mi²) and computed drainage area (${da.toFixed(1)} mi²) differ by more than 5%; the computed value is authoritative.`);
     cache.set(key, { basin: del.basin, huc: del.huc, bc, bcByCode, da, flows, missing, regions, state, manual: false, retrievedAt: new Date().toISOString(), pour: { lat, lon }, warnings });
     $("ws-da").value = da != null ? da.toFixed(2) : "";
     renderLive(container, lon, lat, key);
@@ -172,6 +178,7 @@ function flowsHtml(st) {
 }
 
 export function clearBasin() { setBasin(null); }
+function snapPref() { try { return localStorage.getItem("nh-snap") !== "0"; } catch { return true; } }
 function haversineM(lat1, lon1, lat2, lon2) { const R = 6371000, r = Math.PI / 180; const a = Math.sin(((lat2 - lat1) * r) / 2) ** 2 + Math.cos(lat1 * r) * Math.cos(lat2 * r) * Math.sin(((lon2 - lon1) * r) / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(a)); }
 export function getLiveState(lon, lat) { return cache.get(`${lon.toFixed(5)},${lat.toFixed(5)}`) || null; }
 export function analysisToState(a) { return { basin: a.basin_geojson, huc: a.huc, bc: a.basin_chars || [], da: a.drainage_area_sqmi, flows: a.flows, regions: a.regions, state: a.state, manual: !a.basin_chars, missing: [], retrievedAt: a.sources?.retrieved_at || a.created_at, savedAt: a.created_at, savedBy: a.created_by, label: a.label, curveId: a.regional_curve_id }; }
