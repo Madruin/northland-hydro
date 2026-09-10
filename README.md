@@ -45,6 +45,10 @@ Then **TSA3 regional curves** turn the drainage area into bankfull channel dimen
 
 `tools/build_regional_curves.py` reads the workbooks from `S:/TECH/20_North_Shore_Geomorph/02-Regional_Curves`, writes `data/regional_curves.json` (equations exactly as in each Prediction Equations sheet, every survey site, and a refit of each power law from the current rows), and prints published-vs-refit coefficients. Re-run it whenever a workbook changes. The site suggests a curve from the basin's HUC8 (Lake Superior direct tributaries → North Shore; St. Louis, Cloquet, Nemadji → Cloquet/St. Louis; Snake, Kettle, Rum, upper St. Croix → Eastern MN), shows the other curves' answers for comparison, warns when DA is outside the surveyed range, and plots the survey sites with the fitted curve on log-log axes with the basin marked. A drainage area can also be typed in to run the curves without delineating.
 
+## Lakes (MN DNR LakeFinder)
+
+Click on a lake and the Point panel opens with a **Lake** section: basin name, DOW number, county, acreage and shoreline from the DNR hydrography layer (the polygon is outlined on the map); the DNR water-level record as a chart with the **Ordinary High Water Level** line, plus period of record, highest and lowest readings, last reading and its offset from OHW, datum, and benchmarks; **outlet / control structures** from the DNR dams inventory within about 0.5 km of the basin (principal spillway elevation, top of dam, height, datum, purpose, owner, hazard, condition, comments) or a note that none is on record; and LakeFinder morphology (littoral area, depths, clarity, last fisheries survey). Sources: DNR hydrography `water_dnr_hydrography` layer 1 (point lookup, 0.5 s), LakeFinder `water_levels_export.cgi` CSV and `detail.cgi`, the water-levels page parsed for OHW/datum (served with CORS), and `struc_mn_dams_inventory_pub`. Level datums vary by lake (MSL 1912, NGVD 29, local) and are shown; they are not NAVD88 lidar elevations.
+
 ## Parcels (county tax parcels)
 
 The **Parcels** layer draws tax-parcel boundaries with owner labels from zoom 16, loading the current view (zoom 14+) live from each county's own ArcGIS service, since MnGeo's statewide open compilation takes 30–60 s per query. Field names differ by county and are normalized to PIN, owner, acres (GIS and deeded), site address, use/ownership, homestead, estimated market value, tax year, legal description. Hover a parcel for the summary; the Point panel's **Parcel at this point** section queries the county service at the clicked point.
@@ -142,6 +146,7 @@ js/report.js          gathers the site hydrology summary document → report.htm
 js/terrain.js         MnTOPO lidar layers, mnlod:// tile protocol, legend
 js/soils.js, js/api/sda.js   SSURGO hydrologic-group layer and point soils section (Soil Data Access SQL)
 js/parcels.js         county parcel services (7 counties), normalized fields, point lookup
+js/lakes.js, js/api/dnrlakes.js   DNR LakeFinder levels, OHW, hydrograph, dams inventory outlets
 js/export.js          AOI export: imagery + world file, DEM GeoTIFF/ASCII, DXF contours (UTM 15N US ft)
 tools/build_regional_curves.py, data/regional_curves.json
 js/api/*.js           one thin client per upstream API (incl. supabase.js)

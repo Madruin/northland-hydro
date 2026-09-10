@@ -1,5 +1,5 @@
 {
- "build": "20260910-1859-9b70339",
+ "build": "20260910-2007-72d4974",
  "files": [
   "css/app.css",
   "css/report.css",
@@ -9,6 +9,7 @@
   "js/api/atlas14.js",
   "js/api/coops.js",
   "js/api/dnr.js",
+  "js/api/dnrlakes.js",
   "js/api/nws.js",
   "js/api/openmeteo.js",
   "js/api/sda.js",
@@ -20,6 +21,7 @@
   "js/export.js",
   "js/gauges.js",
   "js/lake.js",
+  "js/lakes.js",
   "js/loader.js",
   "js/map.js",
   "js/panels.js",

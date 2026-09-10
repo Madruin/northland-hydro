@@ -13,6 +13,7 @@ let pickCallback = null;
 let rect = null; // { cb, onFirst, a: [lon,lat] | null }
 const visibility = { stations: true, gauges: true, qpe: false, streams: false, soils: false, parcels: false };
 let parcelsData = { type: "FeatureCollection", features: [] };
+let lakeFeature = null;
 let countyBboxCache = null;
 let soilsData = { type: "FeatureCollection", features: [] };
 let terrainVis = {}; let terrainOpacity = 0.6;
@@ -165,6 +166,10 @@ async function addOverlays() {
     map.addLayer({ id: "soils-label", type: "symbol", source: "soils", minzoom: 14, layout: { visibility: visibility.soils ? "visible" : "none", "symbol-placement": "point", "text-field": ["get", "label"], "text-size": 10, "text-font": ["Noto Sans Regular"], "text-allow-overlap": false },
       paint: { "text-color": "#3e2723", "text-halo-color": "#fff", "text-halo-width": 1.2 } });
   }
+  if (!map.getSource("lake")) {
+    map.addSource("lake", { type: "geojson", data: { type: "FeatureCollection", features: lakeFeature ? [lakeFeature] : [] } });
+    map.addLayer({ id: "lake-line", type: "line", source: "lake", paint: { "line-color": "#0ea5e9", "line-width": 2.5, "line-opacity": 0.9 } });
+  }
   if (!map.getSource("parcels")) {
     map.addSource("parcels", { type: "geojson", data: parcelsData });
     map.addLayer({ id: "parcels-fill", type: "fill", source: "parcels", layout: { visibility: visibility.parcels ? "visible" : "none" }, paint: { "fill-color": "#f59e0b", "fill-opacity": 0.03 } });
@@ -221,6 +226,7 @@ export function setProjects(fc) { sources.projects = fc; if (map && map.getSourc
 function pinGeo() { return { type: "FeatureCollection", features: pinLngLat ? [{ type: "Feature", geometry: { type: "Point", coordinates: pinLngLat }, properties: {} }] : [] }; }
 export function setPin(lngLat) { pinLngLat = lngLat; if (map.getSource("pin")) map.getSource("pin").setData(pinGeo()); }
 
+export function setLake(f) { lakeFeature = f; if (map && map.getSource("lake")) map.getSource("lake").setData({ type: "FeatureCollection", features: f ? [f] : [] }); }
 export function setParcels(fc) { parcelsData = fc; if (map && map.getSource("parcels")) map.getSource("parcels").setData(fc); }
 export function setSoils(fc) { soilsData = fc; if (map && map.getSource("soils")) map.getSource("soils").setData(fc); }
 export function setStations(fc) { sources.stations = fc; if (map.getSource("stations")) map.getSource("stations").setData(fc); }
