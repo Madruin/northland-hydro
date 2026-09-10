@@ -76,6 +76,10 @@ The rectangle drawn in lon/lat is snapped to a north-up, whole-meter rectangle i
 
 **Print site report** (Point panel) or **Print report** (project detail) opens `report.html`: a letter-size, print-ready summary with a map snapshot, the current window's rainfall at the nearest stations and PRISM point totals with percent of normal and Atlas 14 return periods, nearest gauges with flow class, NWS forecast and QPF, active alerts, the Atlas 14 design-storm table, the watershed analysis (live, or the project's latest saved one) with basin characteristics and regression flows, the regional-curve bankfull dimensions with the other curves for comparison, and a numbered sources-and-methods list with retrieval times and a permalink that reproduces the view. "Download JSON" saves the same document as data. Use the browser's print dialog to save a PDF; enable background graphics.
 
+## Deploying a change
+
+Run `python tools/stamp_version.py` before committing. It writes a build id into `js/config.js` and lists every asset in `version.json`. On load, the site fetches `version.json` uncached; if the build differs from the running one it refetches the assets past GitHub Pages' 10-minute cache and reloads once, so users never see a half-updated page.
+
 ## Run it
 
 No build step. Any static host works.

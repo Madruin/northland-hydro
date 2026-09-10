@@ -131,7 +131,22 @@ const refreshPrecip = debounce(async () => {
   } catch (e) { setStatus("Precipitation load failed: " + e.message, true); console.error(e); }
 }, 150);
 
+// If a newer build was deployed, refetch every asset past the CDN cache and reload once (see tools/stamp_version.py).
+async function checkBuild() {
+  try {
+    const v = await (await fetch("version.json", { cache: "no-store" })).json();
+    if (!v.build || v.build === APP.build) return false;
+    if (sessionStorage.getItem("nh-reloaded-for") === v.build) return false; // already tried once this session
+    sessionStorage.setItem("nh-reloaded-for", v.build);
+    setStatus(`Updating to build ${v.build}…`);
+    await Promise.all((v.files || []).map((f) => fetch(f, { cache: "reload" }).catch(() => null)));
+    location.reload();
+    return true;
+  } catch { return false; }
+}
+
 async function boot() {
+  if (await checkBuild()) return;
   buildControls();
   initMap({ center: state.center, zoom: state.zoom, basemap: state.basemap });
   setLayerVisible("stations", state.layers.stations); setLayerVisible("gauges", state.layers.gauges); setLayerVisible("qpe", state.layers.qpe); setLayerVisible("streams", !!state.layers.streams);
