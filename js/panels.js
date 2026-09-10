@@ -22,6 +22,7 @@ export function showTab(name) {
   document.querySelectorAll(".tab").forEach((t) => { t.classList.toggle("on", t.dataset.tab === name); if (t.dataset.tab === name) t.disabled = false; });
   document.querySelectorAll(".tab-pane").forEach((p) => p.classList.toggle("on", p.id === "tab-" + name));
   $("panel").classList.add("open");
+  if (window.matchMedia("(max-width: 900px)").matches && ($("panel").dataset.sheet || "peek") === "peek") $("panel").dataset.sheet = "half";
 }
 
 // ---------------- Region ----------------

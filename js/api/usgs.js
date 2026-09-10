@@ -7,7 +7,8 @@ const PARAMS = { "00060": "discharge", "00065": "stage", "00045": "precip", "000
 // Latest instantaneous values for all active sites in bbox. Returns map site_no → site
 export async function latestInBbox(bbox) {
   const url = `${ENDPOINTS.usgsIV}?bBox=${bbox.map((v) => v.toFixed(3)).join(",")}&parameterCd=00060,00065&format=json&siteStatus=active`;
-  const d = await getJSON(url, { ttl: 5 * 60_000 });
+  const ac = new AbortController(); const timer = setTimeout(() => ac.abort(), 20_000);
+  let d; try { d = await getJSON(url, { ttl: 5 * 60_000, signal: ac.signal }); } finally { clearTimeout(timer); }
   const sites = {};
   for (const ts of d.value?.timeSeries || []) {
     const si = ts.sourceInfo;

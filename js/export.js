@@ -49,6 +49,7 @@ function showTab() {
   document.querySelectorAll(".tab").forEach((t) => { t.classList.toggle("on", t.dataset.tab === "export"); if (t.dataset.tab === "export") t.disabled = false; });
   document.querySelectorAll(".tab-pane").forEach((p) => p.classList.toggle("on", p.id === "tab-export"));
   $("panel").classList.add("open");
+  if (window.matchMedia("(max-width: 900px)").matches && ($("panel").dataset.sheet || "peek") === "peek") $("panel").dataset.sheet = "half";
   if (!aoi) renderIntro();
 }
 function renderIntro() {

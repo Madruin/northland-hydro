@@ -104,7 +104,7 @@ The only file that is not live is `data/atlas14_grid.json`. NOAA's Atlas 14 serv
 
 ```
 index.html            page shell, controls, panel tabs
-css/app.css           dark UI, responsive (<900px stacks map over panel)
+css/app.css           dark UI; under 900 px: two-row header with a horizontally scrolling control strip, map fills the screen, panel is a bottom sheet (peek / half / full via the handle; any selection opens it to half), legend top-right, menus fixed full-width
 js/app.js             state, controls, boot, URL sync, 10-minute live refresh
 js/config.js          region bbox, counties, endpoints, color scales, flow classes
 js/map.js             MapLibre map, basemaps (OpenFreeMap positron/liberty/dark, USGS imagery), county outlines, QPE raster, station/gauge layers

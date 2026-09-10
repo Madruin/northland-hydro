@@ -79,7 +79,25 @@ function buildControls() {
   $("tg-terrain").addEventListener("click", (e) => { e.stopPropagation(); $("terrain-menu").hidden = !$("terrain-menu").hidden; });
   document.addEventListener("click", (e) => { if (!e.target.closest(".menu-wrap")) $("terrain-menu").hidden = true; });
   updateTerrainButton();
-  $("panel-toggle").addEventListener("click", () => $("panel").classList.toggle("open"));
+  const mobile = () => window.matchMedia("(max-width: 900px)").matches;
+  const sheet = (st) => { $("panel").dataset.sheet = st; $("panel").classList.toggle("open", st !== "peek"); };
+  $("panel-toggle").addEventListener("click", () => {
+    if (!mobile()) { $("panel").classList.toggle("open"); return; }
+    const cur = $("panel").dataset.sheet || "peek";
+    sheet(cur === "peek" ? "half" : cur === "half" ? "full" : "peek");
+  });
+  if (mobile()) sheet("peek");
+  window.addEventListener("resize", () => { if (mobile()) { if (!$("panel").dataset.sheet) sheet("peek"); } else { delete $("panel").dataset.sheet; $("panel").classList.add("open"); } });
+  // any selection or tab tap opens the sheet to half height on phones
+  const openSheet = () => { if (mobile() && ($("panel").dataset.sheet || "peek") === "peek") sheet("half"); };
+  document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", openSheet));
+  ["select:station", "select:gauge", "select:point", "select:project"].forEach((e) => on(e, openSheet));
+  // menus are position:fixed on phones; place them under their button
+  const placeMenu = (btn, menu) => { if (!mobile()) return; const r = btn.getBoundingClientRect(); menu.style.top = `${Math.round(r.bottom + 6)}px`; };
+  $("tg-terrain").addEventListener("click", () => placeMenu($("tg-terrain"), $("terrain-menu")));
+  $("ctl-search").addEventListener("focus", () => { $("ctl-search").classList.add("open"); placeMenu($("ctl-search"), $("search-results")); });
+  $("ctl-search").addEventListener("pointerdown", () => { $("ctl-search").classList.add("open"); placeMenu($("ctl-search"), $("search-results")); });
+  $("ctl-search").addEventListener("blur", () => { if (!$("ctl-search").value) $("ctl-search").classList.remove("open"); });
   $("legend-toggle").addEventListener("click", () => $("legend").classList.toggle("collapsed"));
   if (window.matchMedia("(max-width: 900px)").matches) $("legend").classList.add("collapsed");
   document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => showTab(t.dataset.tab)));
@@ -160,7 +178,8 @@ async function boot() {
   track("lake level", loadLake());
   const gaugesP = track("gauges", loadGauges()).catch((e) => { console.warn(e); return []; });
   await refreshPrecip();
-  await gaugesP;
+  // Don't block the UI on gauges: USGS can take 30+ s on a bad day. Cached gauges already show; re-render when live ones land.
+  gaugesP.then(() => { if (!state.selection || state.selection.type === "region") renderRegion(); });
   if (!state.selection || state.selection.type === "region") renderRegion();
   else if (state.selection.type === "gauge") renderGauge(state.selection.id);
   else if (state.selection.type === "station") renderStation(state.selection.id);
