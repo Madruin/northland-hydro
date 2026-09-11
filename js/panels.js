@@ -1,5 +1,7 @@
 // Side-panel renderers: Region summary, Station, Gauge, Point.
 import { toUtm, utmFeet } from "./coords.js";
+import { addRecent } from "./recent.js";
+import { mscUrl } from "./fema.js";
 import { plot } from "./loader.js";
 import { $, el, escapeHtml, fmt, fmtNum, fmtDate, fmtDateTime, addDays, ago, haversineKm, kmToMi, downloadCSV, plotlyLayout } from "./util.js";
 import { stations as precipStations, current as precipWindow, summarize } from "./precip.js";
@@ -223,7 +225,8 @@ function mergeSeries(q, h) {
 // ---------------- Point ----------------
 // Sticky jump bar for the Point panel: one chip per section, spinning until the section has settled, dimmed when it has nothing to say.
 const PT_SECTIONS = [["pt-lake", "Lake"], ["pt-watershed", "Watershed"], ["pt-crossing", "Crossing"], ["pt-fema", "FEMA"], ["pt-wetland", "Wetland"], ["pt-parcel", "Parcel"], ["pt-soils", "Soils"], ["pt-wells", "Wells"], ["pt-precip", "Rainfall"], ["pt-nearby", "Nearby"], ["pt-wx", "Forecast"], ["pt-soil", "Soil moisture"], ["pt-a14", "Atlas 14"]];
-let navDone = {}, navObserver = null, navTimer = null;
+let navDone = {}, navObserver = null, navTimer = null, navRun = {}, ptCur = null;
+const FAILED = /failed|timed out|unavailable|error/i;
 function startPointNav(container) {
   navDone = { "pt-precip": true, "pt-nearby": true, "pt-wx": true, "pt-soil": true, "pt-a14": true };
   navObserver?.disconnect();
@@ -237,10 +240,12 @@ function updatePointNav() {
   nav.innerHTML = PT_SECTIONS.map(([id, label]) => {
     const el = $(id); if (!el) return "";
     const spinning = !!el.querySelector(".spinner"); const has = el.textContent.trim().length > 0 && !spinning;
-    const st = has ? "ready" : spinning || !navDone[id] ? "pending" : "none";
-    return `<button class="pt-chip ${st}" data-t="${id}" ${st === "ready" ? "" : "disabled"} title="${st === "none" ? "Nothing here" : st === "pending" ? "Loading" : "Jump to " + label}">${label}</button>`;
+    const failed = has && [...el.querySelectorAll(".notice")].some((n) => FAILED.test(n.textContent)) && !el.querySelector("table, .stat-row");
+    const st = failed ? "error" : has ? "ready" : spinning || !navDone[id] ? "pending" : "none";
+    return `<button class="pt-chip ${st}" data-t="${id}" ${st === "ready" || st === "error" ? "" : "disabled"} title="${st === "none" ? "Nothing here" : st === "pending" ? "Loading" : st === "error" ? "Failed to load — click to retry" : "Jump to " + label}">${label}${st === "error" ? " ↻" : ""}</button>`;
   }).join("");
   nav.querySelectorAll(".pt-chip.ready").forEach((b) => (b.onclick = () => $(b.dataset.t)?.scrollIntoView({ behavior: "smooth", block: "start" })));
+  nav.querySelectorAll(".pt-chip.error").forEach((b) => (b.onclick = () => { const id = b.dataset.t; if (navRun[id]) { navDone[id] = false; $(id).innerHTML = `<div class="spinner">Retrying…</div>`; navTrack(id, navRun[id]()); } else if (ptCur) renderPoint(ptCur.lon, ptCur.lat); }));
 }
 export async function renderPoint(lon, lat) {
   showTab("point");
@@ -257,6 +262,13 @@ export async function renderPoint(lon, lat) {
       <span title="UTM zone 15N, NAD83, US survey feet (E, N) — the TSA3 CAD coordinate system">${Math.round(uf.e).toLocaleString()} E, ${Math.round(uf.n).toLocaleString()} N US ft</span><button class="copy" data-copy="${uf.e.toFixed(2)},${uf.n.toFixed(2)}" title="Copy E,N in US survey feet (paste as X,Y in AutoCAD)">⧉</button>
     </div>
     <div class="actions"><button class="btn" id="pt-report">🖨 Print site report</button><span id="pt-report-msg" class="small"></span></div>
+    <div class="open-row"><span>Open here in:</span>
+      <a href="https://casoilresource.lawr.ucdavis.edu/gmap/?loc=${lat.toFixed(5)},${lon.toFixed(5)}" target="_blank" rel="noopener" title="SoilWeb (UC Davis): SSURGO map units and profiles">SoilWeb</a>
+      <a href="https://forecast.weather.gov/MapClick.php?lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}" target="_blank" rel="noopener" title="NWS point forecast page">NWS forecast</a>
+      <a href="${mscUrl(lat, lon)}" target="_blank" rel="noopener" title="FEMA Map Service Center: FIRM panels, FIS, LOMCs">FEMA MSC</a>
+      <a href="https://www.google.com/maps?q=${lat.toFixed(6)},${lon.toFixed(6)}" target="_blank" rel="noopener" title="Google Maps at this point">Google Maps</a>
+      <a href="https://www.google.com/maps/dir/?api=1&destination=${lat.toFixed(6)},${lon.toFixed(6)}" target="_blank" rel="noopener" title="Driving directions to this point">Directions</a>
+    </div>
     <div class="pt-nav" id="pt-nav"></div>
     <div id="pt-lake"></div>
     <div id="pt-watershed"></div>
@@ -272,6 +284,13 @@ export async function renderPoint(lon, lat) {
     <div id="pt-soil"><div class="spinner">Open-Meteo…</div></div>
     <div id="pt-a14"></div>`;
 
+  addRecent({ lon, lat });
+  ptCur = { lon, lat };
+  navRun = {
+    "pt-watershed": () => renderWatershed($("pt-watershed"), lon, lat), "pt-soils": () => renderSoilsAt($("pt-soils"), lon, lat), "pt-parcel": () => renderParcelAt($("pt-parcel"), lon, lat),
+    "pt-lake": () => renderLakeAt($("pt-lake"), lon, lat), "pt-wetland": () => renderWetlandAt($("pt-wetland"), lon, lat), "pt-fema": () => renderFemaAt($("pt-fema"), lon, lat),
+    "pt-crossing": () => renderCrossingAt($("pt-crossing"), lon, lat), "pt-wells": () => renderWellsAt($("pt-wells"), lon, lat),
+  };
   c.querySelectorAll(".copy").forEach((b) => (b.onclick = async () => { try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = "✓"; setTimeout(() => (b.textContent = "⧉"), 1200); } catch { prompt("Copy:", b.dataset.copy); } }));
   startPointNav(c);
   navTrack("pt-watershed", renderWatershed($("pt-watershed"), lon, lat));

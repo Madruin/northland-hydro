@@ -1,5 +1,6 @@
 // Header search: gauges, stations, projects (client-side) and places (Photon geocoder, CORS, no key).
 import { parseCoords } from "./coords.js";
+import { getRecents, ago } from "./recent.js";
 import { $, escapeHtml, emit, debounce, getJSON } from "./util.js";
 import { stations } from "./precip.js";
 import { gauges } from "./gauges.js";
@@ -15,7 +16,7 @@ export function initSearch() {
   const input = $("ctl-search"), box = $("search-results");
   const run = debounce(async () => {
     const q = input.value.trim();
-    if (q.length < 2) { box.hidden = true; return; }
+    if (q.length < 2) { showRecents(); return; }
     const cc = parseCoords(q);
     if (cc) { items = [{ kind: "place", label: `Go to ${cc.input}`, sub: `${cc.kind} · ${cc.lat.toFixed(5)}, ${cc.lon.toFixed(5)}`, lon: cc.lon, lat: cc.lat, zoom: 14, s: 9 }]; render(box, items, false); return; }
     items = localMatches(q);
@@ -27,7 +28,8 @@ export function initSearch() {
     } catch { render(box, items, false); }
   }, 200);
   input.addEventListener("input", run);
-  input.addEventListener("focus", () => { if (items.length && input.value.trim().length >= 2) box.hidden = false; });
+  const showRecents = () => { const r = getRecents(); if (!r.length) { box.hidden = true; return; } items = r.map((p) => ({ kind: "recent", label: p.label, sub: `Recent point · ${ago(p.t)}`, lon: p.lon, lat: p.lat, zoom: 14, s: 0 })); render(box, items, false); };
+  input.addEventListener("focus", () => { if (input.value.trim().length < 2) showRecents(); else if (items.length) box.hidden = false; });
   input.addEventListener("keydown", (e) => {
     if (box.hidden) return;
     if (e.key === "ArrowDown") { activeIdx = Math.min(items.length - 1, activeIdx + 1); highlight(box); e.preventDefault(); }
@@ -61,7 +63,7 @@ async function placeMatches(q) {
 function render(box, list, loading) {
   activeIdx = -1;
   if (!list.length && !loading) { box.innerHTML = `<div class="sr-empty">No matches</div>`; box.hidden = false; return; }
-  box.innerHTML = list.map((it, i) => `<div class="sr-item" data-i="${i}"><span class="sr-kind ${it.kind}">${it.kind === "gauge" ? "▲" : it.kind === "station" ? "●" : it.kind === "project" ? "★" : "⌖"}</span><div><div>${escapeHtml(it.label)}</div><div class="small">${escapeHtml(it.sub)}</div></div></div>`).join("") + (loading ? `<div class="sr-empty">Searching places…</div>` : "");
+  box.innerHTML = list.map((it, i) => `<div class="sr-item" data-i="${i}"><span class="sr-kind ${it.kind}">${it.kind === "gauge" ? "▲" : it.kind === "station" ? "●" : it.kind === "project" ? "★" : it.kind === "recent" ? "🕘" : "⌖"}</span><div><div>${escapeHtml(it.label)}</div><div class="small">${escapeHtml(it.sub)}</div></div></div>`).join("") + (loading ? `<div class="sr-empty">Searching places…</div>` : "");
   box.hidden = false;
   box.querySelectorAll(".sr-item").forEach((el) => el.addEventListener("mousedown", (e) => { e.preventDefault(); choose(list[Number(el.dataset.i)]); }));
 }

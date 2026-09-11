@@ -1,6 +1,6 @@
 // Wiring: state, controls, data loads, URL sync.
 import { APP, BASEMAPS, COUNTIES, HOME, WINDOWS } from "./config.js";
-import { $, isoDate, addDays, on, debounce } from "./util.js";
+import { $, isoDate, addDays, on, debounce, emit } from "./util.js";
 import { initMap, map, setBasemap, setLayerVisible, setQpeWindow, flyToCounty, setTerrainVisible, setTerrainOpacity } from "./map.js";
 import { TERRAIN, terrainLegendHtml } from "./terrain.js";
 import { loadPrecip, renderPrecipLegend } from "./precip.js";
@@ -72,6 +72,12 @@ function buildControls() {
   $("btn-help").addEventListener("click", () => openHelp("guide"));
   $("attrib-sources").addEventListener("click", (e) => { e.preventDefault(); openHelp("sources"); });
   $("help").querySelectorAll(".mtab").forEach((b) => b.addEventListener("click", () => showHelpPane(b.dataset.pane)));
+  $("help-example").addEventListener("click", () => {
+    $("help").hidden = true; dismissHint();
+    for (const k of ["wells", "fema", "crossings"]) if (!state.layers[k]) toggleLayer(k, true);
+    const go = () => { map.flyTo({ center: [-91.7849, 46.9476], zoom: 14, duration: 1200 }); map.once("moveend", () => emit("select:point", { lon: -91.7849, lat: 46.9476 })); };
+    if (map?.loaded?.()) go(); else on("map:ready", go);
+  });
   $("help-close").addEventListener("click", () => ($("help").hidden = true));
   $("help").addEventListener("click", (e) => { if (e.target.id === "help") $("help").hidden = true; });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") $("help").hidden = true; if (e.key === "?" && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) $("help").hidden = !$("help").hidden; });
