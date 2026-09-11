@@ -67,7 +67,7 @@ The Point panel has a sticky jump bar with one chip per section (Lake, Watershed
 
 ## Panel and layout
 
-On a desktop browser, drag the left edge of the right panel to make it wider or narrower (300 px up to 70% of the window; remembered). On phones, drag the bottom sheet's header up or down to any height, or tap it to step between peek, half and full. Stations, Gauges and Radar are quick toggles in the header; the other overlays are under **Layers ▾**, grouped Water / Land / Hazards & subsurface, each with its minimum zoom; turning one on while zoomed out shows a status note until you zoom in.
+On a desktop browser, drag the left edge of the right panel to make it wider or narrower (300 px up to 70% of the window; remembered). On phones the header controls scroll sideways; a fade and a › button show when more sit off-screen, and first-time visitors get a one-time swipe nudge. Drag the bottom sheet's header up or down to any height, or tap it to step between peek, half and full. Stations, Gauges and Radar are quick toggles in the header; the other overlays are under **Layers ▾**, grouped Water / Land / Hazards & subsurface, each with its minimum zoom; turning one on while zoomed out shows a status note until you zoom in.
 
 ## Wells and borings (County Well Index)
 

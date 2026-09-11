@@ -109,6 +109,28 @@ function buildControls() {
   $("map").addEventListener("pointerdown", () => { if (!$("map-hint").hidden) dismissHint(); }, true);
   ["select:point", "select:station", "select:gauge"].forEach((ev) => on(ev, () => dismissHint()));
   const mobile = () => window.matchMedia("(max-width: 900px)").matches;
+  // phone control strip: fade + arrow while more controls sit off-screen, and a one-time "swipe" nudge
+  const strip = document.querySelector(".controls"), more = $("strip-more"), sHint = $("strip-hint");
+  const placeStrip = () => { const r = strip.getBoundingClientRect(); const y = Math.round(r.top + r.height / 2 - 15); more.style.top = `${y}px`; sHint.style.top = `${y + 1}px`; };
+  const updateStrip = () => {
+    if (!mobile()) { $("topbar").classList.remove("can-right", "can-left"); more.hidden = true; return; }
+    const canRight = strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 4, canLeft = strip.scrollLeft > 4;
+    $("topbar").classList.toggle("can-right", canRight); $("topbar").classList.toggle("can-left", canLeft);
+    more.hidden = !canRight; placeStrip();
+  };
+  more.addEventListener("click", () => strip.scrollBy({ left: Math.round(strip.clientWidth * 0.7), behavior: "smooth" }));
+  let bouncing = false;
+  strip.addEventListener("scroll", () => { updateStrip(); if (!bouncing && !sHint.hidden && strip.scrollLeft > 30) { sHint.hidden = true; try { localStorage.setItem("nh-strip-hint", "1"); } catch {} } }, { passive: true });
+  window.addEventListener("resize", updateStrip);
+  setTimeout(updateStrip, 50);
+  setTimeout(() => {
+    if (!mobile() || strip.scrollWidth <= strip.clientWidth + 4) return;
+    try { if (localStorage.getItem("nh-strip-hint") === "1") return; } catch {}
+    placeStrip(); sHint.hidden = false;
+    // bounce the strip once so the motion itself shows it scrolls
+    bouncing = true; strip.scrollTo({ left: 70, behavior: "smooth" }); setTimeout(() => strip.scrollTo({ left: 0, behavior: "smooth" }), 700); setTimeout(() => { bouncing = false; }, 1800);
+    setTimeout(() => { if (!sHint.hidden) { sHint.hidden = true; try { localStorage.setItem("nh-strip-hint", "1"); } catch {} } }, 9000);
+  }, 1500);
   const sheet = (st) => { $("panel").dataset.sheet = st; $("panel").style.height = ""; $("panel").classList.toggle("open", st !== "peek"); };
   // desktop: drag the panel's left edge to resize; remembered
   try { const w = localStorage.getItem("nh-panel-w"); if (w) document.documentElement.style.setProperty("--panel-w", w.trim()); } catch {}
