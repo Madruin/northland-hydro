@@ -50,7 +50,8 @@ function buildControls() {
   const cty = $("ctl-county");
   COUNTIES.filter((c) => c.tsa3).forEach((c) => cty.append(new Option(c.name + " County", c.fips)));
   const bm = $("ctl-basemap");
-  Object.entries(BASEMAPS).forEach(([id, b]) => bm.append(new Option(b.label, id)));
+  const groups = new Map();
+  Object.entries(BASEMAPS).forEach(([id, b]) => { if (!b.group) { bm.append(new Option(b.label, id)); return; } if (!groups.has(b.group)) { const g = document.createElement("optgroup"); g.label = b.group; bm.append(g); groups.set(b.group, g); } groups.get(b.group).append(new Option(b.label, id)); });
   bm.value = state.basemap;
   $("ctl-qpe").value = state.qpeWindow;
   $("tg-precip").classList.toggle("on", state.layers.stations);

@@ -5,7 +5,7 @@ export const APP = {
   name: "Northland Eco",
   userAgent: "northland-hydro (valeromatias@gmail.com)", // NWS asks for a contact UA
   version: "0.1.0",
-  build: "20260911-2020-943ec2d",
+  build: "20260911-2024-d63b120",
 };
 
 // Working extent: MN SWCD TSA3 counties plus a margin (W, S, E, N)
@@ -95,20 +95,28 @@ export const WINDOWS = [
   { days: 60, label: "60 days" }, { days: 90, label: "90 days" },
 ];
 
+// MnGeo Geospatial Image Service (wmsll endpoint serves EPSG:3857). WMS draws later layers on top and leaves their
+// no-data areas transparent, so a county orthophoto listed after the statewide FSA base shows only where it exists.
+const MNWMS = "https://imageserver.gisdata.mn.gov/cgi-bin/wmsll?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&STYLES=&CRS=EPSG:3857&BBOX={bbox-epsg-3857}&WIDTH=512&HEIGHT=512&FORMAT=image/jpeg&LAYERS=";
+const imagery = (layers, attribution) => ({ version: 8, glyphs: "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+  sources: { mn: { type: "raster", tileSize: 512, minzoom: 6, maxzoom: 20, attribution, tiles: [MNWMS + layers] } }, layers: [{ id: "mn", type: "raster", source: "mn" }] });
 export const BASEMAPS = {
   light: { label: "Light", style: "https://tiles.openfreemap.org/styles/positron" },
   streets: { label: "Streets", style: "https://tiles.openfreemap.org/styles/liberty" },
   dark: { label: "Dark", style: "https://tiles.openfreemap.org/styles/dark" },
-  mnimg: { label: "Imagery (sharpest: county 6 in / 1 ft)", style: {
-    version: 8, glyphs: "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf", sources: { mn: { type: "raster", tileSize: 512, minzoom: 6, maxzoom: 20, attribution: "MnGeo aerial imagery (county, MnDOT, FSA)",
-      tiles: ["https://imageserver.gisdata.mn.gov/cgi-bin/wmsll?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&STYLES=&CRS=EPSG:3857&BBOX={bbox-epsg-3857}&WIDTH=512&HEIGHT=512&FORMAT=image/jpeg&LAYERS=fsa2025,nc13ft,carlton21,lake24"] } },
-    layers: [{ id: "mn", type: "raster", source: "mn" }] } },
-  mnfsa: { label: "Imagery (newest: 2025 FSA)", style: {
-    version: 8, glyphs: "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf", sources: { mn: { type: "raster", tileSize: 512, minzoom: 6, maxzoom: 20, attribution: "MnGeo / USDA FSA 2025 imagery",
-      tiles: ["https://imageserver.gisdata.mn.gov/cgi-bin/wmsll?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&STYLES=&CRS=EPSG:3857&BBOX={bbox-epsg-3857}&WIDTH=512&HEIGHT=512&FORMAT=image/jpeg&LAYERS=fsa2025"] } },
-    layers: [{ id: "mn", type: "raster", source: "mn" }] } },
-  imagery: { label: "Imagery (USGS)", style: {
-    version: 8, glyphs: "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf", sources: { usgs: { type: "raster", tileSize: 256, attribution: "USGS The National Map",
-      tiles: ["https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}"] } },
-    layers: [{ id: "usgs", type: "raster", source: "usgs" }] } },
+  imagery: { label: "Imagery · newest (2025 FSA, 60 cm)", style: imagery("fsa2025", "USDA FSA 2025 via MnGeo") },
+  imgsharp: { label: "Imagery · sharpest (county 6 in / 1 ft, 2009–24)", style: imagery("fsa2025,neclr2009,dul09,nc13ft,carlton21,lake24", "MnGeo: county, MnDOT and FSA imagery") },
+  imglake24: { group: "Imagery by year", label: "2024 Lake County 6 in", style: imagery("fsa2025,lake24", "Lake County 2024 via MnGeo") },
+  img2023: { group: "Imagery by year", label: "2023 FSA", style: imagery("fsa2023", "USDA FSA 2023 via MnGeo") },
+  img2021: { group: "Imagery by year", label: "2021 FSA · Carlton 6 in", style: imagery("fsa2021,carlton21", "USDA FSA 2021, Carlton County 2021 via MnGeo") },
+  img2019: { group: "Imagery by year", label: "2019 FSA · Lake & Carlton 6 in", style: imagery("fsa2019,carl19,lake19", "USDA FSA 2019, Lake and Carlton counties 2019 via MnGeo") },
+  img2017: { group: "Imagery by year", label: "2017 FSA", style: imagery("fsa2017", "USDA FSA 2017 via MnGeo") },
+  img2015: { group: "Imagery by year", label: "2015 FSA · Carlton 9 in", style: imagery("fsa2015,carl15_9", "USDA FSA 2015, Carlton County 2015 via MnGeo") },
+  img2013: { group: "Imagery by year", label: "2013 FSA · north-central 1 ft", style: imagery("fsa2013,nc13ft", "USDA FSA 2013, MnDOT/MnGeo north-central 2013 via MnGeo") },
+  img2010: { group: "Imagery by year", label: "2010 FSA", style: imagery("fsa2010", "USDA FSA 2010 via MnGeo") },
+  img2009: { group: "Imagery by year", label: "2009 FSA · Arrowhead & Duluth", style: imagery("fsa2009,neclr2009,dul09", "USDA FSA 2009, Arrowhead and Duluth 2009 via MnGeo") },
+  img2008: { group: "Imagery by year", label: "2008 FSA", style: imagery("fsa2008", "USDA FSA 2008 via MnGeo") },
+  img2003: { group: "Imagery by year", label: "2003 FSA", style: imagery("fsa", "USDA FSA 2003 via MnGeo") },
+  img1991: { group: "Imagery by year", label: "1991 USGS black & white", style: imagery("doq", "USGS 1991 DOQ via MnGeo") },
 };
+
