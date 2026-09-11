@@ -88,9 +88,15 @@ function buildControls() {
   tl.addEventListener("change", (e) => { const id = e.target.dataset.terrain; if (!id) return; state.terrain[id] = e.target.checked; setTerrainVisible(id, e.target.checked); updateTerrainButton(); renderLegend(); syncUrl(); });
   $("terrain-opacity").value = String(Math.round(state.terrainOpacity * 100));
   $("terrain-opacity").addEventListener("input", (e) => { state.terrainOpacity = Number(e.target.value) / 100; setTerrainOpacity(state.terrainOpacity); syncUrl(); });
-  $("tg-terrain").addEventListener("click", (e) => { e.stopPropagation(); $("terrain-menu").hidden = !$("terrain-menu").hidden; });
-  document.addEventListener("click", (e) => { if (!e.target.closest(".menu-wrap")) $("terrain-menu").hidden = true; });
-  updateTerrainButton();
+  $("tg-terrain").addEventListener("click", (e) => { e.stopPropagation(); const open = $("terrain-menu").hidden; closeMenus(); $("terrain-menu").hidden = !open; });
+  $("btn-layers").addEventListener("click", (e) => { e.stopPropagation(); const open = $("layers-menu").hidden; closeMenus(); $("layers-menu").hidden = !open; updateLayerRows(); });
+  document.addEventListener("click", (e) => { if (!e.target.closest(".menu-wrap")) closeMenus(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeMenus(); });
+  on("map:ready", () => map.on("moveend", () => { if (!$("layers-menu").hidden) updateLayerRows(); }));
+  updateTerrainButton(); updateLayersButton();
+  // first-visit hint: click the map
+  $("map-hint-x").addEventListener("click", () => dismissHint());
+  ["select:point", "select:station", "select:gauge"].forEach((ev) => on(ev, () => dismissHint()));
   const mobile = () => window.matchMedia("(max-width: 900px)").matches;
   const sheet = (st) => { $("panel").dataset.sheet = st; $("panel").classList.toggle("open", st !== "peek"); };
   $("panel-toggle").addEventListener("click", () => {
@@ -107,6 +113,7 @@ function buildControls() {
   // menus are position:fixed on phones; place them under their button
   const placeMenu = (btn, menu) => { if (!mobile()) return; const r = btn.getBoundingClientRect(); menu.style.top = `${Math.round(r.bottom + 6)}px`; };
   $("tg-terrain").addEventListener("click", () => placeMenu($("tg-terrain"), $("terrain-menu")));
+  $("btn-layers").addEventListener("click", () => placeMenu($("btn-layers"), $("layers-menu")));
   $("ctl-search").addEventListener("focus", () => { $("ctl-search").classList.add("open"); placeMenu($("ctl-search"), $("search-results")); });
   $("ctl-search").addEventListener("pointerdown", () => { $("ctl-search").classList.add("open"); placeMenu($("ctl-search"), $("search-results")); });
   $("ctl-search").addEventListener("blur", () => { if (!$("ctl-search").value) $("ctl-search").classList.remove("open"); });
@@ -123,6 +130,24 @@ function buildControls() {
     }
   });
 }
+const MENU_LAYERS = ["streams", "crossings", "trout", "soils", "parcels", "wetlands", "fema", "karst", "wells"];
+function closeMenus() { document.querySelectorAll(".menu-wrap .menu").forEach((m) => { m.hidden = true; }); }
+function updateLayersButton() {
+  const n = MENU_LAYERS.filter((k) => state.layers[k]).length;
+  $("btn-layers").classList.toggle("on", n > 0);
+  $("btn-layers").textContent = n ? `Layers (${n}) ▾` : "Layers ▾";
+}
+function updateLayerRows() {
+  const z = map?.getZoom?.() ?? 99;
+  document.querySelectorAll(".layer-row[data-minzoom]").forEach((r) => r.classList.toggle("far", z < Number(r.dataset.minzoom) - 0.01));
+}
+let hintShown = false;
+function showHintOnce() {
+  try { if (localStorage.getItem("nh-hint") === "1") return; } catch {}
+  if (hintShown) return; hintShown = true;
+  setTimeout(() => { if ($("help").hidden) $("map-hint").hidden = false; else $("help-close").addEventListener("click", () => ($("map-hint").hidden = false), { once: true }); }, 400);
+}
+function dismissHint() { $("map-hint").hidden = true; try { localStorage.setItem("nh-hint", "1"); } catch {} }
 function updateTerrainButton() {
   const n = Object.values(state.terrain).filter(Boolean).length;
   $("tg-terrain").classList.toggle("on", n > 0);
@@ -140,6 +165,9 @@ function toggleLayer(name, force) {
   if (name === "soils") setSoilsEnabled(on);
   if (name === "parcels") setParcelsEnabled(on);
   $(btn).classList.toggle("on", on);
+  updateLayersButton();
+  const row = $(btn); const mz = Number(row?.dataset?.minzoom);
+  if (on && mz && map?.getZoom?.() < mz - 0.01) setStatus(`${row.dataset.label} loads at zoom ${mz}+ (now ${map.getZoom().toFixed(0)}). Zoom in to see it.`);
   renderLegend(); syncUrl();
 }
 function renderLegend() {
@@ -164,7 +192,7 @@ async function refreshPrecipNow() {
   try {
     const list = await track("stations", loadPrecip({ endDate: state.endDate, days: state.days }));
     setStatus(`${list.filter((s) => !s.missingAll).length} stations reporting · ${state.days === 1 ? state.endDate : state.days + "-day window ending " + state.endDate}`);
-    if (!firstLoadDone) { firstLoadDone = true; try { if (localStorage.getItem("nh-visited") !== "1") { localStorage.setItem("nh-visited", "1"); $("help").hidden = false; } } catch {} }
+    if (!firstLoadDone) { firstLoadDone = true; try { if (localStorage.getItem("nh-visited") !== "1") { localStorage.setItem("nh-visited", "1"); $("help").hidden = false; } } catch {} showHintOnce(); }
     renderLegend();
     if (!state.selection || state.selection.type === "region") renderRegion();
     else if (state.selection.type === "station") renderStation(state.selection.id);

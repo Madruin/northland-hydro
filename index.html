@@ -5,7 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Northland Hydro — rain, rivers and Lake Superior for NE Minnesota</title>
   <meta name="description" content="Live rainfall (CoCoRaHS/COOP/ASOS), radar precipitation estimates, USGS and MN DNR stream gauges, NWS forecasts and Lake Superior levels for the TSA3 counties of northeastern Minnesota." />
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌧️</text></svg>" />
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="assets/icon-180.png" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#16213a" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Northland Hydro" />
+  <meta property="og:description" content="Rainfall, stream gauges, radar, watersheds, soils, wetlands, flood zones, wells and lidar for northeastern Minnesota, in one map. Built by MN SWCD TSA3." />
+  <meta property="og:image" content="https://madruin.github.io/northland-hydro/assets/og.png" />
+  <meta property="og:image:width" content="1200" /><meta property="og:image:height" content="630" />
+  <meta property="og:url" content="https://madruin.github.io/northland-hydro/" />
+  <meta name="twitter:card" content="summary_large_image" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/5.6.0/maplibre-gl.css" />
   <link rel="stylesheet" href="css/app.css" />
 </head>
@@ -38,21 +48,31 @@
       <div class="ctl toggles" role="group" aria-label="Layers">
         <span>Layers</span>
         <button class="toggle on" id="tg-precip" title="Observed precipitation at CoCoRaHS, COOP and ASOS stations (RCC-ACIS)">Stations</button>
-        <button class="toggle" id="tg-qpe" title="NWS radar-derived precipitation estimate (RFC QPE)">Radar QPE</button>
+        <button class="toggle on" id="tg-gauges" title="USGS + MN DNR/MPCA stream gauges">Gauges</button>
+        <button class="toggle" id="tg-qpe" title="NWS radar-derived precipitation estimate (RFC QPE)">Radar</button>
         <select id="ctl-qpe" title="QPE accumulation window">
           <option value="1h">1 h</option><option value="3h">3 h</option><option value="6h">6 h</option>
           <option value="12h">12 h</option><option value="24h" selected>24 h</option><option value="since12z">Since 12Z</option>
         </select>
-        <button class="toggle on" id="tg-gauges" title="USGS + MN DNR/MPCA stream gauges">Gauges</button>
-        <button class="toggle" id="tg-streams" title="USGS StreamStats stream grid: the mapped stream cells that delineation runs on (zoom 13+)">Streams</button>
-        <button class="toggle" id="tg-soils" title="NRCS SSURGO soils colored by hydrologic soil group (zoom 12+)">Soils</button>
-        <button class="toggle" id="tg-parcels" title="County tax parcels with owner names (zoom 14+)">Parcels</button>
-        <button class="toggle" id="tg-wetlands" title="National Wetlands Inventory, Minnesota update (zoom 11+)">Wetlands</button>
-        <button class="toggle" id="tg-fema" title="FEMA flood zones, floodways, BFEs, cross sections, LOMRs (zoom 12+)">FEMA</button>
-        <button class="toggle" id="tg-crossings" title="DNR culvert inventory surveys and National Bridge Inventory structures (zoom 10+)">Crossings</button>
-        <button class="toggle" id="tg-wells" title="County Well Index wells and borings colored by depth to bedrock, DNR drill holes (zoom 12+)">Wells</button>
-        <button class="toggle" id="tg-trout" title="DNR designated trout streams (zoom 9+)">Trout</button>
-        <button class="toggle" id="tg-karst" title="Karst-prone bedrock, sinkholes and springs (zoom 9+)">Karst</button>
+        <div class="menu-wrap"><button class="toggle" id="btn-layers" title="Water, land, hazard and subsurface layers">Layers ▾</button>
+          <div class="menu layers-menu" id="layers-menu" hidden>
+            <div class="menu-title">Map layers <span class="small">· each loads for the current view once you are zoomed in far enough</span></div>
+            <div class="layer-group"><div class="group-name">Water</div>
+              <button class="layer-row" id="tg-streams" data-minzoom="13" data-label="Streams"><span class="lr-box"></span><span class="lr-text"><span class="lr-name">Streams</span><span class="lr-desc">StreamStats stream grid the delineation snaps to</span></span><span class="lr-zoom">zoom 13+</span></button>
+              <button class="layer-row" id="tg-crossings" data-minzoom="10" data-label="Crossings"><span class="lr-box"></span><span class="lr-text"><span class="lr-name">Crossings</span><span class="lr-desc">DNR culvert surveys, NBI bridges and culverts</span></span><span class="lr-zoom">zoom 10+</span></button>
+              <button class="layer-row" id="tg-trout" data-minzoom="9" data-label="Trout streams"><span class="lr-box"></span><span class="lr-text"><span class="lr-name">Trout streams</span><span class="lr-desc">DNR designated trout streams and tributaries</span></span><span class="lr-zoom">zoom 9+</span></button>
+            </div>
+            <div class="layer-group"><div class="group-name">Land</div>
+              <button class="layer-row" id="tg-soils" data-minzoom="12" data-label="Soils"><span class="lr-box"></span><span class="lr-text"><span class="lr-name">Soils</span><span class="lr-desc">SSURGO hydrologic soil groups A–D</span></span><span class="lr-zoom">zoom 12+</span></button>
+              <button class="layer-row" id="tg-parcels" data-minzoom="14" data-label="Parcels"><span class="lr-box"></span><span class="lr-text"><span class="lr-name">Parcels</span><span class="lr-desc">County tax parcels with owner names</span></span><span class="lr-zoom">zoom 14+</span></button>
+              <button class="layer-row" id="tg-wetlands" data-minzoom="11" data-label="Wetlands"><span class="lr-box"></span><span class="lr-text"><span class="lr-name">Wetlands</span><span class="lr-desc">MN National Wetlands Inventory update</span></span><span class="lr-zoom">zoom 11+</span></button>
+            </div>
+            <div class="layer-group"><div class="group-name">Hazards &amp; subsurface</div>
+              <button class="layer-row" id="tg-fema" data-minzoom="12" data-label="FEMA flood"><span class="lr-box"></span><span class="lr-text"><span class="lr-name">FEMA flood</span><span class="lr-desc">Floodways, 1% and 0.2% zones, BFEs, cross sections</span></span><span class="lr-zoom">zoom 12+</span></button>
+              <button class="layer-row" id="tg-karst" data-minzoom="9" data-label="Karst"><span class="lr-box"></span><span class="lr-text"><span class="lr-name">Karst</span><span class="lr-desc">Karst-prone bedrock, sinkholes and springs</span></span><span class="lr-zoom">zoom 9+</span></button>
+              <button class="layer-row" id="tg-wells" data-minzoom="12" data-label="Wells &amp; borings"><span class="lr-box"></span><span class="lr-text"><span class="lr-name">Wells &amp; borings</span><span class="lr-desc">County Well Index logs, depth to bedrock, drill holes</span></span><span class="lr-zoom">zoom 12+</span></button>
+            </div>
+          </div></div>
         <div class="menu-wrap"><button class="toggle" id="tg-terrain" title="MnTOPO lidar hillshade, DEM and contours">Terrain ▾</button>
           <div class="menu" id="terrain-menu" hidden>
             <div class="menu-title">MnTOPO lidar layers</div>
@@ -83,6 +103,7 @@
       <div id="map" role="application" aria-label="Map"></div>
       <div id="legend" class="floating"><button id="legend-toggle" class="legend-toggle" title="Show/hide legend">Legend ▾</button><div id="legend-body"></div></div>
       <div id="status" class="floating"><span id="status-text">Loading…</span></div>
+      <div id="map-hint" class="floating" hidden><span>Click anywhere on the map for rainfall, soils, flood zones, wells and a watershed at that spot.</span><button id="map-hint-x" title="Dismiss">✕</button></div>
     </div>
 
     <aside id="panel" class="open">
@@ -123,7 +144,7 @@
         <h4>Controls</h4>
         <ul>
           <li><b>End date / Window</b>: the station colors and all totals follow these. ← → step the date; the ‹ › buttons do the same.</li>
-          <li><b>Layers</b>: Stations, radar QPE (NWS estimate for the last 1–24 h), Gauges, Streams (StreamStats grid), Soils (hydrologic soil group), Parcels, Wetlands (MN NWI update with Cowardin and Circular 39 codes), FEMA (effective flood zones and floodways, BFE lines, lettered cross sections, LOMRs), Crossings (DNR culvert surveys with span-vs-bankfull and passage, plus NBI bridges and large culverts with condition ratings), Wells (County Well Index wells and borings colored by depth to bedrock, with driller logs; DNR drill holes), Trout (DNR designated trout streams), Karst (karst-prone bedrock, sinkholes, springs), and Terrain (MnTOPO lidar hillshade, DEM and contours).</li>
+          <li><b>Layers</b> (Stations, Gauges and Radar are on the bar; everything else is under <b>Layers ▾</b>, grouped Water / Land / Hazards &amp; subsurface, each with its minimum zoom): Stations, radar QPE (NWS estimate for the last 1–24 h), Gauges, Streams (StreamStats grid), Soils (hydrologic soil group), Parcels, Wetlands (MN NWI update with Cowardin and Circular 39 codes), FEMA (effective flood zones and floodways, BFE lines, lettered cross sections, LOMRs), Crossings (DNR culvert surveys with span-vs-bankfull and passage, plus NBI bridges and large culverts with condition ratings), Wells (County Well Index wells and borings colored by depth to bedrock, with driller logs; DNR drill holes), Trout (DNR designated trout streams), Karst (karst-prone bedrock, sinkholes, springs), and Terrain (MnTOPO lidar hillshade, DEM and contours).</li>
           <li><b>Search</b> ( / ): gauge, station, project or place name.</li>
           <li><b>Watershed</b> (Point tab): delineates with USGS StreamStats, returns basin characteristics and regression flows, and runs the TSA3 regional curves for bankfull dimensions. Save results to a project.</li>
           <li><b>CAD export</b>: draw a rectangle and download imagery, lidar DEM and contours in UTM 15N US feet, with Civil 3D steps.</li>
