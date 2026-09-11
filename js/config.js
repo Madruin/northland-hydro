@@ -1,11 +1,11 @@
-// Region, endpoints and styling constants for Northland Hydro.
+// Region, endpoints and styling constants for Northland Eco.
 // Everything here is public, key-free, and (except where noted) CORS-enabled.
 
 export const APP = {
-  name: "Northland Hydro",
+  name: "Northland Eco",
   userAgent: "northland-hydro (valeromatias@gmail.com)", // NWS asks for a contact UA
   version: "0.1.0",
-  build: "20260911-1626-5b69480",
+  build: "20260911-1655-104e46c",
 };
 
 // Working extent: MN SWCD TSA3 counties plus a margin (W, S, E, N)

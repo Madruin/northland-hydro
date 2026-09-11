@@ -9,7 +9,7 @@ const dt = (iso) => (iso ? new Date(iso).toLocaleString(undefined, { month: "sho
 let doc = null;
 try { doc = JSON.parse(localStorage.getItem("nh-report") || "null"); } catch {}
 const root = document.getElementById("report");
-if (!doc) root.innerHTML = `<p>No report data found. Open Northland Hydro, choose a point or project, and use "Print report".</p>`;
+if (!doc) root.innerHTML = `<p>No report data found. Open Northland Eco, choose a point or project, and use "Print report".</p>`;
 else render(doc);
 
 document.getElementById("btn-json").onclick = () => {
@@ -92,7 +92,7 @@ function render(d) {
     <p class="note">Bankfull dimensions are planning-level estimates from regional survey data; verify with a field bankfull survey before design.</p>` : ""}
 
     ${d.sections?.length ? `<h2 class="pb">7. Site conditions at the point</h2>
-    <p class="note">Lake, stream crossing, FEMA flood hazard, wetland, parcel, soils and well records for the point, as shown in the Northland Hydro Point panel at ${dt(d.generatedAt)}.</p>
+    <p class="note">Lake, stream crossing, FEMA flood hazard, wetland, parcel, soils and well records for the point, as shown in the Northland Eco Point panel at ${dt(d.generatedAt)}.</p>
     ${d.sections.map((s) => `<section class="sec">${s.html}</section>`).join("")}` : ""}
     <h2>Sources and methods</h2>
     <ol class="sources">

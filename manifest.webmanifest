@@ -1,6 +1,6 @@
 {
-  "name": "Northland Hydro",
-  "short_name": "Hydro",
+  "name": "Northland Eco",
+  "short_name": "Northland Eco",
   "description": "Rainfall, gauges, watersheds, soils, wetlands, flood zones, wells and lidar for NE Minnesota.",
   "start_url": "./",
   "display": "standalone",

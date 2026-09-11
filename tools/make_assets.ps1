@@ -50,7 +50,7 @@ $grey = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(2
 $fTitle = New-Object System.Drawing.Font "Segoe UI", 64, ([System.Drawing.FontStyle]::Bold)
 $fSub = New-Object System.Drawing.Font "Segoe UI", 28
 $fSmall = New-Object System.Drawing.Font "Segoe UI", 20
-$g.DrawString("Northland Hydro", $fTitle, $white, 210, 130)
+$g.DrawString("Northland Eco", $fTitle, $white, 210, 130)
 $g.DrawString("Rain, rivers, watersheds, soils, wetlands,", $fSub, $grey, 216, 250)
 $g.DrawString("flood zones, wells and lidar for NE Minnesota", $fSub, $grey, 216, 292)
 $g.DrawString("One map for site investigation  |  MN SWCD Technical Service Area 3", $fSmall, $grey, 216, 400)

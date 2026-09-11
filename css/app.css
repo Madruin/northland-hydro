@@ -17,7 +17,7 @@ button, select, input { font: inherit; color: inherit; }
   background: var(--bg2); border-bottom: 1px solid var(--line); position: relative; z-index: 20;
 }
 .brand { display: flex; align-items: center; gap: 10px; min-width: 210px; }
-.brand .logo { font-size: 26px; }
+.brand .logo { font-size: 26px; width: 30px; height: 30px; border-radius: 50%; display: block; }
 .brand .title { font-weight: 700; font-size: 17px; letter-spacing: .2px; }
 .brand .subtitle { font-size: 11px; color: var(--fg3); }
 .controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; flex: 1; }

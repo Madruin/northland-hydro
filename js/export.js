@@ -198,7 +198,7 @@ function dims(res, cap) {
 }
 function readme(name) {
   const a = aoi;
-  return `Northland Hydro AOI export: ${name}
+  return `Northland Eco AOI export: ${name}
 Generated ${new Date().toISOString()} from https://northland.eco/
 
 COORDINATE SYSTEM
@@ -335,7 +335,7 @@ function writeDxf(lines, name) {
   };
   for (const l of lines) poly(l.layer, l.pts, l.level, l.closed);
   poly("AOI-BOUNDARY", [[a.ft[0], a.ft[1]], [a.ft[2], a.ft[1]], [a.ft[2], a.ft[3]], [a.ft[0], a.ft[3]]], 0, true);
-  add(0, "TEXT"); add(8, "AOI-BOUNDARY"); add(10, a.ft[0].toFixed(3)); add(20, (a.ft[3] + 20).toFixed(3)); add(30, 0); add(40, 10); add(1, `${name} - NAD83 UTM 15N US ft, NAVD88 ft - Northland Hydro ${new Date().toISOString().slice(0, 10)}`);
+  add(0, "TEXT"); add(8, "AOI-BOUNDARY"); add(10, a.ft[0].toFixed(3)); add(20, (a.ft[3] + 20).toFixed(3)); add(30, 0); add(40, 10); add(1, `${name} - NAD83 UTM 15N US ft, NAVD88 ft - Northland Eco ${new Date().toISOString().slice(0, 10)}`);
   add(0, "ENDSEC"); add(0, "EOF");
   return o.join("\r\n") + "\r\n";
 }

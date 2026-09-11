@@ -1,4 +1,4 @@
-# Northland Hydro
+# Northland Eco (repo: northland-hydro)
 
 > **PROJECT.md** is the project guide: motivation, inspiration, every data source with what we learned about it, design decisions, validation status and roadmap. Start there if you are new or resuming work.
 
