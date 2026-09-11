@@ -104,7 +104,7 @@ export async function renderFemaAt(container, lon, lat) {
     container.innerHTML = `<h3>FEMA flood hazard at this point</h3>
       <div class="stat-row">
         <div class="stat ${inFloodway ? "bad" : inSfha ? "warn" : ""}"><div class="v">${escapeHtml(pp.FLD_ZONE)}${inFloodway ? " FW" : ""}</div><div class="l">flood zone</div><div class="s">${escapeHtml(st.label)}</div></div>
-        <div class="stat"><div class="v">${pp.STATIC_BFE > -9999 ? fmt(pp.STATIC_BFE, 1) : bfeRows[0] ? fmt(bfeRows[0].ELEV, 1) : "–"}</div><div class="l">BFE, ft ${escapeHtml(pp.V_DATUM || bfeRows[0]?.V_DATUM || "")}</div><div class="s">${pp.STATIC_BFE > -9999 ? "static zone BFE" : bfeRows[0] ? `nearest BFE line, ${fmtNum(bfeRows[0].m * 3.281)} ft away` : "none mapped (Zone A or X)"}</div></div>
+        <div class="stat"><div class="v">${pp.STATIC_BFE > -9999 ? fmt(pp.STATIC_BFE, 1) : bfeRows[0] ? fmt(bfeRows[0].ELEV, 1) : "–"}</div><div class="l">1% (100-yr) BFE, ft ${escapeHtml(pp.V_DATUM || bfeRows[0]?.V_DATUM || "")}</div><div class="s">${pp.STATIC_BFE > -9999 ? "static zone BFE" : bfeRows[0] ? `nearest BFE line, ${fmtNum(bfeRows[0].m * 3.281)} ft away` : "none mapped (Zone A or X)"}</div></div>
         <div class="stat"><div class="v" style="font-size:13px">${p ? escapeHtml(p.FIRM_PAN) : "–"}</div><div class="l">FIRM panel</div><div class="s">${p?.EFF_DATE ? "effective " + new Date(p.EFF_DATE).toLocaleDateString() : ""}${p?.PANEL_TYP ? " · " + escapeHtml(p.PANEL_TYP) : ""}</div></div>
       </div>
       ${zf.length > 1 ? `<div class="small">Zones intersecting the point: ${zf.map((f) => escapeHtml(f.properties.FLD_ZONE + (f.properties.ZONE_SUBTY ? " (" + titleCase(f.properties.ZONE_SUBTY) + ")" : ""))).join("; ")}.</div>` : ""}
@@ -120,6 +120,7 @@ export async function renderFemaAt(container, lon, lat) {
         ${fips === "27" ? `<a class="btn" href="https://www.dnr.state.mn.us/waters/watermgmt_section/floodplain/index.html" target="_blank" rel="noopener">MnDNR floodplain program</a>` : ""}
         <a class="btn" href="https://www.fema.gov/flood-maps/change-your-flood-zone/paperwork" target="_blank" rel="noopener">MT-2 (CLOMR/LOMR) forms</a>
       </div>
+      <div class="small"><b>Flood elevations.</b> The 1% (100-year) water surface is the BFE above and the regulatory WSEL at each cross section. FEMA does not serve the 0.2% (500-year), 2% or 10% elevations as data: they are in the Flood Insurance Study's flood profiles and Floodway Data Table, indexed by the cross-section letters listed here. Open the FIS via the Map Service Center for this panel${xsRows.length ? ` and look up ${escapeHtml(xsRows.filter((r) => r.XS_LTR).map((r) => r.XS_LTR).slice(0, 4).join(", ") || "the nearest lettered section")} on ${escapeHtml(xsRows[0].WTR_NM || "the studied stream")}` : ""}.</div>
       <div class="small">Effective NFHL data from FEMA (${escapeHtml(pp.DFIRM_ID || "")}, ${escapeHtml(pp.SOURCE_CIT || "")}). Pending or preliminary maps are not shown; confirm with the community floodplain administrator before design.</div>`;
   } catch (e) { container.innerHTML = `<h3>FEMA flood hazard at this point</h3><div class="notice">NFHL request failed: ${escapeHtml(e.message)}</div>`; }
 }

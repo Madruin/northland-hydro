@@ -4,3 +4,7 @@ __pycache__/
 *.html.bak
 nwi_page.html
 wf.html
+# API probe dumps
+/*.json
+!/version.json
+/*.geojson
