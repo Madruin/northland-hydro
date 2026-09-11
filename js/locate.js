@@ -50,7 +50,7 @@ export class LocateControl {
     }, (err) => {
       this.stop();
       const msg = err.code === 1
-        ? "Location is blocked for this site. Click the lock icon in the address bar, allow Location for northland.eco, then try again."
+        ? `Location is blocked for this site. Click the lock icon in the address bar, allow Location for ${location.hostname}, then try again.`
         : err.code === 2 ? "Location unavailable (no GPS fix). Try again outdoors or on a phone." : "Location request timed out. Try again.";
       this.onStatus(msg, true);
     }, { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 });
