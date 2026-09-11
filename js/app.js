@@ -22,6 +22,7 @@ import { initFema, setFemaEnabled, femaLegendHtml } from "./fema.js";
 import { initCrossings, setCrossingsEnabled, crossingsLegendHtml } from "./crossings.js";
 import { initWells, setWellsEnabled, wellsLegendHtml } from "./wells.js";
 import { LocateControl } from "./locate.js";
+import { renderSources } from "./sources.js";
 import { MeasureControl } from "./measure.js";
 import { setHideUnclassified } from "./gauges.js";
 import { setGaugeFilter } from "./map.js";
@@ -68,7 +69,9 @@ function buildControls() {
   $("date-next").addEventListener("click", () => stepDate(1));
   $("date-today").addEventListener("click", () => stepDate(0));
   $("btn-share").addEventListener("click", async () => { syncUrl(); try { await navigator.clipboard.writeText(location.href); $("btn-share").textContent = "🔗 Copied"; } catch { prompt("Copy this link:", location.href); } setTimeout(() => ($("btn-share").textContent = "🔗 Link"), 1500); });
-  $("btn-help").addEventListener("click", () => ($("help").hidden = false));
+  $("btn-help").addEventListener("click", () => openHelp("guide"));
+  $("attrib-sources").addEventListener("click", (e) => { e.preventDefault(); openHelp("sources"); });
+  $("help").querySelectorAll(".mtab").forEach((b) => b.addEventListener("click", () => showHelpPane(b.dataset.pane)));
   $("help-close").addEventListener("click", () => ($("help").hidden = true));
   $("help").addEventListener("click", (e) => { if (e.target.id === "help") $("help").hidden = true; });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") $("help").hidden = true; if (e.key === "?" && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) $("help").hidden = !$("help").hidden; });
@@ -175,6 +178,14 @@ function showHintOnce() {
   setTimeout(() => { if ($("help").hidden) $("map-hint").hidden = false; else $("help-close").addEventListener("click", () => ($("map-hint").hidden = false), { once: true }); }, 400);
 }
 function dismissHint() { $("map-hint").hidden = true; try { localStorage.setItem("nh-hint", "1"); } catch {} }
+let sourcesRendered = false;
+function showHelpPane(pane) {
+  if (pane === "sources" && !sourcesRendered) { renderSources($("help-pane-sources")); sourcesRendered = true; }
+  $("help").querySelectorAll(".mtab").forEach((b) => b.classList.toggle("on", b.dataset.pane === pane));
+  $("help").querySelectorAll(".help-pane").forEach((p) => p.classList.toggle("on", p.id === "help-pane-" + pane));
+  $("help").querySelector(".modal-body").scrollTop = 0;
+}
+function openHelp(pane = "guide") { showHelpPane(pane); $("help").hidden = false; }
 function updateTerrainButton() {
   const n = Object.values(state.terrain).filter(Boolean).length;
   $("tg-terrain").classList.toggle("on", n > 0);

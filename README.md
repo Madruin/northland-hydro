@@ -53,6 +53,10 @@ Then **TSA3 regional curves** turn the drainage area into bankfull channel dimen
 
 **Flood elevations.** The NFHL publishes only the 1% (100-year) water surface: the BFE and the regulatory WSEL at each lettered cross section, both shown in the point section. The 0.2% (500-year), 2% and 10% elevations are not served as data anywhere in the NFHL; they exist only in the Flood Insurance Study's flood profiles and Floodway Data Table. The point section names the nearest cross-section letters so they can be read off the FIS profile for that stream (FIS link in the section).
 
+## Help dialog
+
+The **?** button opens the help dialog with two tabs: *How to use it* and *Sources & methods*. The second lists every data source (grouped as rainfall and weather; rivers, lakes and gauges; watersheds and channel design; terrain and imagery; soils, land and wetlands; flood hazard and infrastructure; subsurface; search, storage and hosting) with a link, what the site uses it for and any caveats, followed by the methods (windows, return periods, watershed, basin soils and bedrock, coordinates and measurement, CAD export, provisional data) and the software libraries with licenses. The list lives in `js/sources.js`; add an entry there whenever a source is added. The footer's *Sources* link opens the same tab.
+
 ## Map tools, coordinates and the Point panel
 
 The left edge of the map has zoom, **locate me** and **measure** buttons. Locate centers on your GPS position with an accuracy circle and follows you until you drag the map or click it again; if the browser has location blocked for the site, the status line says so and how to allow it (the built-in MapLibre control was replaced because it greys itself out permanently in that case). Measure has a distance mode and an area mode: click points, double-click or Enter to finish, Esc clears, ✕ exits. Segment lengths label the map; totals show in feet and miles, areas in acres, square feet and square miles, computed on the UTM 15N plane.

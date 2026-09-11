@@ -133,8 +133,9 @@
 
   <div id="help" class="modal" hidden>
     <div class="modal-box">
-      <div class="modal-head"><b>Northland Hydro</b> · how to use it <button id="help-close" title="Close">✕</button></div>
+      <div class="modal-head"><b>Northland Hydro</b><div class="modal-tabs"><button class="mtab on" data-pane="guide">How to use it</button><button class="mtab" data-pane="sources">Sources &amp; methods</button></div><button id="help-close" title="Close">✕</button></div>
       <div class="modal-body">
+        <div id="help-pane-guide" class="help-pane on">
         <p>One map for rainfall, stream gauges, forecast, Lake Superior, watersheds and lidar across the TSA3 counties. Everything loads live from public agency APIs; nothing is stored except the team project list.</p>
         <h4>Reading the map</h4>
         <ul>
@@ -161,12 +162,14 @@
           <li>PRISM grids lag 1–2 days. USGS and DNR values are provisional. Return periods use the nearest Atlas 14 grid node; use the official PFDS query for submittals.</li>
           <li>Regression flows take the region at the pour point, without area weighting or gage adjustment. Regional-curve dimensions are planning-level; verify with a bankfull survey.</li>
         </ul>
-        <p class="small">Sources: RCC-ACIS · USGS NWIS · MN DNR/MPCA CSG · NWS API & RFC QPE · Open-Meteo · NOAA CO-OPS · NOAA Atlas 14 · USGS StreamStats · MnGeo/MnTOPO · TSA3 regional curve workbooks. Built by the MN SWCD Technical Service Area 3 engineering office. Open source under the MIT license: <a href="https://github.com/Madruin/northland-hydro" target="_blank" rel="noopener">github.com/Madruin/northland-hydro</a>.</p>
+        <p class="small">Full list under <b>Sources &amp; methods</b> above. RCC-ACIS · USGS NWIS · MN DNR/MPCA CSG · NWS API & RFC QPE · Open-Meteo · NOAA CO-OPS · NOAA Atlas 14 · USGS StreamStats · MnGeo/MnTOPO · TSA3 regional curve workbooks. Built by the MN SWCD Technical Service Area 3 engineering office. Open source under the MIT license: <a href="https://github.com/Madruin/northland-hydro" target="_blank" rel="noopener">github.com/Madruin/northland-hydro</a>.</p>
+        </div>
+        <div id="help-pane-sources" class="help-pane"></div>
       </div>
     </div>
   </div>
   <footer id="attrib">
-    Data: <a href="https://www.rcc-acis.org/" target="_blank" rel="noopener">RCC-ACIS</a> (CoCoRaHS · COOP · ASOS) ·
+    <a href="#" id="attrib-sources" title="All data sources, methods and software">Sources</a> · Data: <a href="https://www.rcc-acis.org/" target="_blank" rel="noopener">RCC-ACIS</a> (CoCoRaHS · COOP · ASOS) ·
     <a href="https://waterdata.usgs.gov/" target="_blank" rel="noopener">USGS NWIS</a> ·
     <a href="https://www.dnr.state.mn.us/waters/csg/index.html" target="_blank" rel="noopener">MN DNR/MPCA CSG</a> ·
     <a href="https://www.weather.gov/documentation/services-web-api" target="_blank" rel="noopener">NWS API</a> ·
