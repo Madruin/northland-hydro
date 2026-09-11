@@ -11,10 +11,10 @@ let overlaysReady = false;
 const sources = { stations: { type: "FeatureCollection", features: [] }, gauges: { type: "FeatureCollection", features: [] }, projects: { type: "FeatureCollection", features: [] } };
 let pickCallback = null;
 let rect = null; // { cb, onFirst, a: [lon,lat] | null }
-const visibility = { stations: true, gauges: true, qpe: false, streams: false, soils: false, parcels: false, trout: false, karst: false };
+const visibility = { stations: true, gauges: true, qpe: false, streams: false, soils: false, parcels: false, trout: false, karst: false, wetlands: false };
 let parcelsData = { type: "FeatureCollection", features: [] };
 let lakeFeature = null;
-const OVERLAYS = { trout: "line", "karst-poly": "fill", "karst-pts": "point", springs: "point" };
+const OVERLAYS = { wetlands: "fill", trout: "line", "karst-poly": "fill", "karst-pts": "point", springs: "point" };
 const overlayData = {};
 let countyBboxCache = null;
 let soilsData = { type: "FeatureCollection", features: [] };
@@ -171,9 +171,9 @@ async function addOverlays() {
   for (const [id, kind] of Object.entries(OVERLAYS)) {
     if (map.getSource("ov-" + id)) continue;
     map.addSource("ov-" + id, { type: "geojson", data: overlayData[id] || { type: "FeatureCollection", features: [] } });
-    const vis = (id === "trout" ? visibility.trout : visibility.karst) ? "visible" : "none";
+    const vis = (id === "trout" ? visibility.trout : id === "wetlands" ? visibility.wetlands : visibility.karst) ? "visible" : "none";
     if (kind === "line") map.addLayer({ id: "ov-" + id, type: "line", source: "ov-" + id, layout: { visibility: vis, "line-cap": "round", "line-join": "round" }, paint: { "line-color": ["get", "color"], "line-width": ["interpolate", ["linear"], ["zoom"], 9, 1.2, 14, 3.2], "line-opacity": 0.9 } }, firstSymbol);
-    else if (kind === "fill") { map.addLayer({ id: "ov-" + id, type: "fill", source: "ov-" + id, layout: { visibility: vis }, paint: { "fill-color": "#c084fc", "fill-opacity": 0.28 } }, firstSymbol); map.addLayer({ id: "ov-" + id + "-line", type: "line", source: "ov-" + id, layout: { visibility: vis }, paint: { "line-color": "#7e22ce", "line-width": 1, "line-opacity": 0.7 } }, firstSymbol); }
+    else if (kind === "fill") { const isW = id === "wetlands"; map.addLayer({ id: "ov-" + id, type: "fill", source: "ov-" + id, layout: { visibility: vis }, paint: { "fill-color": isW ? ["get", "color"] : "#c084fc", "fill-opacity": isW ? 0.45 : 0.28 } }, firstSymbol); map.addLayer({ id: "ov-" + id + "-line", type: "line", source: "ov-" + id, layout: { visibility: vis }, paint: { "line-color": isW ? ["get", "color"] : "#7e22ce", "line-width": isW ? 0.8 : 1, "line-opacity": 0.9 } }, firstSymbol); }
     else map.addLayer({ id: "ov-" + id, type: "circle", source: "ov-" + id, layout: { visibility: vis }, paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 3, 14, 6], "circle-color": ["get", "color"], "circle-stroke-color": "#fff", "circle-stroke-width": 1 } });
   }
   if (!map.getSource("lake")) {
@@ -246,7 +246,7 @@ export function setGauges(fc) { sources.gauges = fc; if (map.getSource("gauges")
 export function setLayerVisible(name, on) {
   visibility[name] = on;
   if (!overlaysReady) return;
-  const ids = { stations: ["stations-circle", "stations-label"], gauges: ["gauges-circle"], qpe: ["qpe"], streams: ["streams"], soils: ["soils-fill", "soils-line", "soils-label"], parcels: ["parcels-fill", "parcels-line", "parcels-label"], trout: ["ov-trout"], karst: ["ov-karst-poly", "ov-karst-poly-line", "ov-karst-pts", "ov-springs"] }[name] || [];
+  const ids = { stations: ["stations-circle", "stations-label"], gauges: ["gauges-circle"], qpe: ["qpe"], streams: ["streams"], soils: ["soils-fill", "soils-line", "soils-label"], parcels: ["parcels-fill", "parcels-line", "parcels-label"], trout: ["ov-trout"], karst: ["ov-karst-poly", "ov-karst-poly-line", "ov-karst-pts", "ov-springs"], wetlands: ["ov-wetlands", "ov-wetlands-line"] }[name] || [];
   for (const id of ids) if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
 }
 let gaugeFilterHideUnclassified = false;
@@ -280,7 +280,7 @@ function setupHover() {
     if (!layers.length) return;
     let feats = map.queryRenderedFeatures(e.point, { layers });
     let anchor = feats.length ? feats[0].geometry.coordinates : e.lngLat;
-    if (!feats.length) { const ov = ["ov-karst-pts", "ov-springs", "ov-trout", "ov-karst-poly"].filter((l) => map.getLayer(l) && map.getLayoutProperty(l, "visibility") === "visible"); if (ov.length) { feats = map.queryRenderedFeatures(e.point, { layers: ov }); anchor = e.lngLat; } }
+    if (!feats.length) { const ov = ["ov-karst-pts", "ov-springs", "ov-trout", "ov-karst-poly", "ov-wetlands"].filter((l) => map.getLayer(l) && map.getLayoutProperty(l, "visibility") === "visible"); if (ov.length) { feats = map.queryRenderedFeatures(e.point, { layers: ov }); anchor = e.lngLat; } }
     if (!feats.length && map.getLayer("parcels-fill") && map.getLayoutProperty("parcels-fill", "visibility") === "visible") { feats = map.queryRenderedFeatures(e.point, { layers: ["parcels-fill"] }); anchor = e.lngLat; }
     if (!feats.length && map.getLayer("soils-fill") && map.getLayoutProperty("soils-fill", "visibility") === "visible") { feats = map.queryRenderedFeatures(e.point, { layers: ["soils-fill"] }); anchor = e.lngLat; }
     if (!feats.length) { popup.remove(); return; }

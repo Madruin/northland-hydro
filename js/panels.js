@@ -16,6 +16,7 @@ import { renderWatershed } from "./watershed.js";
 import { renderSoilsAt } from "./soils.js";
 import { renderParcelAt } from "./parcels.js";
 import { renderLakeAt } from "./lakes.js";
+import { renderWetlandAt } from "./dnrlayers.js";
 import { visit } from "./nav.js";
 import { openReport } from "./report.js";
 const countyName = (fips) => { const c = COUNTIES.find((x) => x.fips === String(fips)); return c ? c.name.replace(" (WI)", "") + " County" : fips ? "FIPS " + fips : ""; };
@@ -225,6 +226,7 @@ export async function renderPoint(lon, lat) {
     <div class="actions"><button class="btn" id="pt-report">🖨 Print site report</button><span id="pt-report-msg" class="small"></span></div>
     <div id="pt-lake"></div>
     <div id="pt-watershed"></div>
+    <div id="pt-wetland"></div>
     <div id="pt-parcel"></div>
     <div id="pt-soils"></div>
     <div id="pt-precip"><div class="spinner">PRISM + station normals…</div></div>
@@ -237,6 +239,7 @@ export async function renderPoint(lon, lat) {
   renderSoilsAt($("pt-soils"), lon, lat);
   renderParcelAt($("pt-parcel"), lon, lat);
   renderLakeAt($("pt-lake"), lon, lat);
+  renderWetlandAt($("pt-wetland"), lon, lat);
   $("pt-report").onclick = async () => { const m = $("pt-report-msg"); try { await openReport({ lon, lat, onStatus: (t) => (m.textContent = t) }); m.textContent = ""; } catch (e) { m.textContent = "Report failed: " + e.message; } };
 
   // Nearby observers (from the already-loaded station layer)

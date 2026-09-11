@@ -89,6 +89,7 @@ const GLOSSARY = [
   [/^Duration$/i, "Storm duration. Atlas 14 depths are true-interval; daily gauge totals run about 13% lower than a true 24-hour maximum."],
   [/^\d+(\.\d+)?-yr$/i, "Average recurrence interval (return period). A 10-yr depth has a 10% chance of being exceeded in any given year."],
   [/^\d+ d$|^\d+d$/i, "Accumulation window ending on the panel's end date."],
+  [/^Cowardin$/i, "Cowardin classification code: system (P palustrine, L lacustrine, R riverine), class (EM emergent, SS scrub-shrub, FO forested, UB unconsolidated bottom, AB aquatic bed), subclass, water regime (A–H), modifiers (x excavated, h diked/impounded, b beaver, d drained)."],
   [/^DA mi²$/i, "Drainage area from StreamStats, square miles."],
   [/^Q1% cfs$/i, "1% annual-exceedance-probability (100-year) peak flow from the regression, cfs."],
 ];

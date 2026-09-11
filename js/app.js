@@ -23,7 +23,7 @@ import { setGaugeFilter } from "./map.js";
 
 const state = {
   endDate: isoDate(), days: 1, zoom: HOME.zoom, center: HOME.center, basemap: "light",
-  layers: { stations: true, gauges: true, qpe: false, streams: false, soils: false, parcels: false, trout: false, karst: false }, qpeWindow: "24h", selection: null, terrain: {}, terrainOpacity: 0.6,
+  layers: { stations: true, gauges: true, qpe: false, streams: false, soils: false, parcels: false, trout: false, karst: false, wetlands: false }, qpeWindow: "24h", selection: null, terrain: {}, terrainOpacity: 0.6,
   ...readUrl(),
 };
 // Never allow a future end date; default to yesterday before ~9 AM (today's CoCoRaHS reports are still arriving)
@@ -54,7 +54,7 @@ function buildControls() {
   $("tg-soils").addEventListener("click", () => toggleLayer("soils"));
   $("tg-parcels").classList.toggle("on", !!state.layers.parcels);
   $("tg-parcels").addEventListener("click", () => toggleLayer("parcels"));
-  for (const k of ["trout", "karst"]) { $("tg-" + k).classList.toggle("on", !!state.layers[k]); $("tg-" + k).addEventListener("click", () => toggleLayer(k)); }
+  for (const k of ["wetlands", "trout", "karst"]) { $("tg-" + k).classList.toggle("on", !!state.layers[k]); $("tg-" + k).addEventListener("click", () => toggleLayer(k)); }
 
   const stepDate = (n) => { const d = n === 0 ? isoDate() : addDays(state.endDate, n); if (d <= isoDate()) { state.endDate = d; $("ctl-date").value = d; refreshPrecip(); } };
   $("date-prev").addEventListener("click", () => stepDate(-1));
@@ -129,8 +129,8 @@ function toggleLayer(name, force) {
   const on = force ?? !state.layers[name];
   state.layers[name] = on;
   setLayerVisible(name, on);
-  const btn = { stations: "tg-precip", gauges: "tg-gauges", qpe: "tg-qpe", streams: "tg-streams", soils: "tg-soils", parcels: "tg-parcels", trout: "tg-trout", karst: "tg-karst" }[name];
-  if (name === "trout" || name === "karst") setDnrLayerEnabled(name, on);
+  const btn = { stations: "tg-precip", gauges: "tg-gauges", qpe: "tg-qpe", streams: "tg-streams", soils: "tg-soils", parcels: "tg-parcels", trout: "tg-trout", karst: "tg-karst", wetlands: "tg-wetlands" }[name];
+  if (name === "trout" || name === "karst" || name === "wetlands") setDnrLayerEnabled(name, on);
   if (name === "soils") setSoilsEnabled(on);
   if (name === "parcels") setParcelsEnabled(on);
   $(btn).classList.toggle("on", on);
@@ -142,7 +142,7 @@ function renderLegend() {
   if (state.layers.stations) renderPrecipLegend(lg, { days: state.days });
   if (state.layers.gauges) renderGaugeLegend(lg);
   if (state.layers.parcels) lg.insertAdjacentHTML("beforeend", parcelsLegendHtml());
-  for (const k of ["trout", "karst"]) if (state.layers[k]) lg.insertAdjacentHTML("beforeend", dnrLegendHtml(k));
+  for (const k of ["wetlands", "trout", "karst"]) if (state.layers[k]) lg.insertAdjacentHTML("beforeend", dnrLegendHtml(k));
   if (state.layers.soils) lg.insertAdjacentHTML("beforeend", soilsLegendHtml());
   if (state.layers.streams) lg.insertAdjacentHTML("beforeend", `<h4>Streams (StreamStats grid)</h4><div class="legend-row"><span class="swatch sq" style="background:#0070ff"></span>Mapped stream cells (zoom 13+)</div><div class="small">The 10 m cells StreamStats delineates on; snap targets these.</div>`);
   lg.insertAdjacentHTML("beforeend", terrainLegendHtml(state.terrain));
@@ -183,7 +183,7 @@ async function boot() {
   if (await checkBuild()) return;
   buildControls();
   initMap({ center: state.center, zoom: state.zoom, basemap: state.basemap });
-  setLayerVisible("stations", state.layers.stations); setLayerVisible("gauges", state.layers.gauges); setLayerVisible("qpe", state.layers.qpe); setLayerVisible("streams", !!state.layers.streams); setLayerVisible("soils", !!state.layers.soils); setLayerVisible("parcels", !!state.layers.parcels); setLayerVisible("trout", !!state.layers.trout); setLayerVisible("karst", !!state.layers.karst);
+  setLayerVisible("stations", state.layers.stations); setLayerVisible("gauges", state.layers.gauges); setLayerVisible("qpe", state.layers.qpe); setLayerVisible("streams", !!state.layers.streams); setLayerVisible("soils", !!state.layers.soils); setLayerVisible("parcels", !!state.layers.parcels); setLayerVisible("trout", !!state.layers.trout); setLayerVisible("karst", !!state.layers.karst); setLayerVisible("wetlands", !!state.layers.wetlands);
   setQpeWindow(state.qpeWindow);
   for (const [id, on] of Object.entries(state.terrain)) setTerrainVisible(id, on);
   setTerrainOpacity(state.terrainOpacity);
@@ -207,7 +207,7 @@ async function boot() {
   initSoils();
   initParcels();
   initDnrLayers();
-  for (const k of ["trout", "karst"]) if (state.layers[k]) { if (map.getSource("ov-trout")) setDnrLayerEnabled(k, true); else on("map:ready", () => setDnrLayerEnabled(k, true)); }
+  for (const k of ["wetlands", "trout", "karst"]) if (state.layers[k]) { if (map.getSource("ov-trout")) setDnrLayerEnabled(k, true); else on("map:ready", () => setDnrLayerEnabled(k, true)); }
   initNav(); watchTooltips();
   if (state.layers.parcels) { if (map.getSource("parcels")) setParcelsEnabled(true); else on("map:ready", () => setParcelsEnabled(true)); }
   if (state.layers.soils) { if (map.getSource("soils")) setSoilsEnabled(true); else on("map:ready", () => setSoilsEnabled(true)); }
