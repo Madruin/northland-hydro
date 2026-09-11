@@ -53,6 +53,10 @@ Then **TSA3 regional curves** turn the drainage area into bankfull channel dimen
 
 **Flood elevations.** The NFHL publishes only the 1% (100-year) water surface: the BFE and the regulatory WSEL at each lettered cross section, both shown in the point section. The 0.2% (500-year), 2% and 10% elevations are not served as data anywhere in the NFHL; they exist only in the Flood Insurance Study's flood profiles and Floodway Data Table. The point section names the nearest cross-section letters so they can be read off the FIS profile for that stream (FIS link in the section).
 
+## Imagery basemap
+
+The **Imagery (MnGeo, high-res)** basemap draws MnGeo's statewide composite aerial photography, which is the newest and sharpest imagery available for each area (county orthophotos at 0.15 to 0.3 m where they exist, FSA elsewhere). MnGeo serves it only in UTM 15N, so the site fetches each map tile as a UTM image and re-projects it in the browser; expect a short delay per tile the first time an area is viewed. The map now zooms to level 19. **Imagery (USGS)** remains as the 1 m fallback. Every Point section shows an "as of" time when it finishes loading, and the status line shows when the station data were last refreshed.
+
 ## Help dialog
 
 The **?** button opens the help dialog with two tabs: *How to use it* and *Sources & methods*. The second lists every data source (grouped as rainfall and weather; rivers, lakes and gauges; watersheds and channel design; terrain and imagery; soils, land and wetlands; flood hazard and infrastructure; subsurface; search, storage and hosting) with a link, what the site uses it for and any caveats, followed by the methods (windows, return periods, watershed, basin soils and bedrock, coordinates and measurement, CAD export, provisional data) and the software libraries with licenses. The list lives in `js/sources.js`; add an entry there whenever a source is added. The footer's *Sources* link opens the same tab.

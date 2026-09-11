@@ -1,5 +1,5 @@
 {
- "build": "20260911-2004-a233e43",
+ "build": "20260911-2009-984ecbd",
  "files": [
   "css/app.css",
   "css/report.css",
@@ -31,6 +31,7 @@
   "js/locate.js",
   "js/map.js",
   "js/measure.js",
+  "js/mnimagery.js",
   "js/nav.js",
   "js/panels.js",
   "js/parcels.js",

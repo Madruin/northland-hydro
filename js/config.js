@@ -5,7 +5,7 @@ export const APP = {
   name: "Northland Eco",
   userAgent: "northland-hydro (valeromatias@gmail.com)", // NWS asks for a contact UA
   version: "0.1.0",
-  build: "20260911-2004-a233e43",
+  build: "20260911-2009-984ecbd",
 };
 
 // Working extent: MN SWCD TSA3 counties plus a margin (W, S, E, N)
@@ -99,7 +99,11 @@ export const BASEMAPS = {
   light: { label: "Light", style: "https://tiles.openfreemap.org/styles/positron" },
   streets: { label: "Streets", style: "https://tiles.openfreemap.org/styles/liberty" },
   dark: { label: "Dark", style: "https://tiles.openfreemap.org/styles/dark" },
-  imagery: { label: "Imagery", style: {
+  mnimg: { label: "Imagery (MnGeo, high-res)", style: {
+    version: 8, glyphs: "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf", sources: { mn: { type: "raster", tileSize: 256, minzoom: 6, maxzoom: 20, attribution: "MnGeo composite aerial imagery",
+      tiles: ["mnimg://{z}/{x}/{y}"] } },
+    layers: [{ id: "mn", type: "raster", source: "mn" }] } },
+  imagery: { label: "Imagery (USGS)", style: {
     version: 8, glyphs: "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf", sources: { usgs: { type: "raster", tileSize: 256, attribution: "USGS The National Map",
       tiles: ["https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}"] } },
     layers: [{ id: "usgs", type: "raster", source: "usgs" }] } },

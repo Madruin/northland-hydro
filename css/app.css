@@ -363,3 +363,5 @@ ul.src .small { display: block; margin-top: 1px; }
 .quick .btn { grid-column: 1 / -1; justify-self: start; }
 .sr-kind.recent { color: var(--fg3); }
 @media (max-width: 900px) { .quick { grid-template-columns: 1fr; } }
+
+.asof { font-size: 10.5px; color: var(--fg3); text-align: right; margin: 2px 0 6px; }

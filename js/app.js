@@ -258,7 +258,7 @@ async function refreshPrecipNow() {
   syncUrl();
   try {
     const list = await track("stations", loadPrecip({ endDate: state.endDate, days: state.days }));
-    setStatus(`${list.filter((s) => !s.missingAll).length} stations reporting · ${state.days === 1 ? state.endDate : state.days + "-day window ending " + state.endDate}`);
+    setStatus(`${list.filter((s) => !s.missingAll).length} stations reporting · ${state.days === 1 ? state.endDate : state.days + "-day window ending " + state.endDate} · updated ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`);
     if (!firstLoadDone) { firstLoadDone = true; try { if (localStorage.getItem("nh-visited") !== "1") { localStorage.setItem("nh-visited", "1"); $("help").hidden = false; } } catch {} showHintOnce(); }
     renderLegend();
     if (!state.selection || state.selection.type === "region") renderRegion();

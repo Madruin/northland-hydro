@@ -242,6 +242,7 @@ function updatePointNav() {
     const spinning = !!el.querySelector(".spinner"); const has = el.textContent.trim().length > 0 && !spinning;
     const failed = has && [...el.querySelectorAll(".notice")].some((n) => FAILED.test(n.textContent)) && !el.querySelector("table, .stat-row");
     const st = failed ? "error" : has ? "ready" : spinning || !navDone[id] ? "pending" : "none";
+    if (st === "ready" && !el.querySelector(":scope > .asof")) { const d = document.createElement("div"); d.className = "asof"; d.textContent = `as of ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`; el.append(d); }
     return `<button class="pt-chip ${st}" data-t="${id}" ${st === "ready" || st === "error" ? "" : "disabled"} title="${st === "none" ? "Nothing here" : st === "pending" ? "Loading" : st === "error" ? "Failed to load — click to retry" : "Jump to " + label}">${label}${st === "error" ? " ↻" : ""}</button>`;
   }).join("");
   nav.querySelectorAll(".pt-chip.ready").forEach((b) => (b.onclick = () => $(b.dataset.t)?.scrollIntoView({ behavior: "smooth", block: "start" })));
