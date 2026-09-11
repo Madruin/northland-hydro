@@ -199,7 +199,7 @@ function dims(res, cap) {
 function readme(name) {
   const a = aoi;
   return `Northland Hydro AOI export: ${name}
-Generated ${new Date().toISOString()} from https://madruin.github.io/northland-hydro/
+Generated ${new Date().toISOString()} from https://northland.eco/
 
 COORDINATE SYSTEM
   Horizontal: NAD83 UTM zone 15N, US survey feet (Civil 3D / Map 3D code UTM83-15F). 1 m = 3937/1200 ft.

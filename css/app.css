@@ -183,7 +183,7 @@ details.steps code { background: var(--bg2); padding: 0 4px; border-radius: 3px;
 .step { background: var(--bg3); border: 1px solid var(--line); border-radius: 6px; padding: 4px 7px; font-size: 12px; color: var(--fg2); cursor: pointer; }
 .step:hover { color: var(--fg); border-color: var(--accent); }
 /* help modal */
-.modal[hidden], .menu[hidden] { display: none !important; }
+.modal[hidden], .menu[hidden], #map-hint[hidden] { display: none !important; }
 .modal { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; padding: 20px; }
 .modal-box { background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; width: min(720px, 100%); max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,.6); }
 .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--line); font-size: 15px; }

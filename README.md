@@ -22,7 +22,7 @@ Backend: Supabase project **Dashboard** (`lwbatdclpclwyuglzwgg`), tables `hydro_
 
 One-time setup in the Supabase dashboard:
 - Authentication → Email Templates: add `{{ .Token }}` to the **Magic Link** and **Confirm signup** templates (e.g. "Your code: {{ .Token }}"). Work mailboxes with link scanners (Microsoft Defender Safe Links, Google) pre-open one-time links and consume them, so the site leads with the code.
-- Authentication → URL Configuration: Site URL `https://madruin.github.io/northland-hydro/`; Redirect URLs `https://madruin.github.io/northland-hydro/**` and `http://localhost:8765/**`. Without this the emailed link points at localhost:3000.
+- Authentication → URL Configuration: Site URL `https://northland.eco/`; Redirect URLs `https://northland.eco/**` and `https://northland.eco/ (also https://madruin.github.io/northland-hydro/)**` and `http://localhost:8765/**`. Without this the emailed link points at localhost:3000.
 
 The publishable key in `js/api/supabase.js` is meant to be public. Do not point the site at a Supabase project whose tables lack RLS.
 
