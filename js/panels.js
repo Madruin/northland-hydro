@@ -16,6 +16,7 @@ import { renderWatershed } from "./watershed.js";
 import { renderSoilsAt } from "./soils.js";
 import { renderParcelAt } from "./parcels.js";
 import { renderLakeAt } from "./lakes.js";
+import { visit } from "./nav.js";
 import { openReport } from "./report.js";
 const countyName = (fips) => { const c = COUNTIES.find((x) => x.fips === String(fips)); return c ? c.name.replace(" (WI)", "") + " County" : fips ? "FIPS " + fips : ""; };
 
@@ -31,6 +32,7 @@ export function showTab(name) {
 // ---------------- Region ----------------
 export function renderRegion() {
   const c = $("tab-region");
+  visit("region", "", "Region", () => { showTab("region"); renderRegion(); });
   const w = precipWindow;
   if (!w.endDate) return; // precipitation window not set yet (first paint)
   const s = summarize(precipStations);
@@ -73,6 +75,7 @@ export async function renderStation(sid) {
   showTab("station");
   const c = $("tab-station");
   const st = precipStations.find((x) => x.sid === sid);
+  visit("station", sid, st?.name ? titleWords(st.name) : sid, () => renderStation(sid));
   c.innerHTML = `<h2>${escapeHtml(st?.name || sid)}</h2><div class="spinner">Loading station record…</div>`;
   const endDate = precipWindow.endDate, days = precipWindow.days;
   const sdate = addDays(endDate, -89);
@@ -127,6 +130,7 @@ export async function renderStation(sid) {
     c.innerHTML += `<div class="notice">Failed: ${escapeHtml(e.message)}</div>`;
   }
 }
+function titleWords(s) { return s.toLowerCase().replace(/\b([a-z])/g, (m) => m.toUpperCase()); }
 function cell(v, flag, d = 2) { if (flag === "M") return "M"; if (flag === "T") return "T"; if (flag === "S") return "S"; return v == null ? "–" : fmt(v, d) + (flag === "A" ? "A" : ""); }
 function sumVals(a) { return a.reduce((s, v) => s + (v || 0), 0); }
 // Max running n-day sum across daily rows (missing treated as 0; skipped if all missing)
@@ -147,6 +151,7 @@ export async function renderGauge(id) {
   const c = $("tab-gauge");
   const g = gaugeById(id);
   if (!g) { c.innerHTML = `<div class="notice">Unknown gauge ${escapeHtml(id)}</div>`; return; }
+  visit("gauge", id, g.name.split(",")[0], () => renderGauge(id));
   const cls = FLOW_CLASSES[g.flowClass] || FLOW_CLASSES[0];
   c.innerHTML = `
     <h2>${escapeHtml(g.name)}</h2>
@@ -212,6 +217,7 @@ function mergeSeries(q, h) {
 // ---------------- Point ----------------
 export async function renderPoint(lon, lat) {
   showTab("point");
+  visit("point", `${lon.toFixed(4)},${lat.toFixed(4)}`, `Point ${lat.toFixed(3)}, ${lon.toFixed(3)}`, () => renderPoint(lon, lat));
   setPin([lon, lat]);
   const c = $("tab-point");
   const endDate = precipWindow.endDate, days = precipWindow.days;

@@ -174,7 +174,7 @@ function flowsHtml(st) {
   const outOfRange = [];
   for (const sg of groups) for (const rr of sg.regressionRegions) for (const p of rr.parameters || []) if (p.limits && (p.value < p.limits.min || p.value > p.limits.max)) outOfRange.push(`${p.code} = ${fmtNum(p.value, 2)} (equation range ${fmtNum(p.limits.min, 2)}–${fmtNum(p.limits.max, 2)})`);
   if (outOfRange.length) warn.push(`Outside the regression's applicable range: ${outOfRange.join("; ")}.`);
-  return sec + (warn.length ? `<div class="small">⚠ ${warn.map(escapeHtml).join(" ")}</div>` : "") + `<div class="small">Units: ft³/s. PI = 90% prediction interval; SEp = average standard error of prediction. Regression region taken from the StreamStats region layer at the pour point (not area-weighted). Values match the StreamStats web application's "Peak-Flow Statistics" for the same point.</div>`;
+  return sec + (warn.length ? `<div class="small">⚠ ${warn.map(escapeHtml).join(" ")}</div>` : "") + `<div class="small">Units: cfs (ft³/s). PI = 90% prediction interval; SEp = average standard error of prediction. Regression region taken from the StreamStats region layer at the pour point (not area-weighted). Values match the StreamStats web application's "Peak-Flow Statistics" for the same point.</div>`;
 }
 
 export function clearBasin() { setBasin(null); }

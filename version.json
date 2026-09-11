@@ -1,5 +1,5 @@
 {
- "build": "20260911-1306-3f6dfd1",
+ "build": "20260911-1311-dbcd148",
  "files": [
   "css/app.css",
   "css/report.css",
@@ -24,6 +24,7 @@
   "js/lakes.js",
   "js/loader.js",
   "js/map.js",
+  "js/nav.js",
   "js/panels.js",
   "js/parcels.js",
   "js/precip.js",

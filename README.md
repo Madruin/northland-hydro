@@ -117,6 +117,8 @@ python -m http.server 8765 --directory northland-hydro
 
 Then open http://localhost:8765/. The URL hash carries the full view state (date, window, layers, basemap, selection), so a link reproduces exactly what you were looking at.
 
+Panel views (Region, Station, Gauge, Point, Projects, project) are kept in a history: a **‹ Back** button and breadcrumbs appear under the tabs (Alt+← also goes back). Table headers and stat labels with a dotted underline carry hover definitions (PI, SEp, AEP, Q90, W/D, HSG, Ksat and so on); the glossary lives in `js/nav.js`.
+
 Keyboard: ← / → step the end date one day (also the ‹ › Today buttons); `/` focuses search; `?` opens help; Esc closes dialogs. Search covers gauges, stations, projects and place names (Photon geocoder). The last station and gauge results are cached in the browser, so a revisit draws the map immediately while fresh data loads. The help dialog opens automatically on a first visit.
 
 ## Deploy
@@ -148,6 +150,7 @@ js/report.js          gathers the site hydrology summary document → report.htm
 js/terrain.js         MnTOPO lidar layers, mnlod:// tile protocol, legend
 js/soils.js, js/api/sda.js   SSURGO hydrologic-group layer and point soils section (Soil Data Access SQL)
 js/parcels.js         county parcel services (7 counties), normalized fields, point lookup
+js/nav.js             panel history (back/breadcrumbs) and header-tooltip glossary
 js/lakes.js, js/api/dnrlakes.js   DNR LakeFinder levels, OHW, hydrograph, dams inventory outlets
 js/export.js          AOI export: imagery + world file, DEM GeoTIFF/ASCII, DXF contours (UTM 15N US ft)
 tools/build_regional_curves.py, data/regional_curves.json

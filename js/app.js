@@ -16,6 +16,7 @@ import { initExport } from "./export.js";
 import { initSearch } from "./search.js";
 import { initSoils, setSoilsEnabled, soilsLegendHtml } from "./soils.js";
 import { initParcels, setParcelsEnabled, parcelsLegendHtml } from "./parcels.js";
+import { initNav, watchTooltips } from "./nav.js";
 import { setHideUnclassified } from "./gauges.js";
 import { setGaugeFilter } from "./map.js";
 
@@ -201,6 +202,7 @@ async function boot() {
   initSearch();
   initSoils();
   initParcels();
+  initNav(); watchTooltips();
   if (state.layers.parcels) { if (map.getSource("parcels")) setParcelsEnabled(true); else on("map:ready", () => setParcelsEnabled(true)); }
   if (state.layers.soils) { if (map.getSource("soils")) setSoilsEnabled(true); else on("map:ready", () => setSoilsEnabled(true)); }
   on("map:moveend", ({ center, zoom }) => { state.center = [center.lng, center.lat]; state.zoom = zoom; syncUrl(); });

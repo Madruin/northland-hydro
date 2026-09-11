@@ -1,6 +1,6 @@
 # Northland Hydro — project guide
 
-The long-form record of why this exists, what it is built on, every decision that shaped it, and where it should go next. README.md is the user- and developer-facing reference; this file is the memory. Update it whenever a decision is made or a source is added. Last updated 2026-09-11.
+The long-form record of why this exists, what it is built on, every decision that shaped it, and where it should go next. README.md is the user- and developer-facing reference; this file is the memory. Update it whenever a decision is made or a source is added. Last updated 2026-09-11 (nav + tooltips).
 
 Live site: https://madruin.github.io/northland-hydro/ · Repo: https://github.com/Madruin/northland-hydro (public, MIT) · Owner: Matías Valero, Conservation Engineer, MN SWCD Technical Service Area 3 (TSA3).
 
@@ -122,8 +122,8 @@ The goal, in Matías's words on 2026-09-08: a website that aggregates local rain
 ## 6. Roadmap and ideas discussed
 
 Near-term (agreed or implied):
-1. Back navigation / breadcrumbs in the panel (station → gauge → point has no way back but tabs).
-2. Consistent units and header tooltips (cfs vs ft³/s; PI, SEp, Q90, W/D, AEP).
+1. ~~Back navigation / breadcrumbs~~ done 2026-09-11 (`js/nav.js`).
+2. ~~Header tooltips / units~~ done 2026-09-11 (glossary in `js/nav.js`, applied by MutationObserver).
 3. Basin-wide hydrologic-soil-group breakdown for a delineated watershed (feeds curve numbers); needs a test of the polygon size Soil Data Access accepts (Knife River basin is 5,800 vertices).
 4. More SSURGO themes as layer options: drainage class, hydric, flooding frequency, water-table depth, Kw, slope class.
 5. Pine County parcels once the county answers (REST endpoint → same as others; export → static tileset refreshed on delivery). Wisconsin statewide parcels for Douglas/Bayfield if needed.

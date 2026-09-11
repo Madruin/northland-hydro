@@ -8,6 +8,7 @@ import { setProjects, setPickMode, map } from "./map.js";
 import { FLOW_CLASSES } from "./config.js";
 import { renderSavedAnalysis, summarizeAnalysis } from "./watershed.js";
 import { openReport } from "./report.js";
+import { visit } from "./nav.js";
 
 export let projects = [];
 export function authState() { return { user, member, projects }; }
@@ -100,6 +101,7 @@ function projectLive(p) {
 function renderList() {
   if (!user || !member) return;
   const c = $("tab-projects");
+  visit("projects", "", "Projects", () => { showProjectsTab(); renderList(); });
   const w = precipWindow;
   const groups = {};
   for (const p of projects) (groups[p.status] ||= []).push(p);
@@ -133,6 +135,7 @@ export function openProject(id) {
   if (!p) return;
   if (p.lat != null) map.flyTo({ center: [p.lon, p.lat], zoom: Math.max(map.getZoom(), 11) });
   showProjectsTab();
+  visit("project", id, p.name, () => openProject(id));
   const live = projectLive(p);
   const c = $("tab-projects");
   c.innerHTML = `<div class="actions"><button class="btn" id="pj-back">‹ All projects</button><button class="btn" id="pj-edit">Edit</button><button class="btn" id="pj-report" ${p.lat == null ? "disabled" : ""}>🖨 Print report</button><span id="pj-report-msg" class="small"></span></div>

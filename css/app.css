@@ -254,3 +254,13 @@ details.steps code { background: var(--bg2); padding: 0 4px; border-radius: 3px;
   #legend { max-width: 170px; font-size: 11px; }
   .legend-row { line-height: 16px; }
 }
+
+/* panel history */
+.nav-bar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--bg2); font-size: 12px; }
+.nav-back { padding: 3px 9px; font-size: 12px; }
+.crumbs { display: flex; align-items: center; gap: 4px; overflow: hidden; white-space: nowrap; color: var(--fg3); min-width: 0; }
+.crumb { cursor: pointer; color: var(--accent); overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
+.crumb.on { color: var(--fg); cursor: default; }
+.crumb-sep { color: var(--fg3); }
+th.has-tip, .stat .l.has-tip { cursor: help; text-decoration: underline dotted rgba(169,182,207,.5); text-underline-offset: 3px; }
+@media (max-width: 900px) { .nav-bar { padding: 4px 8px; } }
