@@ -1,5 +1,5 @@
 {
- "build": "20260911-1329-d43d6cf",
+ "build": "20260911-1336-754af27",
  "files": [
   "css/app.css",
   "css/report.css",
@@ -21,6 +21,7 @@
   "js/config.js",
   "js/dnrlayers.js",
   "js/export.js",
+  "js/fema.js",
   "js/gauges.js",
   "js/lake.js",
   "js/lakes.js",
@@ -40,6 +41,8 @@
   "js/url.js",
   "js/util.js",
   "js/watershed.js",
-  "report.html"
+  "nwi_page.html",
+  "report.html",
+  "wf.html"
  ]
 }

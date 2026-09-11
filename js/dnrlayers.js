@@ -81,7 +81,7 @@ export async function renderWetlandAt(container, lon, lat) {
     container.innerHTML = `<h3>Wetland at this point · MN NWI update</h3>
       ${rows.map((w) => `<div><b style="color:${WETLAND_COLORS[w.wetland_type] || "#bdbdbd"}">${escapeHtml(w.wetland_type || "Wetland")}</b> · Cowardin <b>${escapeHtml(w.attribute || "")}</b> · ${fmt(w.acres, 2)} ac</div>
         <div class="small">${escapeHtml(circ39(w.circ39_class))}${w.spcc_desc ? " · " + escapeHtml(w.spcc_desc) : ""}${w.hgm_desc ? " · HGM: " + escapeHtml(w.hgm_desc) : ""}</div>`).join("")}
-      <div class="small">Inventory-level mapping from 2009–2014 imagery; a WCA jurisdictional boundary needs a field delineation. <a href="https://www.dnr.state.mn.us/eco/wetlands/nwi_proj.html" target="_blank" rel="noopener">About the MN NWI update</a></div>`;
+      <div class="small">Inventory-level mapping from 2009–2014 imagery; a WCA jurisdictional boundary needs a field delineation. <a href="https://arcgis.dnr.state.mn.us/ewr/wetlandfinder/" target="_blank" rel="noopener">MN Wetland Finder</a> · <a href="https://fwsprimary.wim.usgs.gov/wetlands/apps/wetlands-mapper/?lat=${lat.toFixed(5)}&lon=${lon.toFixed(5)}&zoom=15" target="_blank" rel="noopener">USFWS Wetlands Mapper here</a> · <a href="https://www.dnr.state.mn.us/eco/wetlands/nwi_proj.html" target="_blank" rel="noopener">About the MN NWI update</a></div>`;
   } catch (e) { console.warn("wetlands lookup failed", e); }
 }
 export function dnrLegendHtml(k) { const L = LAYERS[k]; return `<h4>${L.label} (MN DNR)</h4>${L.legend}<div class="small">${L.note} <span id="${k}-note"></span></div>`; }

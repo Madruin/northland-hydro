@@ -11,10 +11,10 @@ let overlaysReady = false;
 const sources = { stations: { type: "FeatureCollection", features: [] }, gauges: { type: "FeatureCollection", features: [] }, projects: { type: "FeatureCollection", features: [] } };
 let pickCallback = null;
 let rect = null; // { cb, onFirst, a: [lon,lat] | null }
-const visibility = { stations: true, gauges: true, qpe: false, streams: false, soils: false, parcels: false, trout: false, karst: false, wetlands: false };
+const visibility = { stations: true, gauges: true, qpe: false, streams: false, soils: false, parcels: false, trout: false, karst: false, wetlands: false, fema: false };
 let parcelsData = { type: "FeatureCollection", features: [] };
 let lakeFeature = null;
-const OVERLAYS = { wetlands: "fill", trout: "line", "karst-poly": "fill", "karst-pts": "point", springs: "point" };
+const OVERLAYS = { "fema-zones": "fema-fill", "fema-lomr": "fema-lomr", wetlands: "fill", trout: "line", "karst-poly": "fill", "karst-pts": "point", springs: "point", "fema-bfe": "fema-line", "fema-xs": "fema-xs" };
 const overlayData = {};
 let countyBboxCache = null;
 let soilsData = { type: "FeatureCollection", features: [] };
@@ -171,7 +171,11 @@ async function addOverlays() {
   for (const [id, kind] of Object.entries(OVERLAYS)) {
     if (map.getSource("ov-" + id)) continue;
     map.addSource("ov-" + id, { type: "geojson", data: overlayData[id] || { type: "FeatureCollection", features: [] } });
-    const vis = (id === "trout" ? visibility.trout : id === "wetlands" ? visibility.wetlands : visibility.karst) ? "visible" : "none";
+    const vis = (id === "trout" ? visibility.trout : id === "wetlands" ? visibility.wetlands : id.startsWith("fema") ? visibility.fema : visibility.karst) ? "visible" : "none";
+    if (kind === "fema-fill") { map.addLayer({ id: "ov-" + id, type: "fill", source: "ov-" + id, layout: { visibility: vis }, paint: { "fill-color": ["get", "color"], "fill-opacity": ["get", "opacity"] } }, firstSymbol); map.addLayer({ id: "ov-" + id + "-line", type: "line", source: "ov-" + id, filter: ["==", ["get", "minimal"], 0], layout: { visibility: vis }, paint: { "line-color": ["get", "color"], "line-width": 1, "line-opacity": 0.8 } }, firstSymbol); continue; }
+    if (kind === "fema-lomr") { map.addLayer({ id: "ov-" + id, type: "line", source: "ov-" + id, layout: { visibility: vis }, paint: { "line-color": "#6d28d9", "line-width": 2, "line-dasharray": [3, 2] } }, firstSymbol); continue; }
+    if (kind === "fema-line") { map.addLayer({ id: "ov-" + id, type: "line", source: "ov-" + id, layout: { visibility: vis }, paint: { "line-color": "#7c2d12", "line-width": 1.6 } }); map.addLayer({ id: "ov-" + id + "-label", type: "symbol", source: "ov-" + id, minzoom: 14, layout: { visibility: vis, "symbol-placement": "line", "text-field": ["get", "label"], "text-size": 10, "text-font": ["Noto Sans Regular"] }, paint: { "text-color": "#7c2d12", "text-halo-color": "#fff", "text-halo-width": 1.2 } }); continue; }
+    if (kind === "fema-xs") { map.addLayer({ id: "ov-" + id, type: "line", source: "ov-" + id, layout: { visibility: vis }, paint: { "line-color": "#0f172a", "line-width": 1.4 } }); map.addLayer({ id: "ov-" + id + "-label", type: "symbol", source: "ov-" + id, minzoom: 13, layout: { visibility: vis, "symbol-placement": "line-center", "text-field": ["get", "label"], "text-size": 11, "text-font": ["Noto Sans Bold"], "text-offset": [0, -0.8] }, paint: { "text-color": "#0f172a", "text-halo-color": "#fff", "text-halo-width": 1.4 } }); continue; }
     if (kind === "line") map.addLayer({ id: "ov-" + id, type: "line", source: "ov-" + id, layout: { visibility: vis, "line-cap": "round", "line-join": "round" }, paint: { "line-color": ["get", "color"], "line-width": ["interpolate", ["linear"], ["zoom"], 9, 1.2, 14, 3.2], "line-opacity": 0.9 } }, firstSymbol);
     else if (kind === "fill") { const isW = id === "wetlands"; map.addLayer({ id: "ov-" + id, type: "fill", source: "ov-" + id, layout: { visibility: vis }, paint: { "fill-color": isW ? ["get", "color"] : "#c084fc", "fill-opacity": isW ? 0.45 : 0.28 } }, firstSymbol); map.addLayer({ id: "ov-" + id + "-line", type: "line", source: "ov-" + id, layout: { visibility: vis }, paint: { "line-color": isW ? ["get", "color"] : "#7e22ce", "line-width": isW ? 0.8 : 1, "line-opacity": 0.9 } }, firstSymbol); }
     else map.addLayer({ id: "ov-" + id, type: "circle", source: "ov-" + id, layout: { visibility: vis }, paint: { "circle-radius": ["interpolate", ["linear"], ["zoom"], 9, 3, 14, 6], "circle-color": ["get", "color"], "circle-stroke-color": "#fff", "circle-stroke-width": 1 } });
@@ -246,7 +250,7 @@ export function setGauges(fc) { sources.gauges = fc; if (map.getSource("gauges")
 export function setLayerVisible(name, on) {
   visibility[name] = on;
   if (!overlaysReady) return;
-  const ids = { stations: ["stations-circle", "stations-label"], gauges: ["gauges-circle"], qpe: ["qpe"], streams: ["streams"], soils: ["soils-fill", "soils-line", "soils-label"], parcels: ["parcels-fill", "parcels-line", "parcels-label"], trout: ["ov-trout"], karst: ["ov-karst-poly", "ov-karst-poly-line", "ov-karst-pts", "ov-springs"], wetlands: ["ov-wetlands", "ov-wetlands-line"] }[name] || [];
+  const ids = { stations: ["stations-circle", "stations-label"], gauges: ["gauges-circle"], qpe: ["qpe"], streams: ["streams"], soils: ["soils-fill", "soils-line", "soils-label"], parcels: ["parcels-fill", "parcels-line", "parcels-label"], trout: ["ov-trout"], karst: ["ov-karst-poly", "ov-karst-poly-line", "ov-karst-pts", "ov-springs"], wetlands: ["ov-wetlands", "ov-wetlands-line"], fema: ["ov-fema-zones", "ov-fema-zones-line", "ov-fema-lomr", "ov-fema-bfe", "ov-fema-bfe-label", "ov-fema-xs", "ov-fema-xs-label"] }[name] || [];
   for (const id of ids) if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
 }
 let gaugeFilterHideUnclassified = false;
@@ -280,7 +284,7 @@ function setupHover() {
     if (!layers.length) return;
     let feats = map.queryRenderedFeatures(e.point, { layers });
     let anchor = feats.length ? feats[0].geometry.coordinates : e.lngLat;
-    if (!feats.length) { const ov = ["ov-karst-pts", "ov-springs", "ov-trout", "ov-karst-poly", "ov-wetlands"].filter((l) => map.getLayer(l) && map.getLayoutProperty(l, "visibility") === "visible"); if (ov.length) { feats = map.queryRenderedFeatures(e.point, { layers: ov }); anchor = e.lngLat; } }
+    if (!feats.length) { const ov = ["ov-karst-pts", "ov-springs", "ov-fema-xs", "ov-fema-bfe", "ov-trout", "ov-fema-lomr", "ov-karst-poly", "ov-wetlands", "ov-fema-zones"].filter((l) => map.getLayer(l) && map.getLayoutProperty(l, "visibility") === "visible"); if (ov.length) { feats = map.queryRenderedFeatures(e.point, { layers: ov }); anchor = e.lngLat; } }
     if (!feats.length && map.getLayer("parcels-fill") && map.getLayoutProperty("parcels-fill", "visibility") === "visible") { feats = map.queryRenderedFeatures(e.point, { layers: ["parcels-fill"] }); anchor = e.lngLat; }
     if (!feats.length && map.getLayer("soils-fill") && map.getLayoutProperty("soils-fill", "visibility") === "visible") { feats = map.queryRenderedFeatures(e.point, { layers: ["soils-fill"] }); anchor = e.lngLat; }
     if (!feats.length) { popup.remove(); return; }

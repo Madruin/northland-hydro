@@ -1,6 +1,6 @@
 # Northland Hydro — project guide
 
-The long-form record of why this exists, what it is built on, every decision that shaped it, and where it should go next. README.md is the user- and developer-facing reference; this file is the memory. Update it whenever a decision is made or a source is added. Last updated 2026-09-11 (nav, tooltips, trout, karst, basin soils, wetlands).
+The long-form record of why this exists, what it is built on, every decision that shaped it, and where it should go next. README.md is the user- and developer-facing reference; this file is the memory. Update it whenever a decision is made or a source is added. Last updated 2026-09-11 (nav, tooltips, trout, karst, basin soils, wetlands, FEMA).
 
 Live site: https://madruin.github.io/northland-hydro/ · Repo: https://github.com/Madruin/northland-hydro (public, MIT) · Owner: Matías Valero, Conservation Engineer, MN SWCD Technical Service Area 3 (TSA3).
 
@@ -91,6 +91,7 @@ The goal, in Matías's words on 2026-09-08: a website that aggregates local rain
 | **DNR trout streams** | `.../us_mn_state_dnr/env_trout_stream_designations/FeatureServer/0` (trout_flag 1 designated, 2 tributary reach; 2,444 segments in region); also `env_trout_stream_special_regs` (sanctuaries, posted boundaries) and `water_trout_streams_pls_sections` | Trout layer | CORS. Loaded per viewport, zoom 9+. |
 | **Karst** | `geos_surface_karst_feature_devel` layer 1 (carbonate+sandstone polygons; layer 0 carbonate-only has nothing in NE MN), `geos_karst_feature_inventory_pts` (feature D sinkhole, X stream sink, B spring, I karst window), `env_mn_springs_inventory` | Karst layer | CORS. Regional content is essentially Pine County (Hinckley Sandstone). |
 | **MN NWI update (wetlands)** | `.../us_mn_state_dnr/water_nat_wetlands_inv_2009_2014/FeatureServer/0` (fields attribute = Cowardin, wetland_type, acres, circ39_class, hgm_desc, spcc_desc, cow_class1) | Wetlands layer (zoom 11+) + point section | CORS; 5 km view ~2.7 s / 0.9 MB. Also `water_nat_wetlands_inventory` (legacy federal) and `geos_potentially_wet_histosols`. USFWS `fwspublicservices.wim.usgs.gov` returned HTML at the tried path; not needed. |
+| **FEMA NFHL** | `hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer` layers 28 zones (FLD_ZONE, ZONE_SUBTY incl. FLOODWAY, SFHA_TF, STATIC_BFE, V_DATUM, DFIRM_ID), 14 cross sections (XS_LTR, WSEL_REG, STRMBED_EL, STREAM_STN, WTR_NM), 16 BFE lines (ELEV), 1 LOMRs (CASE_NO, EFF_DATE, STATUS), 3 FIRM panels (FIRM_PAN, EFF_DATE), 17 profile baselines, 34 LOMAs | FEMA layer (zoom 12+) + point section with no-rise/CLOMR guidance | CORS. 2 km zone query ~3.6 s / 6.7 MB (geometry heavy). MnGeo mirror `water_dnr_fema_dfirm` exists but lacks floodway subtype detail. |
 | **US Census counties** | `cdn.jsdelivr.net/npm/us-atlas@3/counties-10m.json` | County outlines (TSA3 highlighted) and per-county bboxes | CDN. |
 | **Basemaps** | OpenFreeMap positron/liberty/dark (glyphs from `tiles.openfreemap.org/fonts`), USGS National Map imagery tiles | | |
 | **Photon** | `photon.komoot.io/api` | Place-name search | CORS, no key. |

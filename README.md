@@ -47,9 +47,13 @@ Then **TSA3 regional curves** turn the drainage area into bankfull channel dimen
 
 `tools/build_regional_curves.py` reads the workbooks from `S:/TECH/20_North_Shore_Geomorph/02-Regional_Curves`, writes `data/regional_curves.json` (equations exactly as in each Prediction Equations sheet, every survey site, and a refit of each power law from the current rows), and prints published-vs-refit coefficients. Re-run it whenever a workbook changes. The site suggests a curve from the basin's HUC8 (Lake Superior direct tributaries → North Shore; St. Louis, Cloquet, Nemadji → Cloquet/St. Louis; Snake, Kettle, Rum, upper St. Croix → Eastern MN), shows the other curves' answers for comparison, warns when DA is outside the surveyed range, and plots the survey sites with the fitted curve on log-log axes with the basin marked. A drainage area can also be typed in to run the curves without delineating.
 
+## FEMA flood hazard (NFHL)
+
+**FEMA** draws the effective National Flood Hazard Layer from `hazards.fema.gov` (CORS) at zoom 12+: flood zones colored by hazard (regulatory floodway darkest, 1% annual chance red, 0.2% orange, minimal hazard nearly transparent), lettered cross sections with their regulatory water-surface elevations, BFE lines with labels, and LOMR areas. Hover for details. Clicking a point adds a **FEMA flood hazard at this point** section: zone and subtype, BFE (static or nearest BFE line), FIRM panel and effective date, any LOMR in effect, the studied reach, the six nearest cross sections with regulatory WSEL, streambed elevation, station and distance, and a short guidance note keyed to the situation (floodway → no-rise / CLOMR–LOMR; SFHA outside floodway → rise allowance; Zone A → BFE must be established; shaded X; unmapped). Links go to the FEMA Map Service Center at the point, the FIS/effective-model search, the MnDNR floodplain program and the MT-2 forms. Pending and preliminary maps are not shown.
+
 ## Wetlands (MN NWI update)
 
-**Wetlands** draws the Minnesota National Wetlands Inventory update (DNR, 2009–2014 imagery; `water_nat_wetlands_inv_2009_2014` layer 0) for the view at zoom 11+, colored by wetland type (emergent, forested, shrub, pond, lake, riverine). Hover for the Cowardin code, Circular 39 type, plant community and hydrogeomorphic class, and acreage. Clicking inside a wetland adds a **Wetland at this point** section to the Point panel with the same attributes. The state update is preferred over the federal USFWS layer because it is newer, uses Minnesota-specific plant-community and Circular 39 classifications, and is served with CORS. Inventory-level mapping only; WCA jurisdictional boundaries need a field delineation.
+**Wetlands** draws the Minnesota National Wetlands Inventory update (DNR, 2009–2014 imagery; `water_nat_wetlands_inv_2009_2014` layer 0) for the view at zoom 11+, colored by wetland type (emergent, forested, shrub, pond, lake, riverine). Hover for the Cowardin code, Circular 39 type, plant community and hydrogeomorphic class, and acreage. Clicking inside a wetland adds a **Wetland at this point** section to the Point panel with the same attributes and links to the MN Wetland Finder and the USFWS Wetlands Mapper centered on the point. The state update is preferred over the federal USFWS layer because it is newer, uses Minnesota-specific plant-community and Circular 39 classifications, and is served with CORS. Inventory-level mapping only; WCA jurisdictional boundaries need a field delineation.
 
 ## Trout streams and karst (MN DNR)
 
@@ -160,7 +164,8 @@ js/report.js          gathers the site hydrology summary document → report.htm
 js/terrain.js         MnTOPO lidar layers, mnlod:// tile protocol, legend
 js/soils.js, js/api/sda.js   SSURGO hydrologic-group layer and point soils section (Soil Data Access SQL)
 js/parcels.js         county parcel services (7 counties), normalized fields, point lookup
-js/dnrlayers.js       trout streams + karst/springs viewport layers
+js/dnrlayers.js       trout streams, karst/springs and wetlands viewport layers
+js/fema.js            FEMA NFHL zones/floodway/BFE/XS/LOMR layer and point section
 js/basinsoils.js      basin-wide HSG breakdown and composite CN
 js/nav.js             panel history (back/breadcrumbs) and header-tooltip glossary
 js/lakes.js, js/api/dnrlakes.js   DNR LakeFinder levels, OHW, hydrograph, dams inventory outlets
