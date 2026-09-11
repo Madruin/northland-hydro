@@ -55,7 +55,7 @@ Then **TSA3 regional curves** turn the drainage area into bankfull channel dimen
 
 ## Imagery basemap
 
-The **Imagery (MnGeo, high-res)** basemap draws MnGeo's statewide composite aerial photography, which is the newest and sharpest imagery available for each area (county orthophotos at 0.15 to 0.3 m where they exist, FSA elsewhere). MnGeo serves it only in UTM 15N, so the site fetches each map tile as a UTM image and re-projects it in the browser; expect a short delay per tile the first time an area is viewed. The map now zooms to level 19. **Imagery (USGS)** remains as the 1 m fallback. Every Point section shows an "as of" time when it finishes loading, and the status line shows when the station data were last refreshed.
+Two MnGeo imagery basemaps join the USGS one. **Imagery (sharpest)** stacks the highest-resolution orthophotos MnGeo serves over the 2025 FSA base: Lake County 2024 at 6 in, Carlton County 2021 at 6 in and north-central Minnesota 2013 at 1 ft (which covers Duluth and the Arrowhead); **Imagery (newest)** is the 2025 FSA flight alone at about 60 cm. They come from MnGeo's `wmsll` WMS endpoint, which serves Web Mercator directly, as 512 px tiles. The map zooms to level 19. **Imagery (USGS)** remains as the 1 m fallback. The sharpest photo of a place can be older than the newest one, so check the year before relying on what a structure or channel looks like. Every Point section shows an "as of" time when it finishes loading, and the status line shows when the station data were last refreshed.
 
 ## Help dialog
 

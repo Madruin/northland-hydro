@@ -5,7 +5,7 @@ export const APP = {
   name: "Northland Eco",
   userAgent: "northland-hydro (valeromatias@gmail.com)", // NWS asks for a contact UA
   version: "0.1.0",
-  build: "20260911-2009-984ecbd",
+  build: "20260911-2020-943ec2d",
 };
 
 // Working extent: MN SWCD TSA3 counties plus a margin (W, S, E, N)
@@ -99,9 +99,13 @@ export const BASEMAPS = {
   light: { label: "Light", style: "https://tiles.openfreemap.org/styles/positron" },
   streets: { label: "Streets", style: "https://tiles.openfreemap.org/styles/liberty" },
   dark: { label: "Dark", style: "https://tiles.openfreemap.org/styles/dark" },
-  mnimg: { label: "Imagery (MnGeo, high-res)", style: {
-    version: 8, glyphs: "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf", sources: { mn: { type: "raster", tileSize: 256, minzoom: 6, maxzoom: 20, attribution: "MnGeo composite aerial imagery",
-      tiles: ["mnimg://{z}/{x}/{y}"] } },
+  mnimg: { label: "Imagery (sharpest: county 6 in / 1 ft)", style: {
+    version: 8, glyphs: "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf", sources: { mn: { type: "raster", tileSize: 512, minzoom: 6, maxzoom: 20, attribution: "MnGeo aerial imagery (county, MnDOT, FSA)",
+      tiles: ["https://imageserver.gisdata.mn.gov/cgi-bin/wmsll?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&STYLES=&CRS=EPSG:3857&BBOX={bbox-epsg-3857}&WIDTH=512&HEIGHT=512&FORMAT=image/jpeg&LAYERS=fsa2025,nc13ft,carlton21,lake24"] } },
+    layers: [{ id: "mn", type: "raster", source: "mn" }] } },
+  mnfsa: { label: "Imagery (newest: 2025 FSA)", style: {
+    version: 8, glyphs: "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf", sources: { mn: { type: "raster", tileSize: 512, minzoom: 6, maxzoom: 20, attribution: "MnGeo / USDA FSA 2025 imagery",
+      tiles: ["https://imageserver.gisdata.mn.gov/cgi-bin/wmsll?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&STYLES=&CRS=EPSG:3857&BBOX={bbox-epsg-3857}&WIDTH=512&HEIGHT=512&FORMAT=image/jpeg&LAYERS=fsa2025"] } },
     layers: [{ id: "mn", type: "raster", source: "mn" }] } },
   imagery: { label: "Imagery (USGS)", style: {
     version: 8, glyphs: "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf", sources: { usgs: { type: "raster", tileSize: 256, attribution: "USGS The National Map",

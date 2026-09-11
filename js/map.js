@@ -3,7 +3,6 @@ import { BASEMAPS, COUNTIES, ENDPOINTS, HOME, QPE_LAYERS, REGION_BBOX } from "./
 import { getJSON, emit } from "./util.js";
 import { addTerrainLayers, setTerrainVisible as _stv, setTerrainOpacity as _sto } from "./terrain.js";
 import { streamGridTileUrl } from "./api/streamstats.js";
-import { registerMnImagery } from "./mnimagery.js";
 
 export let map = null;
 let countiesGeo = null;
@@ -25,7 +24,6 @@ let pinLngLat = null;
 
 export function initMap({ center = HOME.center, zoom = HOME.zoom, basemap = "light" } = {}) {
   currentBasemap = BASEMAPS[basemap] ? basemap : "light";
-  registerMnImagery();
   map = new maplibregl.Map({
     container: "map", style: BASEMAPS[currentBasemap].style, center, zoom, minZoom: 5, maxZoom: 19,
     attributionControl: { compact: true }, hash: false,
