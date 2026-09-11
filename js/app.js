@@ -101,6 +101,7 @@ function buildControls() {
   updateTerrainButton(); updateLayersButton();
   // first-visit hint: click the map
   $("map-hint-x").addEventListener("click", () => dismissHint());
+  $("map").addEventListener("pointerdown", () => { if (!$("map-hint").hidden) dismissHint(); }, true);
   ["select:point", "select:station", "select:gauge"].forEach((ev) => on(ev, () => dismissHint()));
   const mobile = () => window.matchMedia("(max-width: 900px)").matches;
   const sheet = (st) => { $("panel").dataset.sheet = st; $("panel").style.height = ""; $("panel").classList.toggle("open", st !== "peek"); };
@@ -113,7 +114,7 @@ function buildControls() {
   rs.addEventListener("pointerup", endDrag); rs.addEventListener("pointercancel", endDrag);
   // phones: drag the sheet's top edge (its header) up or down to any height
   const head = document.querySelector(".panel-head"); let sd = null, suppressUntil = 0;
-  head.addEventListener("pointerdown", (e) => { if (!mobile() || e.target.closest("#panel-toggle, .fs")) return; sd = { y: e.clientY, h: $("panel").getBoundingClientRect().height, moved: false }; });
+  head.addEventListener("pointerdown", (e) => { if (!mobile() || e.target.closest("#panel-toggle")) return; sd = { y: e.clientY, h: $("panel").getBoundingClientRect().height, moved: false }; });
   head.addEventListener("pointermove", (e) => {
     if (!sd) return; const dy = sd.y - e.clientY;
     if (!sd.moved) { if (Math.abs(dy) < 8) return; sd.moved = true; try { head.setPointerCapture(e.pointerId); } catch {} $("panel").classList.add("resizing"); }
@@ -123,12 +124,7 @@ function buildControls() {
   const endSheet = () => { if (!sd) return; if (sd.moved) { suppressUntil = Date.now() + 400; map?.resize(); } sd = null; $("panel").classList.remove("resizing"); };
   head.addEventListener("pointerup", endSheet); head.addEventListener("pointercancel", endSheet);
   head.addEventListener("click", (e) => { if (suppressUntil > Date.now()) { e.stopPropagation(); e.preventDefault(); } }, true);
-  // panel text size, remembered
-  let pz = 1; try { pz = Number(localStorage.getItem("nh-panel-zoom")) || 1; } catch {}
-  const applyPz = () => { document.querySelector(".panel-body").style.zoom = String(pz); try { localStorage.setItem("nh-panel-zoom", String(pz)); } catch {} };
-  $("fs-dec").addEventListener("click", () => { pz = Math.max(0.8, +(pz - 0.1).toFixed(2)); applyPz(); });
-  $("fs-inc").addEventListener("click", () => { pz = Math.min(1.5, +(pz + 0.1).toFixed(2)); applyPz(); });
-  applyPz();
+
   $("panel-toggle").addEventListener("click", () => {
     if (!mobile()) { $("panel").classList.toggle("open"); return; }
     const cur = $("panel").dataset.sheet || "peek";
