@@ -1,5 +1,5 @@
 {
- "build": "20260911-1354-9a57d95",
+ "build": "20260911-1415-fe91507",
  "files": [
   "css/app.css",
   "css/report.css",
@@ -42,6 +42,7 @@
   "js/url.js",
   "js/util.js",
   "js/watershed.js",
+  "js/wells.js",
   "report.html"
  ]
 }

@@ -264,3 +264,6 @@ details.steps code { background: var(--bg2); padding: 0 4px; border-radius: 3px;
 .crumb-sep { color: var(--fg3); }
 th.has-tip, .stat .l.has-tip { cursor: help; text-decoration: underline dotted rgba(169,182,207,.5); text-underline-offset: 3px; }
 @media (max-width: 900px) { .nav-bar { padding: 4px 8px; } }
+details.well { border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px; margin: 6px 0; }
+details.well summary { cursor: pointer; font-size: 12px; }
+details.well .data { margin-top: 4px; }

@@ -8,6 +8,7 @@ import { setBasin, setPin } from "./map.js";
 import { loadCurves, renderRegional, suggestCurve, compute, curves } from "./regional.js";
 import { authState } from "./projects.js";
 import { renderBasinSoils } from "./basinsoils.js";
+import { renderBasinBedrock } from "./wells.js";
 
 const cache = new Map(); // key lon,lat → state
 let curveChoice = null;
@@ -106,11 +107,12 @@ function renderResultsInto(body, st, lon, lat, { curveId, onChangeCurve, saveUI 
     <details><summary class="small" style="cursor:pointer">All basin characteristics (${(st.bc || []).length})</summary>
       <table class="data"><tbody>${(st.bc || []).map((b) => `<tr><td title="${escapeHtml(b.description || "")}">${escapeHtml(b.name)} <span class="small">${b.code}</span></td><td class="num">${fmtNum(b.value, 3)}</td><td class="small">${escapeHtml(b.unit || "")}</td></tr>`).join("")}</tbody></table></details>
     ${flowsHtml(st)}`}
-    ${st.basin && !st.manual ? `<div class="ws-basinsoils"></div>` : ""}
+    ${st.basin && !st.manual ? `<div class="ws-basinsoils"></div><div class="ws-bedrock"></div>` : ""}
     <h3>Bankfull channel dimensions · TSA3 regional curves</h3>
     <div class="ws-regional"></div>
 `;
   const bs = body.querySelector(".ws-basinsoils"); if (bs) renderBasinSoils(bs, st.basin.geometry, da);
+  const bb = body.querySelector(".ws-bedrock"); if (bb) renderBasinBedrock(bb, st.basin.geometry);
   loadCurves().then(() => renderRegional(body.querySelector(".ws-regional"), { da, huc: st.huc, lat, lon, curveId, onChangeCurve }));
   const saveBtn = body.querySelector(".ws-save");
   if (saveBtn) saveBtn.onclick = async () => {

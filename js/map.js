@@ -11,10 +11,10 @@ let overlaysReady = false;
 const sources = { stations: { type: "FeatureCollection", features: [] }, gauges: { type: "FeatureCollection", features: [] }, projects: { type: "FeatureCollection", features: [] } };
 let pickCallback = null;
 let rect = null; // { cb, onFirst, a: [lon,lat] | null }
-const visibility = { stations: true, gauges: true, qpe: false, streams: false, soils: false, parcels: false, trout: false, karst: false, wetlands: false, fema: false, crossings: false };
+const visibility = { stations: true, gauges: true, qpe: false, streams: false, soils: false, parcels: false, trout: false, karst: false, wetlands: false, fema: false, crossings: false, wells: false };
 let parcelsData = { type: "FeatureCollection", features: [] };
 let lakeFeature = null;
-const OVERLAYS = { "fema-zones": "fema-fill", "fema-lomr": "fema-lomr", wetlands: "fill", trout: "line", "karst-poly": "fill", "karst-pts": "point", springs: "point", "fema-bfe": "fema-line", "fema-xs": "fema-xs", "xing-dnr": "point", "xing-nbi": "diamond" };
+const OVERLAYS = { "fema-zones": "fema-fill", "fema-lomr": "fema-lomr", wetlands: "fill", trout: "line", "karst-poly": "fill", "karst-pts": "point", springs: "point", "fema-bfe": "fema-line", "fema-xs": "fema-xs", "xing-dnr": "point", "xing-nbi": "diamond", wells: "point", drillholes: "diamond" };
 const overlayData = {};
 let countyBboxCache = null;
 let soilsData = { type: "FeatureCollection", features: [] };
@@ -171,7 +171,7 @@ async function addOverlays() {
   for (const [id, kind] of Object.entries(OVERLAYS)) {
     if (map.getSource("ov-" + id)) continue;
     map.addSource("ov-" + id, { type: "geojson", data: overlayData[id] || { type: "FeatureCollection", features: [] } });
-    const vis = (id === "trout" ? visibility.trout : id === "wetlands" ? visibility.wetlands : id.startsWith("fema") ? visibility.fema : id.startsWith("xing") ? visibility.crossings : visibility.karst) ? "visible" : "none";
+    const vis = (id === "trout" ? visibility.trout : id === "wetlands" ? visibility.wetlands : id.startsWith("fema") ? visibility.fema : id.startsWith("xing") ? visibility.crossings : id === "wells" || id === "drillholes" ? visibility.wells : visibility.karst) ? "visible" : "none";
     if (kind === "diamond") { if (!map.hasImage("diamond")) map.addImage("diamond", diamondImage(), { sdf: true }); map.addLayer({ id: "ov-" + id, type: "symbol", source: "ov-" + id, layout: { visibility: vis, "icon-image": "diamond", "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.45, 14, 0.8], "icon-allow-overlap": true }, paint: { "icon-color": ["get", "color"], "icon-halo-color": "#fff", "icon-halo-width": 1 } }); continue; }
     if (kind === "fema-fill") { map.addLayer({ id: "ov-" + id, type: "fill", source: "ov-" + id, layout: { visibility: vis }, paint: { "fill-color": ["get", "color"], "fill-opacity": ["get", "opacity"] } }, firstSymbol); map.addLayer({ id: "ov-" + id + "-line", type: "line", source: "ov-" + id, filter: ["==", ["get", "minimal"], 0], layout: { visibility: vis }, paint: { "line-color": ["get", "color"], "line-width": 1, "line-opacity": 0.8 } }, firstSymbol); continue; }
     if (kind === "fema-lomr") { map.addLayer({ id: "ov-" + id, type: "line", source: "ov-" + id, layout: { visibility: vis }, paint: { "line-color": "#6d28d9", "line-width": 2, "line-dasharray": [3, 2] } }, firstSymbol); continue; }
@@ -256,7 +256,7 @@ export function setGauges(fc) { sources.gauges = fc; if (map.getSource("gauges")
 export function setLayerVisible(name, on) {
   visibility[name] = on;
   if (!overlaysReady) return;
-  const ids = { stations: ["stations-circle", "stations-label"], gauges: ["gauges-circle"], qpe: ["qpe"], streams: ["streams"], soils: ["soils-fill", "soils-line", "soils-label"], parcels: ["parcels-fill", "parcels-line", "parcels-label"], trout: ["ov-trout"], karst: ["ov-karst-poly", "ov-karst-poly-line", "ov-karst-pts", "ov-springs"], wetlands: ["ov-wetlands", "ov-wetlands-line"], fema: ["ov-fema-zones", "ov-fema-zones-line", "ov-fema-lomr", "ov-fema-bfe", "ov-fema-bfe-label", "ov-fema-xs", "ov-fema-xs-label"], crossings: ["ov-xing-dnr", "ov-xing-nbi"] }[name] || [];
+  const ids = { stations: ["stations-circle", "stations-label"], gauges: ["gauges-circle"], qpe: ["qpe"], streams: ["streams"], soils: ["soils-fill", "soils-line", "soils-label"], parcels: ["parcels-fill", "parcels-line", "parcels-label"], trout: ["ov-trout"], karst: ["ov-karst-poly", "ov-karst-poly-line", "ov-karst-pts", "ov-springs"], wetlands: ["ov-wetlands", "ov-wetlands-line"], fema: ["ov-fema-zones", "ov-fema-zones-line", "ov-fema-lomr", "ov-fema-bfe", "ov-fema-bfe-label", "ov-fema-xs", "ov-fema-xs-label"], crossings: ["ov-xing-dnr", "ov-xing-nbi"], wells: ["ov-wells", "ov-drillholes"] }[name] || [];
   for (const id of ids) if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
 }
 let gaugeFilterHideUnclassified = false;
@@ -290,7 +290,7 @@ function setupHover() {
     if (!layers.length) return;
     let feats = map.queryRenderedFeatures(e.point, { layers });
     let anchor = feats.length ? feats[0].geometry.coordinates : e.lngLat;
-    if (!feats.length) { const ov = ["ov-xing-dnr", "ov-xing-nbi", "ov-karst-pts", "ov-springs", "ov-fema-xs", "ov-fema-bfe", "ov-trout", "ov-fema-lomr", "ov-karst-poly", "ov-wetlands", "ov-fema-zones"].filter((l) => map.getLayer(l) && map.getLayoutProperty(l, "visibility") === "visible"); if (ov.length) { feats = map.queryRenderedFeatures(e.point, { layers: ov }); anchor = e.lngLat; } }
+    if (!feats.length) { const ov = ["ov-wells", "ov-drillholes", "ov-xing-dnr", "ov-xing-nbi", "ov-karst-pts", "ov-springs", "ov-fema-xs", "ov-fema-bfe", "ov-trout", "ov-fema-lomr", "ov-karst-poly", "ov-wetlands", "ov-fema-zones"].filter((l) => map.getLayer(l) && map.getLayoutProperty(l, "visibility") === "visible"); if (ov.length) { feats = map.queryRenderedFeatures(e.point, { layers: ov }); anchor = e.lngLat; } }
     if (!feats.length && map.getLayer("parcels-fill") && map.getLayoutProperty("parcels-fill", "visibility") === "visible") { feats = map.queryRenderedFeatures(e.point, { layers: ["parcels-fill"] }); anchor = e.lngLat; }
     if (!feats.length && map.getLayer("soils-fill") && map.getLayoutProperty("soils-fill", "visibility") === "visible") { feats = map.queryRenderedFeatures(e.point, { layers: ["soils-fill"] }); anchor = e.lngLat; }
     if (!feats.length) { popup.remove(); return; }

@@ -19,6 +19,7 @@ import { renderLakeAt } from "./lakes.js";
 import { renderWetlandAt } from "./dnrlayers.js";
 import { renderFemaAt } from "./fema.js";
 import { renderCrossingAt } from "./crossings.js";
+import { renderWellsAt } from "./wells.js";
 import { visit } from "./nav.js";
 import { openReport } from "./report.js";
 const countyName = (fips) => { const c = COUNTIES.find((x) => x.fips === String(fips)); return c ? c.name.replace(" (WI)", "") + " County" : fips ? "FIPS " + fips : ""; };
@@ -233,6 +234,7 @@ export async function renderPoint(lon, lat) {
     <div id="pt-wetland"></div>
     <div id="pt-parcel"></div>
     <div id="pt-soils"></div>
+    <div id="pt-wells"></div>
     <div id="pt-precip"><div class="spinner">PRISM + station normals…</div></div>
     <div id="pt-nearby"></div>
     <div id="pt-wx"><div class="spinner">NWS forecast…</div></div>
@@ -246,6 +248,7 @@ export async function renderPoint(lon, lat) {
   renderWetlandAt($("pt-wetland"), lon, lat);
   renderFemaAt($("pt-fema"), lon, lat);
   renderCrossingAt($("pt-crossing"), lon, lat);
+  renderWellsAt($("pt-wells"), lon, lat);
   $("pt-report").onclick = async () => { const m = $("pt-report-msg"); try { await openReport({ lon, lat, onStatus: (t) => (m.textContent = t) }); m.textContent = ""; } catch (e) { m.textContent = "Report failed: " + e.message; } };
 
   // Nearby observers (from the already-loaded station layer)
