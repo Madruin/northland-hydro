@@ -1,5 +1,7 @@
 # Northland Hydro
 
+> **PROJECT.md** is the project guide: motivation, inspiration, every data source with what we learned about it, design decisions, validation status and roadmap. Start there if you are new or resuming work.
+
 Rainfall, stream gauges, forecast and Lake Superior levels for northeastern Minnesota (the MN SWCD TSA3 counties), in one map. CoCoRaHS-grade station density, AquaScope-style "click anything" depth, and no server: every number comes from a public API straight into the browser.
 
 Live layers:
