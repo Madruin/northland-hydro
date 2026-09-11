@@ -1,6 +1,6 @@
 # Northland Hydro — project guide
 
-The long-form record of why this exists, what it is built on, every decision that shaped it, and where it should go next. README.md is the user- and developer-facing reference; this file is the memory. Update it whenever a decision is made or a source is added. Last updated 2026-09-11 (nav + tooltips).
+The long-form record of why this exists, what it is built on, every decision that shaped it, and where it should go next. README.md is the user- and developer-facing reference; this file is the memory. Update it whenever a decision is made or a source is added. Last updated 2026-09-11 (nav, tooltips, trout, karst, basin soils).
 
 Live site: https://madruin.github.io/northland-hydro/ · Repo: https://github.com/Madruin/northland-hydro (public, MIT) · Owner: Matías Valero, Conservation Engineer, MN SWCD Technical Service Area 3 (TSA3).
 
@@ -88,6 +88,8 @@ The goal, in Matías's words on 2026-09-08: a website that aggregates local rain
 | **NRCS SSURGO via Soil Data Access** | `sdmdataaccess.sc.egov.usda.gov/Tabular/post.rest` (POST `{format:"JSON+COLUMNNAME", query}`) | Hydrologic-soil-group map layer (spatial SQL on mupolygon with `.Reduce().STAsText()`), point soils section (components, drainage, hydric, flooding, water table, texture, Kw, Ksat, restriction) | CORS `*`. 4 km view ~2.4 s; per-component detail subqueries ~15 s → two-stage load. St. Louis County = survey areas MN613/615/617/619/621. SDM WMS lists MVT but returns 400 (raster only). Web Soil Survey is USDA NRCS, not USGS. |
 | **County tax parcels** | St. Louis `gis.stlouiscountymn.gov/server2/rest/services/GeneralUse/Open_Data/MapServer/7`; Cook `services.arcgis.com/L3KwVADPEG6iD24f/.../Tax_Parcel_Polygons/FeatureServer/0`; Carlton `gis.co.carlton.mn.us/.../OpenData/Parcels_CarltonCountyMN/MapServer/0`; Aitkin `gisweb.co.aitkin.mn.us/.../ParcelTaxData/FeatureServer/0`; Mille Lacs `gis.co.mille-lacs.mn.us/.../AGO_Parcels_and_Lots/MapServer/3` (no paging, 1000 cap); Lake `enterprise.gisdata.mn.gov/.../us_mn_co_lake/plan_tax_parcels/FeatureServer/0`; Kanabec `wfs.schneidercorp.com/.../KanabecCountyMN_WFS/MapServer/0` | Parcel boundaries, owner labels, point lookup; fields normalized per county in `js/parcels.js` | All CORS. Sub-second except Lake/Kanabec (3–4 s). **Pine**: no public service; not in MnGeo's open compilation (opted out, as did Kanabec). Email sent 2026-09-10 to Kelly Schroeder (Land Services Director) cc Lorri Houtsma (Assessor) asking for a REST endpoint or periodic export. |
 | **MnGeo statewide open parcels** | `.../us_mn_state_mngeo/plan_parcels_open/FeatureServer/1` | Not used | Server-side 10–60 s per query (time-to-first-byte, not transfer); too slow for a pan-driven layer. Holds no Pine or Kanabec parcels. |
+| **DNR trout streams** | `.../us_mn_state_dnr/env_trout_stream_designations/FeatureServer/0` (trout_flag 1 designated, 2 tributary reach; 2,444 segments in region); also `env_trout_stream_special_regs` (sanctuaries, posted boundaries) and `water_trout_streams_pls_sections` | Trout layer | CORS. Loaded per viewport, zoom 9+. |
+| **Karst** | `geos_surface_karst_feature_devel` layer 1 (carbonate+sandstone polygons; layer 0 carbonate-only has nothing in NE MN), `geos_karst_feature_inventory_pts` (feature D sinkhole, X stream sink, B spring, I karst window), `env_mn_springs_inventory` | Karst layer | CORS. Regional content is essentially Pine County (Hinckley Sandstone). |
 | **US Census counties** | `cdn.jsdelivr.net/npm/us-atlas@3/counties-10m.json` | County outlines (TSA3 highlighted) and per-county bboxes | CDN. |
 | **Basemaps** | OpenFreeMap positron/liberty/dark (glyphs from `tiles.openfreemap.org/fonts`), USGS National Map imagery tiles | | |
 | **Photon** | `photon.komoot.io/api` | Place-name search | CORS, no key. |
@@ -124,7 +126,7 @@ The goal, in Matías's words on 2026-09-08: a website that aggregates local rain
 Near-term (agreed or implied):
 1. ~~Back navigation / breadcrumbs~~ done 2026-09-11 (`js/nav.js`).
 2. ~~Header tooltips / units~~ done 2026-09-11 (glossary in `js/nav.js`, applied by MutationObserver).
-3. Basin-wide hydrologic-soil-group breakdown for a delineated watershed (feeds curve numbers); needs a test of the polygon size Soil Data Access accepts (Knife River basin is 5,800 vertices).
+3. ~~Basin-wide HSG breakdown~~ done 2026-09-11 (`js/basinsoils.js`): SDA takes the whole basin in one query when the ring is thinned to ~600 vertices (3–8 s, result insensitive to thinning).
 4. More SSURGO themes as layer options: drainage class, hydric, flooding frequency, water-table depth, Kw, slope class.
 5. Pine County parcels once the county answers (REST endpoint → same as others; export → static tileset refreshed on delivery). Wisconsin statewide parcels for Douglas/Bayfield if needed.
 6. Official 2 ft MnTOPO contours as a second DXF in the CAD export; save AOI extents/settings to projects.

@@ -47,6 +47,8 @@
         <button class="toggle" id="tg-streams" title="USGS StreamStats stream grid: the mapped stream cells that delineation runs on (zoom 13+)">Streams</button>
         <button class="toggle" id="tg-soils" title="NRCS SSURGO soils colored by hydrologic soil group (zoom 12+)">Soils</button>
         <button class="toggle" id="tg-parcels" title="County tax parcels with owner names (zoom 14+)">Parcels</button>
+        <button class="toggle" id="tg-trout" title="DNR designated trout streams (zoom 9+)">Trout</button>
+        <button class="toggle" id="tg-karst" title="Karst-prone bedrock, sinkholes and springs (zoom 9+)">Karst</button>
         <div class="menu-wrap"><button class="toggle" id="tg-terrain" title="MnTOPO lidar hillshade, DEM and contours">Terrain ▾</button>
           <div class="menu" id="terrain-menu" hidden>
             <div class="menu-title">MnTOPO lidar layers</div>
@@ -117,7 +119,7 @@
         <h4>Controls</h4>
         <ul>
           <li><b>End date / Window</b>: the station colors and all totals follow these. ← → step the date; the ‹ › buttons do the same.</li>
-          <li><b>Layers</b>: Stations, radar QPE (NWS estimate for the last 1–24 h), Gauges, and Terrain (MnTOPO lidar hillshade, DEM and contours).</li>
+          <li><b>Layers</b>: Stations, radar QPE (NWS estimate for the last 1–24 h), Gauges, Streams (StreamStats grid), Soils (hydrologic soil group), Parcels, Trout (DNR designated trout streams), Karst (karst-prone bedrock, sinkholes, springs), and Terrain (MnTOPO lidar hillshade, DEM and contours).</li>
           <li><b>Search</b> ( / ): gauge, station, project or place name.</li>
           <li><b>Watershed</b> (Point tab): delineates with USGS StreamStats, returns basin characteristics and regression flows, and runs the TSA3 regional curves for bankfull dimensions. Save results to a project.</li>
           <li><b>CAD export</b>: draw a rectangle and download imagery, lidar DEM and contours in UTM 15N US feet, with Civil 3D steps.</li>

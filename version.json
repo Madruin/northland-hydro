@@ -1,5 +1,5 @@
 {
- "build": "20260911-1311-dbcd148",
+ "build": "20260911-1320-9bd3a02",
  "files": [
   "css/app.css",
   "css/report.css",
@@ -17,7 +17,9 @@
   "js/api/supabase.js",
   "js/api/usgs.js",
   "js/app.js",
+  "js/basinsoils.js",
   "js/config.js",
+  "js/dnrlayers.js",
   "js/export.js",
   "js/gauges.js",
   "js/lake.js",

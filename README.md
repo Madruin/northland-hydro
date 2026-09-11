@@ -47,6 +47,12 @@ Then **TSA3 regional curves** turn the drainage area into bankfull channel dimen
 
 `tools/build_regional_curves.py` reads the workbooks from `S:/TECH/20_North_Shore_Geomorph/02-Regional_Curves`, writes `data/regional_curves.json` (equations exactly as in each Prediction Equations sheet, every survey site, and a refit of each power law from the current rows), and prints published-vs-refit coefficients. Re-run it whenever a workbook changes. The site suggests a curve from the basin's HUC8 (Lake Superior direct tributaries → North Shore; St. Louis, Cloquet, Nemadji → Cloquet/St. Louis; Snake, Kettle, Rum, upper St. Croix → Eastern MN), shows the other curves' answers for comparison, warns when DA is outside the surveyed range, and plots the survey sites with the fitted curve on log-log axes with the basin marked. A drainage area can also be typed in to run the curves without delineating.
 
+## Trout streams and karst (MN DNR)
+
+**Trout** draws DNR designated trout streams (`env_trout_stream_designations`; blue = designated, light blue = tributary reaches carrying the designation) for the view at zoom 9+. **Karst** draws karst-prone bedrock polygons (`geos_surface_karst_feature_devel` layer 1, carbonate + sandstone; in TSA3 this is the Hinckley Sandstone in Pine County), the MGS/DNR karst feature inventory points (sinkholes, stream sinks, karst springs; 623 of the region's 652 are in Pine County) and the DNR springs inventory. Hover any feature for details. Both load per viewport, capped at 2,000 features per source.
+
+**Basin soils.** After a watershed delineation, a "Basin soils" section area-weights the dominant hydrologic soil group of every SSURGO map unit inside the basin in a single Soil Data Access query (outline thinned to ~600 vertices; Knife River's 86 mi² takes 3–8 s). It shows the group shares, the effective A/B/C/D split with dual groups counted as their D side (and the "if drained" alternative), and composite TR-55 curve numbers for a handful of whole-basin covers to show how the soils alone move the number.
+
 ## Lakes (MN DNR LakeFinder)
 
 Click on a lake and the Point panel opens with a **Lake** section: basin name, DOW number, county, acreage and shoreline from the DNR hydrography layer (the polygon is outlined on the map); the DNR water-level record as a chart with the **Ordinary High Water Level** line, plus period of record, highest and lowest readings, last reading and its offset from OHW, datum, and benchmarks; **outlet / control structures** from the DNR dams inventory within about 0.5 km of the basin (principal spillway elevation, top of dam, height, datum, purpose, owner, hazard, condition, comments) or a note that none is on record; and LakeFinder morphology (littoral area, depths, clarity, last fisheries survey). Sources: DNR hydrography `water_dnr_hydrography` layer 1 (point lookup, 0.5 s), LakeFinder `water_levels_export.cgi` CSV and `detail.cgi`, the water-levels page parsed for OHW/datum (served with CORS), and `struc_mn_dams_inventory_pub`. Level datums vary by lake (MSL 1912, NGVD 29, local) and are shown; they are not NAVD88 lidar elevations.
@@ -150,6 +156,8 @@ js/report.js          gathers the site hydrology summary document → report.htm
 js/terrain.js         MnTOPO lidar layers, mnlod:// tile protocol, legend
 js/soils.js, js/api/sda.js   SSURGO hydrologic-group layer and point soils section (Soil Data Access SQL)
 js/parcels.js         county parcel services (7 counties), normalized fields, point lookup
+js/dnrlayers.js       trout streams + karst/springs viewport layers
+js/basinsoils.js      basin-wide HSG breakdown and composite CN
 js/nav.js             panel history (back/breadcrumbs) and header-tooltip glossary
 js/lakes.js, js/api/dnrlakes.js   DNR LakeFinder levels, OHW, hydrograph, dams inventory outlets
 js/export.js          AOI export: imagery + world file, DEM GeoTIFF/ASCII, DXF contours (UTM 15N US ft)
