@@ -8,9 +8,9 @@ export let latest = null;
 export async function loadLake() {
   try {
     latest = await latestLevel();
-    $("lake-level").textContent = latest ? `${fmt(latest.ft)} ft` : "n/a";
-    $("btn-lake").title = latest ? `Lake Superior at Duluth: ${fmt(latest.ft)} ft IGLD85 at ${latest.time} (long-term avg ${LAKE_STATION.lta} ft)` : "Lake level unavailable";
-  } catch (e) { $("lake-level").textContent = "n/a"; console.warn("lake failed", e); }
+    if ($("lake-level")) $("lake-level").textContent = latest ? `${fmt(latest.ft)} ft` : "n/a";
+    if ($("btn-lake")) $("btn-lake").title = latest ? `Lake Superior at Duluth: ${fmt(latest.ft)} ft IGLD85 at ${latest.time} (long-term avg ${LAKE_STATION.lta} ft)` : "Lake level unavailable";
+  } catch (e) { if ($("lake-level")) $("lake-level").textContent = "n/a"; console.warn("lake failed", e); }
   return latest;
 }
 

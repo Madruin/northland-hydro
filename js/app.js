@@ -34,7 +34,9 @@ if (state.endDate > isoDate()) state.endDate = isoDate();
 if (!readUrl().endDate && new Date().getHours() < 9) state.endDate = addDays(isoDate(), -1);
 
 let firstLoadDone = false;
-function setStatus(msg, isError = false) { $("status-text").textContent = msg; $("status").classList.toggle("error", isError); }
+let normalStatus = "", zoomHint = null;
+function setStatus(msg, isError = false, hint = false) { if (!hint) { normalStatus = msg; zoomHint = null; } $("status-text").textContent = msg; $("status").classList.toggle("error", isError); }
+const whenMap = (fn) => (map ? fn() : on("map:ready", fn));
 function syncUrl() { writeUrl(state); }
 
 function buildControls() {
@@ -92,13 +94,41 @@ function buildControls() {
   $("btn-layers").addEventListener("click", (e) => { e.stopPropagation(); const open = $("layers-menu").hidden; closeMenus(); $("layers-menu").hidden = !open; updateLayerRows(); });
   document.addEventListener("click", (e) => { if (!e.target.closest(".menu-wrap")) closeMenus(); });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeMenus(); });
-  on("map:ready", () => map.on("moveend", () => { if (!$("layers-menu").hidden) updateLayerRows(); }));
+  whenMap(() => {
+    map.on("moveend", () => { if (!$("layers-menu").hidden) updateLayerRows(); if (zoomHint && map.getZoom() >= zoomHint.mz - 0.01) setStatus(normalStatus); });
+    map.on("click", () => dismissHint());
+  });
   updateTerrainButton(); updateLayersButton();
   // first-visit hint: click the map
   $("map-hint-x").addEventListener("click", () => dismissHint());
   ["select:point", "select:station", "select:gauge"].forEach((ev) => on(ev, () => dismissHint()));
   const mobile = () => window.matchMedia("(max-width: 900px)").matches;
-  const sheet = (st) => { $("panel").dataset.sheet = st; $("panel").classList.toggle("open", st !== "peek"); };
+  const sheet = (st) => { $("panel").dataset.sheet = st; $("panel").style.height = ""; $("panel").classList.toggle("open", st !== "peek"); };
+  // desktop: drag the panel's left edge to resize; remembered
+  try { const w = localStorage.getItem("nh-panel-w"); if (w) document.documentElement.style.setProperty("--panel-w", w.trim()); } catch {}
+  const rs = $("panel-resize"); let drag = null;
+  rs.addEventListener("pointerdown", (e) => { if (mobile()) return; drag = { x: e.clientX, w: $("panel").getBoundingClientRect().width }; $("panel").classList.add("resizing"); rs.setPointerCapture(e.pointerId); e.preventDefault(); });
+  rs.addEventListener("pointermove", (e) => { if (!drag) return; const w = Math.round(Math.max(300, Math.min(window.innerWidth * 0.7, drag.w + (drag.x - e.clientX)))); document.documentElement.style.setProperty("--panel-w", w + "px"); });
+  const endDrag = () => { if (!drag) return; drag = null; $("panel").classList.remove("resizing"); try { localStorage.setItem("nh-panel-w", document.documentElement.style.getPropertyValue("--panel-w")); } catch {} map?.resize(); };
+  rs.addEventListener("pointerup", endDrag); rs.addEventListener("pointercancel", endDrag);
+  // phones: drag the sheet's top edge (its header) up or down to any height
+  const head = document.querySelector(".panel-head"); let sd = null, suppressUntil = 0;
+  head.addEventListener("pointerdown", (e) => { if (!mobile() || e.target.closest("#panel-toggle, .fs")) return; sd = { y: e.clientY, h: $("panel").getBoundingClientRect().height, moved: false }; });
+  head.addEventListener("pointermove", (e) => {
+    if (!sd) return; const dy = sd.y - e.clientY;
+    if (!sd.moved) { if (Math.abs(dy) < 8) return; sd.moved = true; try { head.setPointerCapture(e.pointerId); } catch {} $("panel").classList.add("resizing"); }
+    const h = Math.round(Math.max(44, Math.min(window.innerHeight - 60, sd.h + dy)));
+    $("panel").dataset.sheet = "custom"; $("panel").style.height = h + "px"; $("panel").classList.toggle("open", h > 60);
+  });
+  const endSheet = () => { if (!sd) return; if (sd.moved) { suppressUntil = Date.now() + 400; map?.resize(); } sd = null; $("panel").classList.remove("resizing"); };
+  head.addEventListener("pointerup", endSheet); head.addEventListener("pointercancel", endSheet);
+  head.addEventListener("click", (e) => { if (suppressUntil > Date.now()) { e.stopPropagation(); e.preventDefault(); } }, true);
+  // panel text size, remembered
+  let pz = 1; try { pz = Number(localStorage.getItem("nh-panel-zoom")) || 1; } catch {}
+  const applyPz = () => { document.querySelector(".panel-body").style.zoom = String(pz); try { localStorage.setItem("nh-panel-zoom", String(pz)); } catch {} };
+  $("fs-dec").addEventListener("click", () => { pz = Math.max(0.8, +(pz - 0.1).toFixed(2)); applyPz(); });
+  $("fs-inc").addEventListener("click", () => { pz = Math.min(1.5, +(pz + 0.1).toFixed(2)); applyPz(); });
+  applyPz();
   $("panel-toggle").addEventListener("click", () => {
     if (!mobile()) { $("panel").classList.toggle("open"); return; }
     const cur = $("panel").dataset.sheet || "peek";
@@ -121,7 +151,6 @@ function buildControls() {
   if (window.matchMedia("(max-width: 900px)").matches) $("legend").classList.add("collapsed");
   document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => showTab(t.dataset.tab)));
   $("btn-alerts").addEventListener("click", () => { showTab("region"); $("region-alerts")?.scrollIntoView({ behavior: "smooth", block: "start" }); });
-  $("btn-lake").addEventListener("click", () => { showTab("region"); $("region-lake")?.scrollIntoView({ behavior: "smooth", block: "start" }); });
   document.addEventListener("keydown", (e) => {
     if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
     if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
@@ -167,7 +196,8 @@ function toggleLayer(name, force) {
   $(btn).classList.toggle("on", on);
   updateLayersButton();
   const row = $(btn); const mz = Number(row?.dataset?.minzoom);
-  if (on && mz && map?.getZoom?.() < mz - 0.01) setStatus(`${row.dataset.label} loads at zoom ${mz}+ (now ${map.getZoom().toFixed(0)}). Zoom in to see it.`);
+  if (on && mz && map?.getZoom?.() < mz - 0.01) { zoomHint = { name, mz }; setStatus(`${row.dataset.label} loads at zoom ${mz}+ (now ${map.getZoom().toFixed(0)}). Zoom in to see it.`, false, true); }
+  else if (!on && zoomHint?.name === name) setStatus(normalStatus);
   renderLegend(); syncUrl();
 }
 function renderLegend() {

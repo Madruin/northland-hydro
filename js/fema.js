@@ -94,6 +94,7 @@ export async function renderFemaAt(container, lon, lat) {
     const inFloodway = zf.some((f) => (f.properties.ZONE_SUBTY || "").toUpperCase().includes("FLOODWAY"));
     const inSfha = zf.some((f) => f.properties.SFHA_TF === "T");
     const primary = zf.find((f) => (f.properties.ZONE_SUBTY || "").toUpperCase().includes("FLOODWAY")) || zf.find((f) => f.properties.SFHA_TF === "T") || zf[0];
+    if (!primary) { container.innerHTML = `<h3>FEMA flood hazard at this point</h3><div class="notice">No flood zone polygon at this point (open water or an unmapped gap)${p ? `; FIRM panel ${escapeHtml(p.FIRM_PAN || "")}${p.EFF_DATE ? ", effective " + new Date(p.EFF_DATE).toLocaleDateString() : ""}` : ""}. <a href="${mscUrl(lat, lon)}" target="_blank" rel="noopener">FEMA Map Service Center</a></div>`; return; }
     const pp = primary.properties;
     const st = zoneStyle(pp.FLD_ZONE, pp.ZONE_SUBTY);
     const guidance = inFloodway

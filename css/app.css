@@ -288,3 +288,14 @@ details.well .data { margin-top: 4px; }
 #map-hint { top: 12px; left: 56px; max-width: 320px; display: flex; gap: 10px; align-items: center; background: rgba(29, 78, 216, .92); border-color: #3b82f6; color: #fff; font-size: 12.5px; box-shadow: 0 6px 20px rgba(0,0,0,.35); }
 #map-hint button { background: none; border: none; color: #fff; cursor: pointer; font-size: 13px; padding: 0 2px; }
 @media (max-width: 900px) { #map-hint { left: 8px; right: 8px; max-width: none; top: 52px; } .layers-menu { width: auto; } }
+
+/* resizable panel, text size */
+#panel { position: relative; }
+#panel-resize { position: absolute; left: -4px; top: 0; bottom: 0; width: 9px; cursor: col-resize; z-index: 6; }
+#panel-resize:hover, #panel.resizing #panel-resize { background: rgba(56,189,248,.35); }
+#panel.resizing { transition: none !important; user-select: none; }
+#panel:not(.open) #panel-resize { display: none; }
+.fs { display: flex; gap: 2px; padding: 0 4px; }
+.fs button { background: none; border: 1px solid var(--line); border-radius: 4px; color: var(--fg2); font-size: 10.5px; padding: 2px 5px; cursor: pointer; line-height: 1.2; }
+.fs button:hover { color: var(--fg); border-color: var(--fg3); }
+@media (max-width: 900px) { #panel-resize { display: none; } .panel-head { touch-action: pan-x; } #panel.resizing { transition: none !important; } }
