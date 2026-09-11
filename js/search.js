@@ -1,4 +1,5 @@
 // Header search: gauges, stations, projects (client-side) and places (Photon geocoder, CORS, no key).
+import { parseCoords } from "./coords.js";
 import { $, escapeHtml, emit, debounce, getJSON } from "./util.js";
 import { stations } from "./precip.js";
 import { gauges } from "./gauges.js";
@@ -15,6 +16,8 @@ export function initSearch() {
   const run = debounce(async () => {
     const q = input.value.trim();
     if (q.length < 2) { box.hidden = true; return; }
+    const cc = parseCoords(q);
+    if (cc) { items = [{ kind: "place", label: `Go to ${cc.input}`, sub: `${cc.kind} · ${cc.lat.toFixed(5)}, ${cc.lon.toFixed(5)}`, lon: cc.lon, lat: cc.lat, zoom: 14, s: 9 }]; render(box, items, false); return; }
     items = localMatches(q);
     render(box, items, true);
     try {
@@ -65,7 +68,7 @@ function render(box, list, loading) {
 function highlight(box) { box.querySelectorAll(".sr-item").forEach((el, i) => el.classList.toggle("active", i === activeIdx)); }
 function choose(it) {
   $("search-results").hidden = true; $("ctl-search").value = it.label;
-  const zoom = it.kind === "place" ? 12 : Math.max(map.getZoom(), 11);
+  const zoom = it.zoom || (it.kind === "place" ? 12 : Math.max(map.getZoom(), 11));
   map.flyTo({ center: [it.lon, it.lat], zoom });
   if (it.kind === "gauge") emit("select:gauge", { id: it.id });
   else if (it.kind === "station") emit("select:station", { sid: it.id });

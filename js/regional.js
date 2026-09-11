@@ -1,5 +1,6 @@
 // TSA3 regional curves: bankfull channel dimensions from drainage area, reproducing the office spreadsheets.
 // Data: data/regional_curves.json built by tools/build_regional_curves.py from the S:\ workbooks.
+import { plot } from "./loader.js";
 import { $, escapeHtml, fmt, getJSON, plotlyLayout } from "./util.js";
 
 let DATA = null;
@@ -108,6 +109,6 @@ function drawChart(el, c, da, res) {
     traces.push({ x: xs, y: xs.map((x) => (x < 5 ? c.equations.area_lt5.coefs.reduce((a, k) => a * x + k, 0) : c.equations.area_ge5.a * Math.pow(x, c.equations.area_ge5.b))), mode: "lines", name: "Equation", line: { color: colors.all, width: 1.5 }, hoverinfo: "skip" });
   }
   for (const r of res.rows) traces.push({ x: [da], y: [r.area], mode: "markers", name: `This basin (${r.type === "all" ? "all" : r.type})`, marker: { color: colors[r.type] || "#fff", size: 13, symbol: "diamond", line: { color: "#fff", width: 1.5 } }, hovertemplate: `DA ${fmt(da, 2)} mi² → ${fmt(r.area, 1)} ft²<extra></extra>` });
-  Plotly.newPlot(el, traces, plotlyLayout({ title: "Bankfull area vs drainage area (log-log)", xaxis: { type: "log", title: "Drainage area, mi²" }, yaxis: { type: "log", title: "Bankfull area, ft²" }, legend: { orientation: "h", y: -0.25, x: 0, font: { size: 10 } }, margin: { l: 48, r: 10, t: 28, b: 40 } }), { displayModeBar: false, responsive: true });
+  plot(el, traces, plotlyLayout({ title: "Bankfull area vs drainage area (log-log)", xaxis: { type: "log", title: "Drainage area, mi²" }, yaxis: { type: "log", title: "Bankfull area, ft²" }, legend: { orientation: "h", y: -0.25, x: 0, font: { size: 10 } }, margin: { l: 48, r: 10, t: 28, b: 40 } }), { displayModeBar: false, responsive: true });
 }
 function logspace(a, b, n) { const la = Math.log10(a), lb = Math.log10(b); return Array.from({ length: n }, (_, i) => Math.pow(10, la + (i * (lb - la)) / (n - 1))); }

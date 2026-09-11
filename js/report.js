@@ -68,6 +68,7 @@ export async function buildReport({ lon, lat, project = null, analysis = null, o
   }
   onStatus("Capturing map…");
   const mapImage = await snapshot();
+  const sections = captureSections(lon, lat);
   const doc = {
     app: `${APP.name} ${APP.version}`, generatedAt: now.toISOString(), generatedBy: auth.user?.email || null,
     permalink: location.href,
@@ -83,6 +84,7 @@ export async function buildReport({ lon, lat, project = null, analysis = null, o
     watershed: ws ? { da: ws.da, huc: ws.huc, state: ws.state, manual: !!ws.manual, bc: ws.bc || [], flows: ws.flows, regions: ws.regions, retrievedAt: ws.retrievedAt, savedAt: ws.savedAt, savedBy: ws.savedBy, label: ws.label, basin: ws.basin ? { type: ws.basin.geometry?.type, vertices: JSON.stringify(ws.basin.geometry?.coordinates || "").split("],[").length } : null } : null,
     regional,
     mapImage,
+    sections,
     sources: {
       acis: { url: ENDPOINTS.acis, note: "RCC-ACIS MultiStnData/StnData (CoCoRaHS, COOP, ASOS) and GridData grid 21 (PRISM)" },
       usgs: { url: ENDPOINTS.usgsIV, note: "USGS NWIS instantaneous values" },
@@ -95,6 +97,24 @@ export async function buildReport({ lon, lat, project = null, analysis = null, o
     },
   };
   return doc;
+}
+
+// The Point panel's site-condition sections, as rendered (charts, buttons and spinners stripped), for the printed report.
+const REPORT_SECTIONS = ["pt-lake", "pt-crossing", "pt-fema", "pt-wetland", "pt-parcel", "pt-soils", "pt-wells"];
+function captureSections(lon, lat) {
+  const c = document.getElementById("tab-point");
+  if (!c || c.dataset.pt !== `${lon.toFixed(5)},${lat.toFixed(5)}`) return [];
+  const out = [];
+  for (const id of REPORT_SECTIONS) {
+    const el = document.getElementById(id);
+    if (!el || !el.textContent.trim() || el.querySelector(".spinner")) continue;
+    const n = el.cloneNode(true);
+    n.querySelectorAll(".js-plotly-plot, .chart, button, input, select, .actions, .spinner").forEach((x) => x.remove());
+    n.querySelectorAll("details").forEach((d) => d.setAttribute("open", ""));
+    n.querySelectorAll("[id]").forEach((x) => x.removeAttribute("id"));
+    if (n.textContent.trim()) out.push({ id, html: n.innerHTML });
+  }
+  return out;
 }
 
 export async function openReport(args) {

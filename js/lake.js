@@ -1,4 +1,5 @@
 // Lake Superior at Duluth: latest level, 30-day hourly trace, monthly means vs long-term average.
+import { plot } from "./loader.js";
 import { LAKE_STATION } from "./config.js";
 import { latestLevel, hourlyLevels, monthlyMeans } from "./api/coops.js";
 import { $, fmt, plotlyLayout } from "./util.js";
@@ -30,11 +31,11 @@ export async function renderLakeSection(container) {
       <div id="lake-hourly" class="chart"></div>
       <div id="lake-monthly" class="chart"></div>
       <div class="small">Short-term swings at Duluth are mostly seiche and wind set-up; use the monthly means for the lake's actual regime. Record high ${LAKE_STATION.recordHigh} ft (1985), record low ${LAKE_STATION.recordLow} ft (1926).</div>`;
-    Plotly.newPlot("lake-hourly", [{ x: hourly.map((h) => h.t), y: hourly.map((h) => h.ft), mode: "lines", line: { color: "#38bdf8", width: 1.5 }, name: "Hourly level" },
+    plot("lake-hourly", [{ x: hourly.map((h) => h.t), y: hourly.map((h) => h.ft), mode: "lines", line: { color: "#38bdf8", width: 1.5 }, name: "Hourly level" },
       { x: [hourly[0]?.t, last?.t], y: [LAKE_STATION.lta, LAKE_STATION.lta], mode: "lines", line: { color: "#f59e0b", dash: "dot", width: 1 }, name: "Long-term avg" }],
       plotlyLayout({ title: "Last 30 days (hourly, ft IGLD85)", yaxis: { title: "ft" } }), { displayModeBar: false, responsive: true });
     const mx = monthly.map((m) => `${m.year}-${String(m.month).padStart(2, "0")}-15`);
-    Plotly.newPlot("lake-monthly", [
+    plot("lake-monthly", [
       { x: mx, y: monthly.map((m) => m.high), mode: "lines", line: { width: 0 }, showlegend: false, hoverinfo: "skip" },
       { x: mx, y: monthly.map((m) => m.low), mode: "lines", line: { width: 0 }, fill: "tonexty", fillcolor: "rgba(56,189,248,.15)", name: "Monthly range" },
       { x: mx, y: monthly.map((m) => m.msl), mode: "lines+markers", line: { color: "#38bdf8" }, marker: { size: 4 }, name: "Monthly mean" },

@@ -9,6 +9,8 @@
   <link rel="apple-touch-icon" href="assets/icon-180.png" />
   <link rel="manifest" href="manifest.webmanifest" />
   <meta name="theme-color" content="#16213a" />
+  <link rel="preconnect" href="https://data.rcc-acis.org" /><link rel="preconnect" href="https://waterservices.usgs.gov" /><link rel="preconnect" href="https://api.weather.gov" />
+  <link rel="preconnect" href="https://enterprise.gisdata.mn.gov" /><link rel="preconnect" href="https://tiles.openfreemap.org" /><link rel="preconnect" href="https://lwbatdclpclwyuglzwgg.supabase.co" />
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Northland Hydro" />
   <meta property="og:description" content="Rainfall, stream gauges, radar, watersheds, soils, wetlands, flood zones, wells and lidar for northeastern Minnesota, in one map. Built by MN SWCD TSA3." />
@@ -31,7 +33,7 @@
 
     <div class="controls">
       <div class="ctl search-wrap">
-        <input type="search" id="ctl-search" placeholder="Search gauge, station, project, place  ( / )" autocomplete="off" />
+        <input type="search" id="ctl-search" placeholder="Search gauge, station, place, or coordinates  ( / )" autocomplete="off" />
         <div id="search-results" class="menu" hidden></div>
       </div>
       <label class="ctl">
@@ -144,6 +146,7 @@
         <h4>Controls</h4>
         <ul>
           <li><b>End date / Window</b>: the station colors and all totals follow these. ← → step the date; the ‹ › buttons do the same.</li>
+          <li><b>Map tools</b> (left edge): zoom, <b>locate me</b> (centers on your GPS position and follows until you drag the map; if the button reports that location is blocked, allow it for this site from the lock icon in the address bar), and <b>measure</b> distance or area (click points, double-click or Enter to finish, Esc clears). The search box also takes coordinates: <code>46.9476, -91.7849</code>, or UTM 15N as metres <code>592123, 5200456</code> or US survey feet <code>1943000, 17062000</code>. Every Point panel shows the spot in lat/lon and UTM 15N metres and US feet with copy buttons.</li>
           <li><b>Layers</b> (Stations, Gauges and Radar are on the bar; everything else is under <b>Layers ▾</b>, grouped Water / Land / Hazards &amp; subsurface, each with its minimum zoom): Stations, radar QPE (NWS estimate for the last 1–24 h), Gauges, Streams (StreamStats grid), Soils (hydrologic soil group), Parcels, Wetlands (MN NWI update with Cowardin and Circular 39 codes), FEMA (effective flood zones and floodways, BFE lines, lettered cross sections, LOMRs), Crossings (DNR culvert surveys with span-vs-bankfull and passage, plus NBI bridges and large culverts with condition ratings), Wells (County Well Index wells and borings colored by depth to bedrock, with driller logs; DNR drill holes), Trout (DNR designated trout streams), Karst (karst-prone bedrock, sinkholes, springs), and Terrain (MnTOPO lidar hillshade, DEM and contours).</li>
           <li><b>Search</b> ( / ): gauge, station, project or place name.</li>
           <li><b>Watershed</b> (Point tab): delineates with USGS StreamStats, returns basin characteristics and regression flows, and runs the TSA3 regional curves for bankfull dimensions. Save results to a project.</li>
@@ -176,7 +179,6 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/5.6.0/maplibre-gl.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/3.0.1/plotly-basic.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/dist/umd/supabase.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/proj4js/2.15.0/proj4.js"></script>
   <script type="module" src="js/app.js"></script>

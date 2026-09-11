@@ -296,3 +296,28 @@ details.well .data { margin-top: 4px; }
 #panel.resizing { transition: none !important; user-select: none; }
 #panel:not(.open) #panel-resize { display: none; }
 @media (max-width: 900px) { #panel-resize { display: none; } .panel-head { touch-action: pan-x; } #panel.resizing { transition: none !important; } }
+
+/* map tools: locate, measure */
+.maplibregl-ctrl-group button { color: var(--fg); }
+.maplibregl-ctrl-group button svg { display: block; margin: auto; }
+.maplibregl-ctrl-group button.active { background: #1d4ed8; color: #fff; }
+.locate-btn.busy svg { animation: spin 1.2s linear infinite; }
+.locate-btn.following { color: #60a5fa; }
+body.measuring .maplibregl-canvas { cursor: crosshair !important; }
+#measure-box { top: 12px; left: 56px; min-width: 180px; z-index: 6; }
+#measure-box .mb-title { font-weight: 600; display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+#measure-box .mb-x { background: none; border: none; color: var(--fg2); cursor: pointer; font-size: 13px; padding: 0 2px; }
+#measure-box .mb-v { font-size: 17px; font-weight: 700; margin: 2px 0; }
+/* point panel: coordinates and section jump bar */
+.coords { display: flex; flex-wrap: wrap; gap: 3px 10px; align-items: center; font-size: 11.5px; color: var(--fg2); margin: 2px 0 6px; font-variant-numeric: tabular-nums; }
+.coords .copy { background: none; border: 1px solid var(--line); border-radius: 4px; color: var(--fg2); cursor: pointer; font-size: 11px; padding: 0 5px; margin-left: -7px; line-height: 1.5; }
+.coords .copy:hover { color: var(--fg); border-color: var(--fg3); }
+.pt-nav { position: sticky; top: -12px; z-index: 3; background: var(--bg2); display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 0 6px; margin: 0 0 4px; border-bottom: 1px solid var(--line); }
+.pt-chip { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg3); color: var(--fg2); cursor: pointer; }
+.pt-chip.ready { color: var(--fg); border-color: #3b82f6; }
+.pt-chip.ready:hover { background: #1d4ed8; color: #fff; }
+.pt-chip.none { opacity: .4; cursor: default; }
+.pt-chip.pending { color: var(--fg3); cursor: default; }
+.pt-chip.pending::before { content: "⟳ "; display: inline-block; animation: spin 1.2s linear infinite; }
+#tab-point > div[id^="pt-"] { scroll-margin-top: 46px; }
+@media (max-width: 900px) { #measure-box { left: 8px; right: auto; top: 52px; } }

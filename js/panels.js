@@ -1,4 +1,6 @@
 // Side-panel renderers: Region summary, Station, Gauge, Point.
+import { toUtm, utmFeet } from "./coords.js";
+import { plot } from "./loader.js";
 import { $, el, escapeHtml, fmt, fmtNum, fmtDate, fmtDateTime, addDays, ago, haversineKm, kmToMi, downloadCSV, plotlyLayout } from "./util.js";
 import { stations as precipStations, current as precipWindow, summarize } from "./precip.js";
 import { gauges, gaugeById } from "./gauges.js";
@@ -125,7 +127,7 @@ export async function renderStation(sid) {
       <div style="max-height:260px;overflow:auto"><table class="data"><thead><tr><th>Date</th><th class="num">Precip</th><th class="num">Snow</th><th class="num">Depth</th></tr></thead><tbody>
         ${rows.slice().reverse().map((r) => `<tr><td>${fmtDate(r.date, { month: "short", day: "numeric", year: "2-digit" })}</td><td class="num">${cell(r.pcpn, r.pcpnFlag)}</td><td class="num">${cell(r.snow, r.snowFlag, 1)}</td><td class="num">${cell(r.snwd, r.snwdFlag, 0)}</td></tr>`).join("")}</tbody></table></div>
       <div class="small">T = trace. A = multi-day accumulation ending on that date (preceding S days are included in it). M = missing.</div>`;
-    Plotly.newPlot("stn-chart", [
+    plot("stn-chart", [
       { x: rows.map((r) => r.date), y: rows.map((r) => r.pcpn ?? 0), type: "bar", name: "Daily precip (in)", marker: { color: rows.map((r) => (r.date >= addDays(endDate, -(days - 1)) ? "#38bdf8" : "#475569")) },
         text: rows.map((r) => (r.pcpnFlag === "A" ? "A" : r.pcpnFlag === "T" ? "T" : "")), textposition: "outside", hovertemplate: "%{x}: %{y:.2f}\"<extra></extra>" },
     ], plotlyLayout({ title: "Last 90 days · highlighted = current window", yaxis: { title: "in" }, showlegend: false }), { displayModeBar: false, responsive: true });
@@ -190,14 +192,14 @@ export async function renderGauge(id) {
         traces.push({ x: days, y: band("p50"), mode: "lines", line: { color: "#94a3b8", dash: "dot", width: 1 }, name: "median" });
       }
       traces.push({ x: q.map((p) => p.t), y: q.map((p) => p.v), mode: "lines", line: { color: "#38bdf8", width: 1.6 }, name: "Discharge (cfs)" });
-      Plotly.newPlot("gauge-q", traces, plotlyLayout({ title: "Discharge, last 30 days", yaxis: { title: "cfs", type: q.length && Math.max(...q.map((p) => p.v)) / Math.max(1e-3, Math.min(...q.map((p) => p.v))) > 50 ? "log" : "linear" } }), { displayModeBar: false, responsive: true });
-      if (h.length) Plotly.newPlot("gauge-h", [{ x: h.map((p) => p.t), y: h.map((p) => p.v), mode: "lines", line: { color: "#f59e0b", width: 1.4 }, name: "Gage height (ft)" }], plotlyLayout({ title: "Stage, last 30 days", yaxis: { title: "ft" }, showlegend: false }), { displayModeBar: false, responsive: true });
+      plot("gauge-q", traces, plotlyLayout({ title: "Discharge, last 30 days", yaxis: { title: "cfs", type: q.length && Math.max(...q.map((p) => p.v)) / Math.max(1e-3, Math.min(...q.map((p) => p.v))) > 50 ? "log" : "linear" } }), { displayModeBar: false, responsive: true });
+      if (h.length) plot("gauge-h", [{ x: h.map((p) => p.t), y: h.map((p) => p.v), mode: "lines", line: { color: "#f59e0b", width: 1.4 }, name: "Gage height (ft)" }], plotlyLayout({ title: "Stage, last 30 days", yaxis: { title: "ft" }, showlegend: false }), { displayModeBar: false, responsive: true });
       else $("gauge-h").remove();
       usgs.dvSeries(g.usgs_id, { period: "P365D" }).then((dv) => {
         if (!dv.length) { $("gauge-dv")?.remove(); return; }
         const tr = [{ x: dv.map((p) => p.t), y: dv.map((p) => p.v), mode: "lines", line: { color: "#38bdf8", width: 1.2 }, name: "Daily mean (cfs)" }];
         if (stats) tr.unshift({ x: dv.map((p) => p.t), y: dv.map((p) => stats.byDay[`${Number(p.t.slice(5, 7))}-${Number(p.t.slice(8, 10))}`]?.p50 ?? null), mode: "lines", line: { color: "#94a3b8", dash: "dot", width: 1 }, name: "median" });
-        Plotly.newPlot("gauge-dv", tr, plotlyLayout({ title: "Daily mean discharge, last 365 days", yaxis: { title: "cfs", type: "log" } }), { displayModeBar: false, responsive: true });
+        plot("gauge-dv", tr, plotlyLayout({ title: "Daily mean discharge, last 365 days", yaxis: { title: "cfs", type: "log" } }), { displayModeBar: false, responsive: true });
       }).catch(() => $("gauge-dv")?.remove());
       const btn = $("gauge-csv");
       if (btn) btn.onclick = () => downloadCSV(`USGS-${g.usgs_id}_iv_30d.csv`, [["time", "discharge_cfs", "stage_ft"], ...mergeSeries(q, h)]);
@@ -219,14 +221,43 @@ function mergeSeries(q, h) {
 }
 
 // ---------------- Point ----------------
+// Sticky jump bar for the Point panel: one chip per section, spinning until the section has settled, dimmed when it has nothing to say.
+const PT_SECTIONS = [["pt-lake", "Lake"], ["pt-watershed", "Watershed"], ["pt-crossing", "Crossing"], ["pt-fema", "FEMA"], ["pt-wetland", "Wetland"], ["pt-parcel", "Parcel"], ["pt-soils", "Soils"], ["pt-wells", "Wells"], ["pt-precip", "Rainfall"], ["pt-nearby", "Nearby"], ["pt-wx", "Forecast"], ["pt-soil", "Soil moisture"], ["pt-a14", "Atlas 14"]];
+let navDone = {}, navObserver = null, navTimer = null;
+function startPointNav(container) {
+  navDone = { "pt-precip": true, "pt-nearby": true, "pt-wx": true, "pt-soil": true, "pt-a14": true };
+  navObserver?.disconnect();
+  navObserver = new MutationObserver(() => { clearTimeout(navTimer); navTimer = setTimeout(updatePointNav, 120); });
+  for (const [id] of PT_SECTIONS) { const el = $(id); if (el) navObserver.observe(el, { childList: true, subtree: true, characterData: true }); }
+  updatePointNav();
+}
+function navTrack(id, p) { Promise.resolve(p).catch(() => {}).finally(() => { navDone[id] = true; updatePointNav(); }); }
+function updatePointNav() {
+  const nav = $("pt-nav"); if (!nav || !nav.isConnected) return;
+  nav.innerHTML = PT_SECTIONS.map(([id, label]) => {
+    const el = $(id); if (!el) return "";
+    const spinning = !!el.querySelector(".spinner"); const has = el.textContent.trim().length > 0 && !spinning;
+    const st = has ? "ready" : spinning || !navDone[id] ? "pending" : "none";
+    return `<button class="pt-chip ${st}" data-t="${id}" ${st === "ready" ? "" : "disabled"} title="${st === "none" ? "Nothing here" : st === "pending" ? "Loading" : "Jump to " + label}">${label}</button>`;
+  }).join("");
+  nav.querySelectorAll(".pt-chip.ready").forEach((b) => (b.onclick = () => $(b.dataset.t)?.scrollIntoView({ behavior: "smooth", block: "start" })));
+}
 export async function renderPoint(lon, lat) {
   showTab("point");
   visit("point", `${lon.toFixed(4)},${lat.toFixed(4)}`, `Point ${lat.toFixed(3)}, ${lon.toFixed(3)}`, () => renderPoint(lon, lat));
   setPin([lon, lat]);
   const c = $("tab-point");
   const endDate = precipWindow.endDate, days = precipWindow.days;
-  c.innerHTML = `<h2>Point ${fmt(lat, 4)}, ${fmt(lon, 4)}</h2><div class="muted">Anything that isn't a station or gauge: gridded precip, nearby observers, forecast, soil moisture, design storms.</div>
+  const [ue, un] = toUtm(lon, lat); const uf = utmFeet(lon, lat);
+  c.dataset.pt = `${lon.toFixed(5)},${lat.toFixed(5)}`;
+  c.innerHTML = `<h2>Point ${fmt(lat, 4)}, ${fmt(lon, 4)}</h2>
+    <div class="coords">
+      <span title="Decimal degrees, WGS84/NAD83">${lat.toFixed(5)}, ${lon.toFixed(5)}</span><button class="copy" data-copy="${lat.toFixed(6)}, ${lon.toFixed(6)}" title="Copy lat, lon">⧉</button>
+      <span title="UTM zone 15N, NAD83, metres (E, N)">UTM 15N ${Math.round(ue).toLocaleString()} E, ${Math.round(un).toLocaleString()} N m</span><button class="copy" data-copy="${ue.toFixed(2)},${un.toFixed(2)}" title="Copy E,N in metres">⧉</button>
+      <span title="UTM zone 15N, NAD83, US survey feet (E, N) — the TSA3 CAD coordinate system">${Math.round(uf.e).toLocaleString()} E, ${Math.round(uf.n).toLocaleString()} N US ft</span><button class="copy" data-copy="${uf.e.toFixed(2)},${uf.n.toFixed(2)}" title="Copy E,N in US survey feet (paste as X,Y in AutoCAD)">⧉</button>
+    </div>
     <div class="actions"><button class="btn" id="pt-report">🖨 Print site report</button><span id="pt-report-msg" class="small"></span></div>
+    <div class="pt-nav" id="pt-nav"></div>
     <div id="pt-lake"></div>
     <div id="pt-watershed"></div>
     <div id="pt-crossing"></div>
@@ -241,14 +272,16 @@ export async function renderPoint(lon, lat) {
     <div id="pt-soil"><div class="spinner">Open-Meteo…</div></div>
     <div id="pt-a14"></div>`;
 
-  renderWatershed($("pt-watershed"), lon, lat);
-  renderSoilsAt($("pt-soils"), lon, lat);
-  renderParcelAt($("pt-parcel"), lon, lat);
-  renderLakeAt($("pt-lake"), lon, lat);
-  renderWetlandAt($("pt-wetland"), lon, lat);
-  renderFemaAt($("pt-fema"), lon, lat);
-  renderCrossingAt($("pt-crossing"), lon, lat);
-  renderWellsAt($("pt-wells"), lon, lat);
+  c.querySelectorAll(".copy").forEach((b) => (b.onclick = async () => { try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = "✓"; setTimeout(() => (b.textContent = "⧉"), 1200); } catch { prompt("Copy:", b.dataset.copy); } }));
+  startPointNav(c);
+  navTrack("pt-watershed", renderWatershed($("pt-watershed"), lon, lat));
+  navTrack("pt-soils", renderSoilsAt($("pt-soils"), lon, lat));
+  navTrack("pt-parcel", renderParcelAt($("pt-parcel"), lon, lat));
+  navTrack("pt-lake", renderLakeAt($("pt-lake"), lon, lat));
+  navTrack("pt-wetland", renderWetlandAt($("pt-wetland"), lon, lat));
+  navTrack("pt-fema", renderFemaAt($("pt-fema"), lon, lat));
+  navTrack("pt-crossing", renderCrossingAt($("pt-crossing"), lon, lat));
+  navTrack("pt-wells", renderWellsAt($("pt-wells"), lon, lat));
   $("pt-report").onclick = async () => { const m = $("pt-report-msg"); try { await openReport({ lon, lat, onStatus: (t) => (m.textContent = t) }); m.textContent = ""; } catch (e) { m.textContent = "Report failed: " + e.message; } };
 
   // Nearby observers (from the already-loaded station layer)
@@ -295,7 +328,7 @@ export async function renderPoint(lon, lat) {
         <div id="pt-daily" class="chart"></div>
         <table class="data"><thead><tr><th>Window</th>${totals.map((t) => `<th class="num">${t.days}d</th>`).join("")}</tr></thead><tbody><tr><td>PRISM, in</td>${totals.map((t) => `<td class="num">${fmt(t.total)}${t.missing ? "*" : ""}</td>`).join("")}</tr></tbody></table>
         <div class="small">Windows end ${lastDate ? fmtDate(lastDate) : "–"}; * = some days not gridded. PRISM is a modeled grid (gauge + radar + terrain) and can differ from the nearest gauge. Percent of normal uses the nearest station with 1991–2020 normals.</div>`;
-      Plotly.newPlot("pt-daily", [{ x: daily.map((r) => r.date), y: daily.map((r) => r.pcpn ?? 0), type: "bar", marker: { color: daily.map((r) => (r.date >= addDays(endDate, -(days - 1)) ? "#38bdf8" : "#475569")) }, hovertemplate: "%{x}: %{y:.2f}\"<extra></extra>" }],
+      plot("pt-daily", [{ x: daily.map((r) => r.date), y: daily.map((r) => r.pcpn ?? 0), type: "bar", marker: { color: daily.map((r) => (r.date >= addDays(endDate, -(days - 1)) ? "#38bdf8" : "#475569")) }, hovertemplate: "%{x}: %{y:.2f}\"<extra></extra>" }],
         plotlyLayout({ title: "PRISM daily precip, last 90 days", yaxis: { title: "in" }, showlegend: false }), { displayModeBar: false, responsive: true });
     } catch (e) { $("pt-precip").innerHTML = `<div class="notice">ACIS grid request failed: ${escapeHtml(e.message)}</div>`; }
   })();
@@ -319,7 +352,7 @@ export async function renderPoint(lon, lat) {
         <div class="forecast-row">${periods.slice(0, 8).map((f) => `<div class="fc"><div class="n">${escapeHtml(f.name)}</div><div class="t">${f.temperature}°</div><div class="p">${f.probabilityOfPrecipitation?.value != null ? f.probabilityOfPrecipitation.value + "% precip" : ""}</div><div class="d">${escapeHtml(f.shortForecast)}</div></div>`).join("")}</div>
         <div class="small">QPF = forecast quantitative precipitation from the NWS gridded forecast (updated ${qpf.updated ? fmtDateTime(qpf.updated) : "?"}). <a href="https://forecast.weather.gov/MapClick.php?lat=${lat.toFixed(4)}&lon=${lon.toFixed(4)}" target="_blank" rel="noopener">Full forecast</a> · <a href="https://radar.weather.gov/station/${p.radarStation}/standard" target="_blank" rel="noopener">${p.radarStation} radar</a></div>`;
       const q = qpf.values.slice(0, 40);
-      Plotly.newPlot("pt-qpf", [{ x: q.map((v) => v.start), y: q.map((v) => v.inches), type: "bar", width: q.map((v) => v.hours * 3600e3 * 0.9), marker: { color: "#38bdf8" }, hovertemplate: "%{x}: %{y:.2f}\" / %{customdata} h<extra></extra>", customdata: q.map((v) => v.hours) }],
+      plot("pt-qpf", [{ x: q.map((v) => v.start), y: q.map((v) => v.inches), type: "bar", width: q.map((v) => v.hours * 3600e3 * 0.9), marker: { color: "#38bdf8" }, hovertemplate: "%{x}: %{y:.2f}\" / %{customdata} h<extra></extra>", customdata: q.map((v) => v.hours) }],
         plotlyLayout({ title: "Forecast precipitation by period (in)", yaxis: { title: "in" }, showlegend: false }), { displayModeBar: false, responsive: true });
     } catch (e) { $("pt-wx").innerHTML = `<div class="notice">NWS request failed: ${escapeHtml(e.message)}</div>`; }
   })();
@@ -332,7 +365,7 @@ export async function renderPoint(lon, lat) {
       const nowIdx = h.time.findIndex((t) => new Date(t) > new Date());
       $("pt-soil").innerHTML = `<h3>Model soil moisture & hourly precip (Open-Meteo)</h3><div id="pt-om" class="chart tall"></div>
         <div class="small">Soil moisture is volumetric (m³/m³) from the model's land surface, not a measurement; treat it as a wetness index for runoff potential. Past 7 days + 7-day forecast; the dashed line is now.</div>`;
-      Plotly.newPlot("pt-om", [
+      plot("pt-om", [
         { x: h.time, y: h.precipitation, type: "bar", name: "Precip (in/h)", marker: { color: "#38bdf8" }, yaxis: "y2", opacity: 0.8 },
         { x: h.time, y: h.soil_moisture_0_to_7cm, mode: "lines", name: "Soil 0–7 cm", line: { color: "#f59e0b", width: 1.4 } },
         { x: h.time, y: h.soil_moisture_7_to_28cm, mode: "lines", name: "Soil 7–28 cm", line: { color: "#fb923c", width: 1.2 } },

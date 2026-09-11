@@ -36,3 +36,22 @@ ol.sources li { margin: 2px 0; }
   .no-print { display: none !important; }
   a { color: inherit; text-decoration: none; }
 }
+
+/* site-condition sections captured from the Point panel */
+.sec { margin: 6px 0 10px; }
+.sec h3 { margin: 10px 0 4px; }
+.sec .stat-row { display: flex; gap: 10px; margin: 6px 0; flex-wrap: wrap; }
+.sec .stat { flex: 1; min-width: 110px; border: 1px solid var(--line); border-radius: 4px; padding: 6px 9px; }
+.sec .stat .v { font-size: 14pt; font-weight: 700; line-height: 1.1; }
+.sec .stat .l { font-size: 8.5pt; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+.sec .stat .s { font-size: 8.5pt; color: var(--muted); }
+.sec .notice { border-left: 3px solid var(--accent); background: #f0f9ff; padding: 4px 8px; margin: 4px 0; font-size: 9.5pt; }
+.sec details { border: 1px solid var(--line); border-radius: 4px; padding: 4px 8px; margin: 4px 0; }
+.sec summary { font-weight: 600; font-size: 9.5pt; list-style: none; }
+.sec .small { font-size: 8.5pt; color: var(--muted); }
+.sec .muted { color: var(--muted); }
+.sec a { color: var(--accent); }
+.sec .legend-row { display: flex; gap: 6px; align-items: center; font-size: 9pt; }
+.sec .swatch { width: 10px; height: 10px; border-radius: 50%; border: 1px solid #999; display: inline-block; }
+.sec table { font-size: 9pt; }
+.sec .stat.bad .v { color: #b91c1c; } .sec .stat.warn .v { color: #b45309; }

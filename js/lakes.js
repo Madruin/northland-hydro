@@ -1,4 +1,5 @@
 // Lake section for the Point panel: DNR LakeFinder levels, OHW, hydrograph, outlet/control structures.
+import { plot } from "./loader.js";
 import { $, escapeHtml, fmt, fmtNum, fmtDate, haversineKm, kmToMi, plotlyLayout } from "./util.js";
 import * as dnr from "./api/dnrlakes.js";
 import { setLake } from "./map.js";
@@ -43,7 +44,7 @@ export async function renderLakeAt(container, lon, lat) {
       if (rows.length) {
         const traces = [{ x: rows.map((r) => r.date), y: rows.map((r) => r.ft), mode: rows.length > 400 ? "lines" : "lines+markers", marker: { size: 4 }, line: { color: "#38bdf8", width: 1.4 }, name: "Level (ft)" }];
         if (ohw != null) traces.push({ x: [rows[0].date, last.date], y: [ohw, ohw], mode: "lines", line: { color: "#f59e0b", dash: "dot", width: 1.4 }, name: `OHW ${fmt(ohw, 1)}` });
-        Plotly.newPlot("lk-chart", traces, plotlyLayout({ title: `Water level, ${escapeHtml(datum)}`, yaxis: { title: "ft" } }), { displayModeBar: false, responsive: true });
+        plot("lk-chart", traces, plotlyLayout({ title: `Water level, ${escapeHtml(datum)}`, yaxis: { title: "ft" } }), { displayModeBar: false, responsive: true });
       }
     } catch (e) { box.innerHTML = `<div class="notice">Water levels unavailable: ${escapeHtml(e.message)}</div>`; }
   })();

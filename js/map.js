@@ -30,10 +30,10 @@ export function initMap({ center = HOME.center, zoom = HOME.zoom, basemap = "lig
   });
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: false }), "top-left");
   map.addControl(new maplibregl.ScaleControl({ unit: "imperial" }), "bottom-right");
-  map.addControl(new maplibregl.GeolocateControl({ positionOptions: { enableHighAccuracy: true }, trackUserLocation: false }), "top-left");
   map.on("style.load", () => addOverlays());
   map.on("moveend", () => emit("map:moveend", { center: map.getCenter(), zoom: map.getZoom() }));
   map.on("click", (e) => {
+    if (document.body.classList.contains("measuring")) return;
     if (rect) {
       if (!rect.a) { rect.a = [e.lngLat.lng, e.lngLat.lat]; rect.onFirst?.(); return; }
       const a = rect.a, b = [e.lngLat.lng, e.lngLat.lat]; const cb = rect.cb; endRect();

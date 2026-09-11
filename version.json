@@ -1,5 +1,5 @@
 {
- "build": "20260911-1458-18ffe80",
+ "build": "20260911-1621-6f377b2",
  "files": [
   "css/app.css",
   "css/report.css",
@@ -19,6 +19,7 @@
   "js/app.js",
   "js/basinsoils.js",
   "js/config.js",
+  "js/coords.js",
   "js/crossings.js",
   "js/dnrlayers.js",
   "js/export.js",
@@ -27,7 +28,9 @@
   "js/lake.js",
   "js/lakes.js",
   "js/loader.js",
+  "js/locate.js",
   "js/map.js",
+  "js/measure.js",
   "js/nav.js",
   "js/panels.js",
   "js/parcels.js",
