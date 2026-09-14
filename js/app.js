@@ -178,8 +178,8 @@ function buildControls() {
   $("ctl-search").addEventListener("focus", () => { $("ctl-search").classList.add("open"); placeMenu($("ctl-search"), $("search-results")); });
   $("ctl-search").addEventListener("pointerdown", () => { $("ctl-search").classList.add("open"); placeMenu($("ctl-search"), $("search-results")); });
   $("ctl-search").addEventListener("blur", () => { if (!$("ctl-search").value) $("ctl-search").classList.remove("open"); });
-  $("legend-toggle").addEventListener("click", () => $("legend").classList.toggle("collapsed"));
-  if (window.matchMedia("(max-width: 900px)").matches) $("legend").classList.add("collapsed");
+  $("legend-toggle").addEventListener("click", () => { const c = $("legend").classList.toggle("collapsed"); try { localStorage.setItem("nh-legend", c ? "0" : "1"); } catch {} });
+  try { const pref = localStorage.getItem("nh-legend"); if (pref === "0" || (pref == null && window.matchMedia("(max-width: 900px)").matches)) $("legend").classList.add("collapsed"); } catch {}
   document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => showTab(t.dataset.tab)));
   $("btn-alerts").addEventListener("click", () => { showTab("region"); $("region-alerts")?.scrollIntoView({ behavior: "smooth", block: "start" }); });
   document.addEventListener("keydown", (e) => {

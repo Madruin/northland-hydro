@@ -50,8 +50,12 @@ button, select, input { font: inherit; color: inherit; }
 .maplibregl-ctrl button .maplibregl-ctrl-icon { filter: invert(1) brightness(1.4); }
 
 .floating { position: absolute; z-index: 5; background: rgba(22, 33, 58, .92); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font-size: 12px; backdrop-filter: blur(4px); }
-#legend { left: 12px; bottom: 34px; max-width: 220px; max-height: calc(100% - 60px); overflow: auto; }
-.legend-toggle { display: none; background: none; border: none; color: var(--fg2); font-size: 12px; padding: 0; cursor: pointer; }
+#legend { left: 12px; bottom: 34px; max-width: 220px; max-height: calc(100% - 250px); overflow: auto; display: flex; flex-direction: column; }
+#legend-body { overflow: auto; min-height: 0; }
+.legend-toggle { display: block; background: none; border: none; color: var(--fg2); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; padding: 0 0 4px; cursor: pointer; text-align: left; }
+.legend-toggle::after { content: " ▾"; color: var(--fg3); }
+#legend.collapsed .legend-toggle::after { content: " ▴"; }
+#legend.collapsed .legend-toggle { padding: 0; }
 #legend.collapsed #legend-body { display: none; }
 #legend h4 { margin: 0 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .5px; color: var(--fg3); }
 #legend h4 + h4 { margin-top: 8px; }
@@ -221,7 +225,7 @@ details.steps code { background: var(--bg2); padding: 0 4px; border-radius: 3px;
   #map-wrap { flex: 1; min-height: 0; }
   #legend { bottom: auto; top: 8px; right: 8px; left: auto; max-width: 200px; }
   #legend.collapsed { padding: 0; background: none; border: none; backdrop-filter: none; }
-  .legend-toggle { display: block; margin-left: auto; background: rgba(22, 33, 58, .92); border: 1px solid var(--line); border-radius: 999px; padding: 5px 10px; color: var(--fg); font-size: 12px; }
+  .legend-toggle { display: block; margin-left: auto; background: rgba(22, 33, 58, .92); border: 1px solid var(--line); border-radius: 999px; padding: 5px 10px; color: var(--fg); font-size: 12px; text-transform: none; letter-spacing: 0; }
   .legend-toggle::after { content: " ▴"; color: var(--fg2); }
   #legend.collapsed .legend-toggle::after { content: " ▾"; }
   #legend:not(.collapsed) .legend-toggle { margin-bottom: 6px; }
@@ -304,6 +308,7 @@ details.well .data { margin-top: 4px; }
 
 /* map tools: locate, measure */
 .maplibregl-ctrl-group button { color: var(--fg); }
+.maplibregl-ctrl-attrib summary { margin: 0; }  /* our generic details summary margin pushed the (i) button 6 px below its box */
 .maplibregl-ctrl-group button svg { display: block; margin: auto; }
 .maplibregl-ctrl-group button.active { background: #1d4ed8; color: #fff; }
 .locate-btn.busy svg { animation: spin 1.2s linear infinite; }
