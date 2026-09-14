@@ -139,7 +139,8 @@ function buildControls() {
     bouncing = true; strip.scrollTo({ left: 70, behavior: "smooth" }); setTimeout(() => strip.scrollTo({ left: 0, behavior: "smooth" }), 700); setTimeout(() => { bouncing = false; }, 1800);
     setTimeout(() => { if (!sHint.hidden) { sHint.hidden = true; try { localStorage.setItem("nh-strip-hint", "1"); } catch {} } }, 9000);
   }, 1500);
-  const sheet = (st) => { $("panel").dataset.sheet = st; $("panel").style.height = ""; $("panel").classList.toggle("open", st !== "peek"); };
+  const sheetFull = (on) => document.body.classList.toggle("sheet-full", !!on);
+  const sheet = (st) => { $("panel").dataset.sheet = st; $("panel").style.height = ""; $("panel").classList.toggle("open", st !== "peek"); sheetFull(st === "full"); };
   // desktop: drag the panel's left edge to resize; remembered
   try { const w = localStorage.getItem("nh-panel-w"); if (w) document.documentElement.style.setProperty("--panel-w", w.trim()); } catch {}
   const rs = $("panel-resize"); let drag = null;
@@ -154,7 +155,7 @@ function buildControls() {
     if (!sd) return; const dy = sd.y - e.clientY;
     if (!sd.moved) { if (Math.abs(dy) < 8) return; sd.moved = true; try { head.setPointerCapture(e.pointerId); } catch {} $("panel").classList.add("resizing"); }
     const h = Math.round(Math.max(44, Math.min(window.innerHeight - 60, sd.h + dy)));
-    $("panel").dataset.sheet = "custom"; $("panel").style.height = h + "px"; $("panel").classList.toggle("open", h > 60);
+    $("panel").dataset.sheet = "custom"; $("panel").style.height = h + "px"; $("panel").classList.toggle("open", h > 60); sheetFull(h > window.innerHeight - 140);
   });
   const endSheet = () => { if (!sd) return; if (sd.moved) { suppressUntil = Date.now() + 400; map?.resize(); } sd = null; $("panel").classList.remove("resizing"); };
   head.addEventListener("pointerup", endSheet); head.addEventListener("pointercancel", endSheet);
@@ -166,7 +167,7 @@ function buildControls() {
     sheet(cur === "peek" ? "half" : cur === "half" ? "full" : "peek");
   });
   if (mobile()) sheet("peek");
-  window.addEventListener("resize", () => { if (mobile()) { if (!$("panel").dataset.sheet) sheet("peek"); } else { delete $("panel").dataset.sheet; $("panel").classList.add("open"); } });
+  window.addEventListener("resize", () => { if (mobile()) { if (!$("panel").dataset.sheet) sheet("peek"); } else { delete $("panel").dataset.sheet; $("panel").classList.add("open"); sheetFull(false); } });
   // any selection or tab tap opens the sheet to half height on phones
   const openSheet = () => { if (mobile() && ($("panel").dataset.sheet || "peek") === "peek") sheet("half"); };
   document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", openSheet));

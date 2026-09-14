@@ -31,6 +31,8 @@ export function initMap({ center = HOME.center, zoom = HOME.zoom, basemap = "lig
   map.addControl(new maplibregl.NavigationControl({ visualizePitch: false }), "top-left");
   map.addControl(new maplibregl.ScaleControl({ unit: "imperial" }), "bottom-right");
   map.on("style.load", () => addOverlays());
+  // MapLibre opens the compact attribution on load until the first interaction; start it closed.
+  map.once("load", () => { const a = document.querySelector(".maplibregl-ctrl-attrib"); if (a) { a.removeAttribute("open"); a.classList.remove("maplibregl-compact-show"); } });
   map.on("moveend", () => emit("map:moveend", { center: map.getCenter(), zoom: map.getZoom() }));
   map.on("click", (e) => {
     if (document.body.classList.contains("measuring")) return;
