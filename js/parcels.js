@@ -19,7 +19,46 @@ const SERVICES = {
   "27065": { name: "Kanabec", url: "https://wfs.schneidercorp.com/arcgis/rest/services/KanabecCountyMN_WFS/MapServer/0", fields: "PIN,OwnerName1,OwnerName2,ACRES_MAP,ACRES_DEED,SiteAddress,SiteCityStZip,ESTIMATEDTOTAL,SALEDATE",
     map: (p) => ({ pin: p.PIN, owner: [p.OwnerName1, p.OwnerName2].filter(Boolean).join(" & "), acres: p.ACRES_MAP, acresDeed: p.ACRES_DEED, address: p.SiteAddress, city: p.SiteCityStZip, emv: p.ESTIMATEDTOTAL }) },
 };
-export const NO_SERVICE = { "27115": "Pine County publishes no public parcel service (Beacon only) and is not in the state open-data compilation." };
+// Pine County: no public service; the county Auditor's Office exports the parcel layer to us, converted by
+// tools/build_pine_parcels.py into WGS84 GeoJSON chunks under data/pine_parcels (0.1 degree cells) read from this origin.
+const STATIC = { "27115": { name: "Pine", base: "data/pine_parcels", note: "Pine County parcels are a county export dated 2026-09-09, not a live feed." } };
+export const NO_SERVICE = {};
+const staticCache = { index: {}, cells: {} };
+async function staticIndex(fips) {
+  const s = STATIC[fips]; if (staticCache.index[fips]) return staticCache.index[fips];
+  const r = await fetch(`${s.base}/index.json`); if (!r.ok) throw new Error(`${s.name} index ${r.status}`);
+  return (staticCache.index[fips] = await r.json());
+}
+async function staticCell(fips, name) {
+  const key = fips + "/" + name; if (staticCache.cells[key]) return staticCache.cells[key];
+  const r = await fetch(`${STATIC[fips].base}/${name}`); if (!r.ok) throw new Error(`${STATIC[fips].name} ${name} ${r.status}`);
+  const fc = await r.json();
+  if (Object.keys(staticCache.cells).length > 12) delete staticCache.cells[Object.keys(staticCache.cells)[0]];
+  return (staticCache.cells[key] = fc);
+}
+function bboxOf(g) { let w = 180, s = 90, e = -180, n = -90; const walk = (c) => { if (typeof c[0] === "number") { if (c[0] < w) w = c[0]; if (c[0] > e) e = c[0]; if (c[1] < s) s = c[1]; if (c[1] > n) n = c[1]; } else c.forEach(walk); }; walk(g.coordinates); return [w, s, e, n]; }
+function pointInPoly(pt, g) {
+  const inRing = (r) => { let ins = false; for (let i = 0, j = r.length - 1; i < r.length; j = i++) { const [xi, yi] = r[i], [xj, yj] = r[j]; if (yi > pt[1] !== yj > pt[1] && pt[0] < ((xj - xi) * (pt[1] - yi)) / (yj - yi) + xi) ins = !ins; } return ins; };
+  const polys = g.type === "Polygon" ? [g.coordinates] : g.coordinates;
+  return polys.some((p) => inRing(p[0]) && !p.slice(1).some(inRing));
+}
+async function fetchStatic(fips, bbox) {
+  const s = STATIC[fips]; const idx = await staticIndex(fips);
+  const cells = idx.cells.filter((c) => c.bbox[0] <= bbox[2] && c.bbox[2] >= bbox[0] && c.bbox[1] <= bbox[3] && c.bbox[3] >= bbox[1]);
+  const seen = new Set(); const feats = [];
+  for (const fc of await Promise.all(cells.map((c) => staticCell(fips, c.f)))) {
+    for (const f of fc.features) {
+      const p = f.properties; if (seen.has(p.pin)) continue;
+      const bb = bboxOf(f.geometry); if (bb[0] > bbox[2] || bb[2] < bbox[0] || bb[1] > bbox[3] || bb[3] < bbox[1]) continue;
+      seen.add(p.pin);
+      const props = { kind: "parcel", county: s.name, fips, pin: p.pin || "", owner: p.owner || "", acres: p.acres ?? p.acresDeed ?? approxAcres(f.geometry), acresDeed: p.acresDeed ?? null, address: [p.address, p.city].filter(Boolean).join(", "), use: p.use || "", homestead: "" };
+      props.label = props.owner ? props.owner.slice(0, 28) : props.pin;
+      props.popup = `<div class="popup-title">${escapeHtml(props.owner || "(no owner listed)")}</div><div class="popup-sub">PIN ${escapeHtml(props.pin)} · ${fmt(props.acres, 1)} ac${props.address ? " · " + escapeHtml(props.address) : ""}</div><div class="popup-sub">${escapeHtml(s.name)} County export</div>`;
+      feats.push({ type: "Feature", geometry: f.geometry, properties: props });
+    }
+  }
+  return { feats, exceeded: false };
+}
 export const MIN_ZOOM = 14;
 
 let enabled = false, lastKey = null, inflight = null;
@@ -62,17 +101,18 @@ async function refresh() {
   if (key === lastKey) return;
   lastKey = key;
   const counties = countiesFor(bbox);
-  const have = counties.filter((f) => SERVICES[f]);
-  const missing = counties.filter((f) => !SERVICES[f]).map((f) => NO_SERVICE[f] || `no service for county ${f}`);
+  const have = counties.filter((f) => SERVICES[f] || STATIC[f]);
+  const missing = counties.filter((f) => !SERVICES[f] && !STATIC[f]).map((f) => NO_SERVICE[f] || `no service for county ${f}`);
   if (!have.length) { setParcels({ type: "FeatureCollection", features: [] }); note(missing[0] || "Parcels: outside the covered counties"); return; }
-  note(`Parcels: loading ${have.map((f) => SERVICES[f].name).join(", ")}…`);
-  const mine = (inflight = Promise.allSettled(have.map((f) => fetchCounty(f, bbox))));
+  const nameOf = (f) => (SERVICES[f] || STATIC[f]).name;
+  note(`Parcels: loading ${have.map(nameOf).join(", ")}…`);
+  const mine = (inflight = Promise.allSettled(have.map((f) => (STATIC[f] ? fetchStatic(f, bbox) : fetchCounty(f, bbox)))));
   const results = await mine;
   if (inflight !== mine || !enabled) return;
   const feats = []; let exceeded = false; const errs = [];
   results.forEach((r, i) => { if (r.status === "fulfilled") { feats.push(...r.value.feats); exceeded ||= r.value.exceeded; } else errs.push(r.reason?.message || String(r.reason)); });
   setParcels({ type: "FeatureCollection", features: feats });
-  note(`Parcels: ${feats.length} from ${have.map((f) => SERVICES[f].name).join(", ")}${exceeded ? " (limit hit, zoom in for all)" : ""}${errs.length ? " · failed: " + errs.join("; ") : ""}${missing.length ? " · " + missing.join(" ") : ""}`);
+  note(`Parcels: ${feats.length} from ${have.map(nameOf).join(", ")}${exceeded ? " (limit hit, zoom in for all)" : ""}${errs.length ? " · failed: " + errs.join("; ") : ""}${missing.length ? " · " + missing.join(" ") : ""}`);
 }
 function approxAcres(g) {
   if (!g) return null;
@@ -84,13 +124,31 @@ function approxAcres(g) {
 }
 
 export function parcelsLegendHtml() {
-  return `<h4>Parcels (county tax parcels)</h4><div class="legend-row"><span class="swatch sq" style="background:none;border:2px solid #f59e0b"></span>Parcel boundary · owner labels at 16+</div><div class="small">Live from each county's GIS: St. Louis, Cook, Lake, Carlton, Aitkin, Mille Lacs, Kanabec. Pine has no public service. Loads at zoom ${MIN_ZOOM}+. <span id="parcels-note"></span></div>`;
+  return `<h4>Parcels (county tax parcels)</h4><div class="legend-row"><span class="swatch sq" style="background:none;border:2px solid #f59e0b"></span>Parcel boundary · owner labels at 16+</div><div class="small">Pine County from the county's 2026-09-09 export; others live from each county's GIS: St. Louis, Cook, Lake, Carlton, Aitkin, Mille Lacs, Kanabec. Pine has no public service. Loads at zoom ${MIN_ZOOM}+. <span id="parcels-note"></span></div>`;
 }
 
 // ---- Point panel section ----
 export async function renderParcelAt(container, lon, lat) {
-  const fips = countiesFor([lon, lat, lon, lat]).find((f) => SERVICES[f]);
-  const missing = countiesFor([lon, lat, lon, lat]).map((f) => NO_SERVICE[f]).find(Boolean);
+  const here = countiesFor([lon, lat, lon, lat]);
+  const sfips = here.find((f) => STATIC[f]);
+  if (sfips) {
+    const s = STATIC[sfips];
+    container.innerHTML = `<h3>Parcel at this point · ${escapeHtml(s.name)} County</h3><div class="spinner">Reading county export…</div>`;
+    try {
+      const { feats } = await fetchStatic(sfips, [lon - 1e-6, lat - 1e-6, lon + 1e-6, lat + 1e-6]);
+      const f = feats.find((x) => pointInPoly([lon, lat], x.geometry));
+      if (!f) { container.innerHTML = `<h3>Parcel at this point · ${escapeHtml(s.name)} County</h3><div class="notice">No parcel polygon here (water, road right-of-way, or unmapped).</div>`; return; }
+      const p = f.properties; const idx = await staticIndex(sfips);
+      const cell = (await Promise.all(idx.cells.filter((c) => c.bbox[0] <= lon && c.bbox[2] >= lon && c.bbox[1] <= lat && c.bbox[3] >= lat).map((c) => staticCell(sfips, c.f)))).flatMap((fc) => fc.features).find((x) => x.properties.pin === p.pin)?.properties || {};
+      const rows = [["PIN", p.pin], ["Owner", p.owner], ["Site address", p.address], ["Acres (GIS / deeded)", `${p.acres != null ? fmt(p.acres, 2) : "–"} / ${p.acresDeed != null ? fmt(p.acresDeed, 2) : "–"}`], ["Class code", p.use], ["Taxing district", cell.district], ["Sec-Twp-Rng", cell.str], ["Year built", cell.year || "–"], ["Legal", cell.legal]].filter(([, v]) => v != null && v !== "");
+      container.innerHTML = `<h3>Parcel at this point · ${escapeHtml(s.name)} County</h3>
+        <table class="data"><tbody>${rows.map(([k, v]) => `<tr><td class="small" style="white-space:nowrap">${k}</td><td>${escapeHtml(String(v))}</td></tr>`).join("")}</tbody></table>
+        <div class="small">${escapeHtml(idx.source || s.note)}. Ownership and values are as published by the county assessor and can lag recent transfers.</div>`;
+    } catch (e) { container.innerHTML = `<h3>Parcel at this point · ${escapeHtml(s.name)} County</h3><div class="notice">County export unavailable: ${escapeHtml(e.message)}</div>`; }
+    return;
+  }
+  const fips = here.find((f) => SERVICES[f]);
+  const missing = here.map((f) => NO_SERVICE[f]).find(Boolean);
   if (!fips) { container.innerHTML = `<h3>Parcel at this point</h3><div class="notice">${escapeHtml(missing || "No parcel service for this county.")}</div>`; return; }
   const s = SERVICES[fips];
   container.innerHTML = `<h3>Parcel at this point · ${escapeHtml(s.name)} County</h3><div class="spinner">Querying county GIS…</div>`;

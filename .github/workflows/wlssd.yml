@@ -1,0 +1,26 @@
+name: Harvest WLSSD rainfall
+on:
+  schedule:
+    - cron: "12 * * * *"   # hourly; the WLSSD page updates every few minutes, hourly is enough for daily totals
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency: wlssd
+jobs:
+  harvest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Fetch and parse
+        run: python tools/harvest_wlssd.py
+      - name: Commit if changed
+        run: |
+          git config user.name "wlssd-harvester"
+          git config user.email "actions@users.noreply.github.com"
+          if git diff --quiet -- data/wlssd.json; then echo "no change"; exit 0; fi
+          git add data/wlssd.json
+          git commit -m "WLSSD rainfall snapshot $(date -u +%Y-%m-%dT%H:%MZ)"
+          git pull --rebase
+          git push

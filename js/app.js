@@ -23,6 +23,7 @@ import { initCrossings, setCrossingsEnabled, crossingsLegendHtml } from "./cross
 import { initWells, setWellsEnabled, wellsLegendHtml } from "./wells.js";
 import { LocateControl } from "./locate.js";
 import { renderSources } from "./sources.js";
+import { initWlssd } from "./wlssd.js";
 import { MeasureControl } from "./measure.js";
 import { setHideUnclassified } from "./gauges.js";
 import { setGaugeFilter } from "./map.js";
@@ -319,6 +320,7 @@ async function boot() {
   initFema();
   initCrossings();
   initWells();
+  whenMap(() => initWlssd());
   if (state.layers.wells) { if (map.getSource("ov-wells")) setWellsEnabled(true); else on("map:ready", () => setWellsEnabled(true)); }
   if (state.layers.crossings) { if (map.getSource("ov-xing-dnr")) setCrossingsEnabled(true); else on("map:ready", () => setCrossingsEnabled(true)); }
   if (state.layers.fema) { if (map.getSource("ov-fema-zones")) setFemaEnabled(true); else on("map:ready", () => setFemaEnabled(true)); }

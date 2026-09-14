@@ -71,6 +71,10 @@ Under the coordinates, an **Open here in** row links the same spot in SoilWeb (U
 
 The Point panel has a sticky jump bar with one chip per section (Lake, Watershed, Crossing, FEMA, Wetland, Parcel, Soils, Wells, Rainfall, Nearby, Forecast, Soil moisture, Atlas 14). A chip spins while its section loads, turns solid when there is something to read, dims when the section has nothing at that point, and turns red with ↻ when the section's request failed; clicking a red chip retries that section. Plotly is loaded on first chart use rather than at page load, and the Region panel renders from the last cached observations immediately while fresh data loads.
 
+## WLSSD rain gauges
+
+The Region panel has a **WLSSD rain gauges** table and the map shows nine dots around Duluth (Stations layer) for the Western Lake Superior Sanitary District's plant-telemetry gauges: WLSSD Plant, Scanlon, Endion, Munger Trail, Wrenshall, Pike Lake, Rice Lake, Proctor and Hermantown, with this hour, last hour, today, yesterday and the current window total. WLSSD's page allows no browser access (no CORS, http only), so a GitHub Action (`.github/workflows/wlssd.yml`, `tools/harvest_wlssd.py`) snapshots it every hour into `data/wlssd.json` and keeps a daily history of totals (WLSSD days are midnight to midnight). Gauge locations are approximate until WLSSD provides coordinates.
+
 ## Panel and layout
 
 On a desktop browser, drag the left edge of the right panel to make it wider or narrower (300 px up to 70% of the window; remembered). On phones the header controls scroll sideways; a fade and a › button show when more sit off-screen, and first-time visitors get a one-time swipe nudge. Drag the bottom sheet's header up or down to any height, or tap it to step between peek, half and full. Stations, Gauges and Radar are quick toggles in the header; the other overlays are under **Layers ▾**, grouped Water / Land / Hazards & subsurface, each with its minimum zoom; turning one on while zoomed out shows a status note until you zoom in.
@@ -110,7 +114,7 @@ The **Parcels** layer draws tax-parcel boundaries with owner labels from zoom 16
 | Aitkin | `gisweb.co.aitkin.mn.us/.../ParcelTaxData` | ~0.5 s |
 | Mille Lacs | `gis.co.mille-lacs.mn.us/.../AGO_Parcels_and_Lots/MapServer/3` | no paging; 1,000-feature cap per view |
 | Kanabec | Schneider/Beacon `KanabecCountyMN_WFS` | ~4 s |
-| Pine | none | no public service; not in the state open compilation |
+| Pine | county export (2026-09-09) via `data/pine_parcels` | shapefile from the Pine County Auditor's Office, converted by `tools/build_pine_parcels.py`; not live, refresh yearly |
 
 Wisconsin (Douglas, Bayfield) is not covered yet.
 

@@ -23,6 +23,7 @@ import { renderLakeAt } from "./lakes.js";
 import { renderWetlandAt } from "./dnrlayers.js";
 import { renderFemaAt } from "./fema.js";
 import { renderCrossingAt } from "./crossings.js";
+import { renderWlssdSection } from "./wlssd.js";
 import { renderWellsAt } from "./wells.js";
 import { visit } from "./nav.js";
 import { openReport } from "./report.js";
@@ -66,12 +67,14 @@ export function renderRegion() {
     ${hot.length ? gaugeTable(hot) : `<div class="notice">No telemetered gauge is above its Q25 (high-flow) threshold right now.</div>`}
     <h3>Gauges running low ${low.length ? `<span class="pill">${low.length}</span>` : ""}</h3>
     ${low.length ? gaugeTable(low) : `<div class="notice">No gauge below its Q75 (low-flow) threshold.</div>`}
+    <div id="region-wlssd"></div>
     <div id="region-lake"></div>
     <h3>Sources & caveats</h3>
     <div class="small">Station precipitation is the daily observation ending the morning of the date shown (CoCoRaHS/COOP report ~7 AM). Gauge flow classes come from the MN DNR CSG feed and compare today's flow to the site's period-of-record percentiles for this time of year. USGS values are provisional.</div>`;
   c.querySelectorAll("tr[data-sid]").forEach((tr) => tr.addEventListener("click", () => { const st = precipStations.find((x) => x.sid === tr.dataset.sid); if (st) { map.flyTo({ center: [st.lon, st.lat], zoom: Math.max(map.getZoom(), 9.5) }); renderStation(st.sid); } }));
   c.querySelectorAll("tr[data-gid]").forEach((tr) => tr.addEventListener("click", () => { const g = gaugeById(tr.dataset.gid); if (g) { map.flyTo({ center: [g.lon, g.lat], zoom: Math.max(map.getZoom(), 9.5) }); renderGauge(g.id); } }));
   renderLakeSection($("region-lake"));
+  renderWlssdSection($("region-wlssd"));
 }
 function gaugeTable(list) {
   return `<table class="data"><thead><tr><th>Gauge</th><th>Class</th><th class="num">cfs</th><th class="num">ft</th></tr></thead><tbody>
