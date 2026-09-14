@@ -118,13 +118,23 @@ function buildControls() {
   ["select:point", "select:station", "select:gauge"].forEach((ev) => on(ev, () => dismissHint()));
   const mobile = () => window.matchMedia("(max-width: 900px)").matches;
   // phone control strip: fade + arrow while more controls sit off-screen, and a one-time "swipe" nudge
-  const strip = document.querySelector(".controls"), more = $("strip-more"), sHint = $("strip-hint");
-  const placeStrip = () => { const r = strip.getBoundingClientRect(); const y = Math.round(r.top + r.height / 2 - 15); more.style.top = `${y}px`; sHint.style.top = `${y + 1}px`; };
+  const strip = document.querySelector(".controls"), more = $("strip-more"), less = $("strip-less"), sHint = $("strip-hint");
+  const placeStrip = () => { const r = strip.getBoundingClientRect(); const y = Math.round(r.top + r.height / 2 - 15); more.style.top = `${y}px`; less.style.top = `${y}px`; sHint.style.top = `${y + 1}px`; };
+  // a narrow desktop window gets the compact layout too, so make the strip work with a mouse: wheel scrolls it, and it drags
+  strip.addEventListener("wheel", (e) => { if (!mobile() || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return; strip.scrollLeft += e.deltaY; e.preventDefault(); }, { passive: false });
+  let sdrag = null, sdragMoved = false;
+  strip.addEventListener("pointerdown", (e) => { if (!mobile() || e.pointerType !== "mouse" || e.target.closest("input, select")) return; sdrag = { x: e.clientX, sl: strip.scrollLeft }; sdragMoved = false; });
+  strip.addEventListener("pointermove", (e) => { if (!sdrag) return; const dx = e.clientX - sdrag.x; if (!sdragMoved && Math.abs(dx) < 6) return; sdragMoved = true; strip.scrollLeft = sdrag.sl - dx; });
+  const endStripDrag = () => { if (sdrag && sdragMoved) suppressStripClick = Date.now() + 300; sdrag = null; };
+  let suppressStripClick = 0;
+  strip.addEventListener("pointerup", endStripDrag); strip.addEventListener("pointercancel", endStripDrag); strip.addEventListener("pointerleave", endStripDrag);
+  strip.addEventListener("click", (e) => { if (suppressStripClick > Date.now()) { e.stopPropagation(); e.preventDefault(); } }, true);
+  less.addEventListener("click", () => strip.scrollBy({ left: -Math.round(strip.clientWidth * 0.7), behavior: "smooth" }));
   const updateStrip = () => {
-    if (!mobile()) { $("topbar").classList.remove("can-right", "can-left"); more.hidden = true; return; }
+    if (!mobile()) { $("topbar").classList.remove("can-right", "can-left"); more.hidden = true; less.hidden = true; return; }
     const canRight = strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 4, canLeft = strip.scrollLeft > 4;
     $("topbar").classList.toggle("can-right", canRight); $("topbar").classList.toggle("can-left", canLeft);
-    more.hidden = !canRight; placeStrip();
+    more.hidden = !canRight; less.hidden = !canLeft; placeStrip();
   };
   more.addEventListener("click", () => strip.scrollBy({ left: Math.round(strip.clientWidth * 0.7), behavior: "smooth" }));
   let bouncing = false;

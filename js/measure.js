@@ -65,11 +65,14 @@ export class MeasureControl {
   }
   showBox() {
     const { len, area, perim } = this.stats(); const n = this.pts.length;
-    const help = n === 0 ? `Click the map to start ${this.mode === "area" ? "an area" : "a distance"}.` : this.done ? "Click to start a new measurement · Esc clears" : "Double-click or Enter to finish · Esc clears";
+    const touch = window.matchMedia("(pointer: coarse)").matches; const tap = touch ? "Tap" : "Click";
+    const help = n === 0 ? `${tap} the map to start ${this.mode === "area" ? "an area" : "a distance"}.` : this.done ? `${tap} the map to start a new measurement.` : touch ? "Keep tapping corners, then Finish." : "Double-click or Enter to finish · Esc clears · or use the buttons.";
     this.box.hidden = false;
     this.box.innerHTML = `<div class="mb-title">${this.mode === "area" ? "Area" : "Distance"} <button class="mb-x" title="Close">✕</button></div>
       ${n ? (this.mode === "area" ? `<div class="mb-v">${n >= 3 ? fmtArea(area) : "–"}</div><div class="small">perimeter ${fmtLen(perim)} · ${n} corners</div>` : `<div class="mb-v">${fmtLen(len)}</div><div class="small">${n} points</div>`) : ""}
-      <div class="small">${help}</div>`;
+      <div class="small">${help}</div>
+      ${n ? `<div class="mb-actions">${!this.done && n >= (this.mode === "area" ? 3 : 2) ? `<button class="btn primary" data-a="finish">Finish</button>` : ""}<button class="btn" data-a="clear">Clear</button></div>` : ""}`;
     this.box.querySelector(".mb-x").addEventListener("click", () => this.exit());
+    this.box.querySelectorAll("[data-a]").forEach((b) => b.addEventListener("click", () => (b.dataset.a === "finish" ? this.finish() : this.clear())));
   }
 }

@@ -376,3 +376,11 @@ ul.src .small { display: block; margin-top: 1px; }
 
 /* phone: when the bottom sheet covers the map, hide everything that floats over the map */
 @media (max-width: 900px) { body.sheet-full #map-wrap .floating, body.sheet-full #map-wrap .maplibregl-ctrl { visibility: hidden; } }
+
+@media (max-width: 900px) {
+  .strip-less { right: auto; left: 6px; }
+  .controls { cursor: grab; }
+  #topbar.can-left::before { width: 44px; }
+}
+.mb-actions { display: flex; gap: 6px; margin-top: 6px; }
+.mb-actions .btn { padding: 6px 12px; min-height: 32px; }

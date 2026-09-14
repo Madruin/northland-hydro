@@ -63,7 +63,7 @@ The **?** button opens the help dialog with two tabs: *How to use it* and *Sourc
 
 ## Map tools, coordinates and the Point panel
 
-The left edge of the map has zoom, **locate me** and **measure** buttons. Locate centers on your GPS position with an accuracy circle and follows you until you drag the map or click it again; if the browser has location blocked for the site, the status line says so and how to allow it (the built-in MapLibre control was replaced because it greys itself out permanently in that case). Measure has a distance mode and an area mode: click points, double-click or Enter to finish, Esc clears, ✕ exits. Segment lengths label the map; totals show in feet and miles, areas in acres, square feet and square miles, computed on the UTM 15N plane.
+The left edge of the map has zoom, **locate me** and **measure** buttons. Locate centers on your GPS position with an accuracy circle and follows you until you drag the map or click it again; if the browser has location blocked for the site, the status line says so and how to allow it (the built-in MapLibre control was replaced because it greys itself out permanently in that case). Measure has a distance mode and an area mode: click or tap points, then Finish (or double-click or Enter on a desktop); Clear starts over (or Esc), ✕ exits. Segment lengths label the map; totals show in feet and miles, areas in acres, square feet and square miles, computed on the UTM 15N plane.
 
 The search box accepts coordinates as well as names: `46.9476, -91.7849`, `46.9476 N 91.7849 W`, UTM 15N metres `592468, 5200058` or `E 592468 N 5200058`, or UTM 15N US survey feet `1943790, 17060522` (the TSA3 CAD system). Choosing the result drops the point and opens its panel. Every Point panel header shows the location in decimal degrees, UTM 15N metres and UTM 15N US feet with copy buttons; the feet value copies as `E,N` so it pastes straight into AutoCAD as X,Y. NAD83 and WGS84 are treated as the same datum (about a metre apart here).
 
@@ -77,7 +77,7 @@ The Region panel has a **WLSSD rain gauges** table and the map shows nine dots a
 
 ## Panel and layout
 
-On a desktop browser, drag the left edge of the right panel to make it wider or narrower (300 px up to 70% of the window; remembered). On phones the header controls scroll sideways; a fade and a › button show when more sit off-screen, and first-time visitors get a one-time swipe nudge. Drag the bottom sheet's header up or down to any height, or tap it to step between peek, half and full. Stations, Gauges and Radar are quick toggles in the header; the other overlays are under **Layers ▾**, grouped Water / Land / Hazards & subsurface, each with its minimum zoom; turning one on while zoomed out shows a status note until you zoom in.
+On a desktop browser, drag the left edge of the right panel to make it wider or narrower (300 px up to 70% of the window; remembered). On phones and narrow windows the header controls scroll sideways (swipe, mouse wheel, mouse drag, or the ‹ › buttons); a fade shows when more sit off-screen, and first-time visitors get a one-time swipe nudge. Drag the bottom sheet's header up or down to any height, or tap it to step between peek, half and full. Stations, Gauges and Radar are quick toggles in the header; the other overlays are under **Layers ▾**, grouped Water / Land / Hazards & subsurface, each with its minimum zoom; turning one on while zoomed out shows a status note until you zoom in.
 
 ## Wells and borings (County Well Index)
 
