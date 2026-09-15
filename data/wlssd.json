@@ -1,16 +1,16 @@
 {
 "source": "http://extranet.wlssd.com/plantoverview/rain.aspx",
-"updated": "2026-09-15T10:00:00-05:00",
-"harvestedAt": "2026-09-15T15:00:20+00:00",
+"updated": "2026-09-15T13:55:00-05:00",
+"harvestedAt": "2026-09-15T18:59:09+00:00",
 "gauges": [
 {
 "name": "WLSSD Plant",
-"thisHour": null,
+"thisHour": 0.0,
 "lastHour": 0.0,
 "today": 0.01,
 "yesterday": 0.88,
 "raw": {
-"thisHour": "NV",
+"thisHour": "0.00",
 "lastHour": "0.00",
 "today": "0.01",
 "yesterday": "0.88"
@@ -21,12 +21,12 @@
 },
 {
 "name": "Scanlon",
-"thisHour": null,
+"thisHour": 0.0,
 "lastHour": 0.0,
 "today": 0.01,
 "yesterday": 0.7,
 "raw": {
-"thisHour": "NV",
+"thisHour": "0.00",
 "lastHour": "0.00",
 "today": "0.01",
 "yesterday": "0.70"
@@ -37,7 +37,7 @@
 },
 {
 "name": "Endion",
-"thisHour": null,
+"thisHour": 0.0,
 "lastHour": 0.0,
 "today": 0.01,
 "yesterday": 0.74,
@@ -45,7 +45,7 @@
 "lastHour": "0.00",
 "today": "0.01",
 "yesterday": "0.74",
-"thisHour": "NV"
+"thisHour": "0.00"
 },
 "lon": -92.0705,
 "lat": 46.796,
@@ -53,12 +53,12 @@
 },
 {
 "name": "Munger Trail",
-"thisHour": null,
+"thisHour": 0.0,
 "lastHour": 0.0,
 "today": 0.0,
 "yesterday": 0.79,
 "raw": {
-"thisHour": "NV",
+"thisHour": "0.00",
 "lastHour": "0.00",
 "today": "0.00",
 "yesterday": "0.79"
@@ -85,12 +85,12 @@
 },
 {
 "name": "Pike Lake",
-"thisHour": null,
+"thisHour": 0.0,
 "lastHour": 0.0,
 "today": 0.0,
 "yesterday": 0.81,
 "raw": {
-"thisHour": "NV",
+"thisHour": "0.00",
 "lastHour": "0.00",
 "today": "0.00",
 "yesterday": "0.81"
@@ -101,12 +101,12 @@
 },
 {
 "name": "Rice Lake",
-"thisHour": null,
+"thisHour": 0.0,
 "lastHour": 0.0,
 "today": 0.01,
 "yesterday": 0.83,
 "raw": {
-"thisHour": "NV",
+"thisHour": "0.00",
 "lastHour": "0.00",
 "today": "0.01",
 "yesterday": "0.83"
@@ -117,12 +117,12 @@
 },
 {
 "name": "Proctor",
-"thisHour": null,
+"thisHour": 0.0,
 "lastHour": 0.0,
 "today": 0.01,
 "yesterday": 0.91,
 "raw": {
-"thisHour": "NV",
+"thisHour": "0.00",
 "lastHour": "0.00",
 "today": "0.01",
 "yesterday": "0.91"
@@ -133,7 +133,7 @@
 },
 {
 "name": "Hermantown",
-"thisHour": null,
+"thisHour": 0.0,
 "lastHour": 0.0,
 "today": 0.0,
 "yesterday": 0.74,
@@ -141,7 +141,7 @@
 "lastHour": "0.00",
 "today": "0.00",
 "yesterday": "0.74",
-"thisHour": "NV"
+"thisHour": "0.00"
 },
 "lon": -92.238,
 "lat": 46.807,
