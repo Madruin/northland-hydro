@@ -41,7 +41,7 @@ export const LAYERS = {
   },
   wetlands: {
     label: "Wetlands (NWI)", minZoom: 11, note: "Minnesota National Wetlands Inventory update (DNR, 2009–2014 imagery): Cowardin code, wetland type, Circular 39 type and hydrogeomorphic class. Inventory-level mapping; jurisdictional boundaries require a delineation.",
-    sources: [{ id: "wetlands", url: `${B}/water_nat_wetlands_inv_2009_2014/FeatureServer/0`, fields: "attribute,wetland_type,acres,circ39_class,hgm_desc,spcc_desc", kind: "fill" }],
+    sources: [{ id: "wetlands", url: `${B}/water_nat_wetlands_inv_2009_2014/FeatureServer/0`, fields: "attribute,wetland_type,acres,circ39_class,hgm_desc,spcc_desc", kind: "fill", static: false }],
     legend: Object.entries(WETLAND_COLORS).filter(([k]) => !/Estuarine/.test(k)).map(([k, c]) => `<div class="legend-row"><span class="swatch sq" style="background:${c};opacity:.75"></span>${k.replace("Freshwater ", "")}</div>`).join(""),
   },
   trout: {
@@ -66,7 +66,22 @@ export function initDnrLayers() { map.on("moveend", debounce(() => { for (const 
 export function setDnrLayerEnabled(k, on) { enabled[k] = on; if (on) refresh(k); else { for (const s of LAYERS[k].sources) setOverlay(s.id, { type: "FeatureCollection", features: [] }); lastKey[k] = null; note(k, ""); } }
 function note(k, t) { const el = $(`${k}-note`); if (el) el.textContent = t; emit("layer:status", { name: k, text: t }); }
 
+// Static snapshots (tools/build_static_layers.py → data/layers/<id>/) are read first; MnGeo is the fallback.
+const staticIdx = {}, staticCells = {};
+function bboxOfGeom(g) { if (g.__bb) return g.__bb; let w = 180, s = 90, e = -180, n = -90; const walk = (c) => { if (typeof c[0] === "number") { if (c[0] < w) w = c[0]; if (c[0] > e) e = c[0]; if (c[1] < s) s = c[1]; if (c[1] > n) n = c[1]; } else c.forEach(walk); }; walk(g.coordinates); return (g.__bb = [w, s, e, n]); }
+async function fetchStatic(s, bbox) {
+  const base = `data/layers/${s.id}`;
+  if (staticIdx[s.id] === undefined) { try { const r = await fetch(`${base}/index.json`); staticIdx[s.id] = r.ok ? await r.json() : null; } catch { staticIdx[s.id] = null; } }
+  const idx = staticIdx[s.id]; if (!idx) return null;
+  if (idx.single) { const k = s.id + "/" + idx.single; if (!staticCells[k]) { const r = await fetch(`${base}/${idx.single}`); staticCells[k] = r.ok ? await r.json() : { features: [] }; for (const f of staticCells[k].features) decorate(s.id, f.properties); } const feats = staticCells[k].features.filter((f) => { const bb = bboxOfGeom(f.geometry); return bb[0] <= bbox[2] && bb[2] >= bbox[0] && bb[1] <= bbox[3] && bb[3] >= bbox[1]; }); return { fc: { type: "FeatureCollection", features: feats }, exceeded: false, fetched: idx.fetched }; }
+  const cells = idx.cells.filter((c) => c.bbox[0] <= bbox[2] && c.bbox[2] >= bbox[0] && c.bbox[1] <= bbox[3] && c.bbox[3] >= bbox[1]);
+  const fcs = await Promise.all(cells.map(async (c) => { const k = s.id + "/" + c.f; if (!staticCells[k]) { const r = await fetch(`${base}/${c.f}`); staticCells[k] = r.ok ? await r.json() : { features: [] }; if (Object.keys(staticCells).length > 60) delete staticCells[Object.keys(staticCells)[0]]; } return staticCells[k]; }));
+  const seen = new Set(); const features = [];
+  for (const fc of fcs) for (const f of fc.features) { const id = f.properties.__id; if (seen.has(id)) continue; seen.add(id); decorate(s.id, f.properties); features.push(f); }
+  return { fc: { type: "FeatureCollection", features }, exceeded: false, fetched: idx.fetched };
+}
 async function fetchSrc(s, bbox) {
+  if (s.static !== false) { const st = await fetchStatic(s, bbox); if (st) return st; }
   const offset = (360 / (256 * 2 ** map.getZoom())) / 2; // half a screen pixel in degrees: simplify big polygons server-side
   const q = new URLSearchParams({ geometry: bbox.map((v) => v.toFixed(5)).join(","), geometryType: "esriGeometryEnvelope", inSR: "4326", spatialRel: "esriSpatialRelIntersects", outFields: s.fields, outSR: "4326", geometryPrecision: "5", maxAllowableOffset: offset.toFixed(6), where: s.where || "1=1", f: "geojson", resultRecordCount: "2000" });
   let r; try { r = await fetch(`${s.url}/query?${q}`, { signal: AbortSignal.timeout(90000) }); } catch (e) { throw new Error(`${s.id}: ${e.name === "TimeoutError" ? "MnGeo did not answer in 90 s" : e.message}`); }
@@ -104,7 +119,8 @@ async function refresh(k) {
   const res = await mine; if (inflight[k] !== mine || !enabled[k]) return;
   let n = 0, exceeded = false; const errs = [];
   res.forEach((r, i) => { const s = L.sources[i]; if (r.status === "fulfilled") { setOverlay(s.id, r.value.fc); n += r.value.fc.features.length; exceeded ||= r.value.exceeded; } else errs.push(r.reason?.message || String(r.reason)); });
-  note(k, `${L.label}: ${n} features${exceeded ? " (limit hit, zoom in)" : ""}${errs.length ? " · failed: " + errs.join("; ") + " · toggle the layer to retry" : ""}`);
+  const snap = res.map((r) => r.value?.fetched).find(Boolean);
+  note(k, `${L.label}: ${n} features${snap ? ` (snapshot ${snap})` : ""}${exceeded ? " (limit hit, zoom in)" : ""}${errs.length ? " · failed: " + errs.join("; ") + " · toggle the layer to retry" : ""}`);
 }
 // Wetlands intersecting a point (for the Point panel)
 export async function wetlandsAt(lon, lat) {

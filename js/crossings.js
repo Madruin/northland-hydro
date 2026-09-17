@@ -42,6 +42,16 @@ function decorateNbi(p) {
   p.color = p.BRIDGE_CONDITION === "P" ? "#dc2626" : p.BRIDGE_CONDITION === "F" ? "#f59e0b" : "#2563eb";
   p.popup = `<div class="popup-title">${isCulvert ? "Culvert" : "Bridge"} ${escapeHtml(p.STRUCTURE_NUMBER_008 || "")} · ${escapeHtml(p.FACILITY_CARRIED_007 || "")}</div><div class="popup-sub">over ${escapeHtml(p.FEATURES_DESC_006A || "")} · ${escapeHtml(NBI_KIND[p.STRUCTURE_KIND_043A] || "")} ${escapeHtml(NBI_TYPE[p.STRUCTURE_TYPE_043B] || "")} · built ${p.YEAR_BUILT_027 || "?"}${p.YEAR_RECONSTRUCTED_106 ? ", recon. " + p.YEAR_RECONSTRUCTED_106 : ""}</div><div class="popup-sub">length ${fmt(p.STRUCTURE_LEN_MT_049 * M2FT, 0)} ft · condition ${BC[p.BRIDGE_CONDITION] || p.BRIDGE_CONDITION || "?"} (lowest ${p.LOWEST_RATING ?? "?"}) · scour ${escapeHtml(SCOUR(p.SCOUR_CRITICAL_113))} · ${escapeHtml(NBI_OWNER[p.OWNER_022] || p.OWNER_022 || "")}</div>`;
 }
+let xIdx, xCells = {};
+async function staticDnr(bbox) {
+  if (xIdx === undefined) { try { const r = await fetch("data/layers/xing-dnr/index.json"); xIdx = r.ok ? await r.json() : null; } catch { xIdx = null; } }
+  if (!xIdx) return null;
+  const cells = xIdx.cells.filter((c) => c.bbox[0] <= bbox[2] && c.bbox[2] >= bbox[0] && c.bbox[1] <= bbox[3] && c.bbox[3] >= bbox[1]);
+  const fcs = await Promise.all(cells.map(async (c) => { if (!xCells[c.f]) { const r = await fetch(`data/layers/xing-dnr/${c.f}`); xCells[c.f] = r.ok ? await r.json() : { features: [] }; } return xCells[c.f]; }));
+  const seen = new Set(); const features = [];
+  for (const fc of fcs) for (const f of fc.features) { const [x, y] = f.geometry.coordinates; if (x < bbox[0] || x > bbox[2] || y < bbox[1] || y > bbox[3] || seen.has(f.properties.__id)) continue; seen.add(f.properties.__id); features.push(f); }
+  return { type: "FeatureCollection", features, fetched: xIdx.fetched };
+}
 async function refresh() {
   const z = map.getZoom(); const b = map.getBounds();
   if (z < MIN_ZOOM) { setOverlay("xing-dnr", empty()); setOverlay("xing-nbi", empty()); lastKey = null; note(`Crossings: zoom in (${MIN_ZOOM}+) to load`); return; }
@@ -50,13 +60,13 @@ async function refresh() {
   const key = bbox.map((v) => v.toFixed(3)).join(","); if (key === lastKey) return; lastKey = key;
   note("Crossings: loading…");
   const env = { geometry: bbox.map((v) => v.toFixed(5)).join(","), geometryType: "esriGeometryEnvelope", spatialRel: "esriSpatialRelIntersects", resultRecordCount: "2000" };
-  const mine = (inflight = Promise.allSettled([qgeo(`${DNR}/0`, { ...env, outFields: DNR_FIELDS }), qgeo(NBI, { ...env, outFields: NBI_FIELDS })]));
+  const mine = (inflight = Promise.allSettled([staticDnr(bbox).then((s) => s || qgeo(`${DNR}/0`, { ...env, outFields: DNR_FIELDS })), qgeo(NBI, { ...env, outFields: NBI_FIELDS })]));
   track("Crossings", mine);
   const [dr, nr] = await mine; if (inflight !== mine || !enabled) return;
   let nd = 0, nn = 0; const errs = [];
   if (dr.status === "fulfilled") { for (const f of dr.value.features) decorateDnr(f.properties); setOverlay("xing-dnr", dr.value); nd = dr.value.features.length; } else errs.push("DNR " + dr.reason?.message);
   if (nr.status === "fulfilled") { for (const f of nr.value.features) decorateNbi(f.properties); setOverlay("xing-nbi", nr.value); nn = nr.value.features.length; } else errs.push("NBI " + nr.reason?.message);
-  note(`Crossings: ${nd} DNR-surveyed, ${nn} NBI structures${errs.length ? " · failed: " + errs.join("; ") : ""}`);
+  note(`Crossings: ${nd} DNR-surveyed${dr.value?.fetched ? ` (snapshot ${dr.value.fetched})` : ""}, ${nn} NBI structures${errs.length ? " · failed: " + errs.join("; ") : ""}`);
 }
 
 export function crossingsLegendHtml() {

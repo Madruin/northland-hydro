@@ -220,13 +220,24 @@ function showHintOnce() {
   setTimeout(() => { if ($("help").hidden) $("map-hint").hidden = false; else $("help-close").addEventListener("click", () => ($("map-hint").hidden = false), { once: true }); }, 400);
 }
 function dismissHint() { $("map-hint").hidden = true; try { localStorage.setItem("nh-hint", "1"); } catch {} }
+// Raster tile sources (basemap imagery, terrain, radar, stream grid) report through the loader too, and tile errors
+// show in the status pill, so a slow MnGeo imagery or lidar server is visible instead of a silent blank map.
+const TILE_LABEL = (id) => ({ mn: "Imagery tiles", usgs: "Imagery tiles", qpe: "Radar tiles", streams: "Streams grid" }[id] || (id.startsWith("terrain-") ? "Terrain tiles" : null));
+let tilesPending = null, tileErrAt = 0;
+whenMap(() => {
+  map.on("sourcedataloading", (e) => { const lbl = TILE_LABEL(e.sourceId || ""); if (!lbl || tilesPending) return; tilesPending = new Promise((res) => map.once("idle", res)).then(() => { tilesPending = null; }); track(lbl, tilesPending); });
+  map.on("error", (e) => { const lbl = TILE_LABEL(e.sourceId || ""); if (!lbl || Date.now() - tileErrAt < 30000) return; tileErrAt = Date.now(); setStatus(`${lbl} are failing to load (server not answering); the map will fill in when it recovers.`, true, true); });
+});
 const layerStatus = {};
+const slowTimers = {};
 on("layer:status", ({ name, text }) => {
   layerStatus[name] = text; const row = $("tg-" + name); if (!row) return; const z = row.querySelector(".lr-zoom"); if (!z) return;
   const loading = /loading|querying/i.test(text) && !/failed/i.test(text), failed = /failed|did not answer|unavailable/i.test(text);
   row.classList.toggle("loading", loading); row.classList.toggle("error", failed);
   z.textContent = loading ? "loading…" : failed ? "failed · toggle to retry" : `zoom ${row.dataset.minzoom}+`;
   row.title = text || "";
+  clearTimeout(slowTimers[name]);
+  if (loading) slowTimers[name] = setTimeout(() => { if (row.classList.contains("loading")) z.textContent = "still loading… server is slow (up to 90 s)"; }, 12000);
 });
 let sourcesRendered = false;
 function showHelpPane(pane) {

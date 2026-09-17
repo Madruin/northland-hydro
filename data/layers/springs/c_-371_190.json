@@ -1,0 +1,1 @@
+{"type":"FeatureCollection","features":[{"type":"Feature","geometry":{"type":"Point","coordinates":[-92.65216,47.74128]},"properties":{"name":"Angora Spring","feature":"A","spring_type":"pipe","lithology":"unknown","flowing":"U","flow":null,"flow_units":"ukn","temp_c":null,"field_check_date":1688749200000,"__id":50}}]}
