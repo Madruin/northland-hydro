@@ -103,7 +103,7 @@ Three regulatory layers under **Layers ▾**, each with a Point panel section:
 
 The **Wells** layer also shows DNR Cooperative Groundwater Monitoring observation wells (teal, grey when not currently read), and the point section lists those within 2 km with aquifer, depth, status and a link to each well's water-level record. The **Soils** legend has a theme selector: hydrologic soil group, or **water table depth** (SSURGO annual minimum depth to a saturated zone, six classes from under 1 ft to none within 2 m); the soils popup shows the water-table depth and flooding frequency in either theme.
 
-These MnGeo services can be slow at times (tens of seconds). While a layer loads, the bottom-left status pill lists it ("Loading Public waters, Impaired…") and its row in the Layers menu shows a spinner; a load that fails or times out after 45 s turns the row red with "failed · toggle to retry" and puts the reason in the legend note.
+These MnGeo services can be slow at times (tens of seconds). While a layer loads, the bottom-left status pill lists it ("Loading Public waters, Impaired…") and its row in the Layers menu shows a spinner; a load that fails or times out after 90 s turns the row red with "failed · toggle to retry" and puts the reason in the legend note.
 
 ## Wells and borings (County Well Index)
 
