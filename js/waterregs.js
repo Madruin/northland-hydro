@@ -1,6 +1,7 @@
 // Point and basin sections for the regulatory water layers: DNR Public Waters Inventory, MPCA impaired waters and
 // TMDL allocation areas, and BWSR RIM / wetland-bank easements. Map layers themselves live in dnrlayers.js.
 import { escapeHtml, fmt, fmtNum, haversineKm } from "./util.js";
+import { fetchStatic } from "./dnrlayers.js";
 
 const DNR = "https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_dnr";
 const PCA = "https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_pca";
@@ -17,7 +18,7 @@ export const useList = (s) => (s || "").split(",").map((x) => x.trim()).filter(B
 
 async function q(url, params, fmtOut = "json") {
   const u = new URLSearchParams({ inSR: "4326", outSR: "4326", f: fmtOut, ...params });
-  const r = await fetch(`${url}/query?${u}`); if (!r.ok) throw new Error(`${r.status}`);
+  const r = await fetch(`${url}/query?${u}`, { signal: AbortSignal.timeout(90000) }); if (!r.ok) throw new Error(`${r.status}`);
   const d = await r.json(); if (d.error) throw new Error(d.error.message); return d;
 }
 const near = (lon, lat, m) => { const d = m / 111320, dx = d / Math.cos((lat * Math.PI) / 180); return { geometry: `${(lon - dx).toFixed(6)},${(lat - d).toFixed(6)},${(lon + dx).toFixed(6)},${(lat + d).toFixed(6)}`, geometryType: "esriGeometryEnvelope", spatialRel: "esriSpatialRelIntersects" }; };
@@ -28,24 +29,64 @@ function distToGeom(lon, lat, g) {
 }
 const dateOf = (ms) => (ms ? new Date(ms).toLocaleDateString() : "");
 
-// ---- Public Waters Inventory ----
-export async function renderPwiAt(container, lon, lat) {
+
+// ---- Snapshot first, live second ----
+// The regional snapshots under data/layers (see dnrlayers.js) answer point questions in milliseconds; MnGeo is then
+// asked for the current answer and replaces it when (if) it arrives. The returned promise settles after the first
+// paint, so the panel's jump bar turns "ready" without waiting up to 90 s for MnGeo.
+const clock = () => new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+function pip(lon, lat, g) {
+  const inRing = (r) => { let ins = false; for (let i = 0, j = r.length - 1; i < r.length; j = i++) { const [xi, yi] = r[i], [xj, yj] = r[j]; if (yi > lat !== yj > lat && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) ins = !ins; } return ins; };
+  const polys = g.type === "Polygon" ? [g.coordinates] : g.type === "MultiPolygon" ? g.coordinates : [];
+  return polys.some((p) => inRing(p[0]) && !p.slice(1).some(inRing));
+}
+async function snapNear(id, lon, lat, m) {
+  const d = Math.max(m, 1) / 111320, dx = d / Math.cos((lat * Math.PI) / 180);
+  const st = await fetchStatic({ id }, [lon - dx, lat - d, lon + dx, lat + d]);
+  if (!st) return null;
+  const features = st.fc.features.map((f) => ({ ...f.properties, m: f.geometry && /Polygon/.test(f.geometry.type) && pip(lon, lat, f.geometry) ? 0 : distToGeom(lon, lat, f.geometry) })).filter((f) => f.m <= Math.max(m, 0.5)).sort((a, b) => a.m - b.m);
+  return { features, fetched: st.fetched };
+}
+async function twoPhase(container, snapFn, liveFn, paint, failTitle) {
+  const tok = (container.dataset.tok = String(Math.random())); const mine = () => container.dataset.tok === tok;
   container.innerHTML = "";
-  try {
-    const [basins, lines] = await Promise.all([
-      q(PWI.basins, { ...at(lon, lat), outFields: "pw_basin_name,dowlknum,pwi_class,pwi_label,wettype,acres,shore_mi,dnr_shoreland_class" }).catch(() => null),
-      q(PWI.lines, { ...near(lon, lat, 150), outFields: "kittle_name,kittle_nbr,pwi_label,entire", returnGeometry: "true" }, "geojson").catch(() => null),
-    ]);
-    const b = basins?.features?.[0]?.attributes;
-    const ls = (lines?.features || []).map((f) => ({ ...f.properties, m: distToGeom(lon, lat, f.geometry) })).sort((x, y) => x.m - y.m);
-    if (!b && !ls.length) return;
+  const live = liveFn().then((r) => ({ ok: true, r }), (e) => ({ ok: false, e }));
+  let snap = null; try { snap = await snapFn(); } catch { snap = null; }
+  if (!mine()) return;
+  const finish = (res) => {
+    if (!mine()) return;
+    if (res.ok) paint(res.r, `live from MnGeo, ${clock()}`);
+    else if (snap) { const a = container.querySelector(":scope > .asof"); if (a) a.textContent = `snapshot ${snap.fetched} · MnGeo not answering, showing snapshot`; }
+    else container.innerHTML = `<h3>${failTitle}</h3><div class="notice">${failTitle} request failed: ${escapeHtml(res.e?.message || "")}</div>`;
+  };
+  if (snap) { paint(snap.r, `snapshot ${snap.fetched} · checking MnGeo for newer data…`); live.then(finish); }
+  else finish(await live);
+}
+const asof = (t) => `<div class="asof">${escapeHtml(t)}</div>`;
+// ---- Public Waters Inventory ----
+export function renderPwiAt(container, lon, lat) {
+  const paint = ({ b, ls }, tag) => {
+    if (!b && !ls.length) { container.innerHTML = ""; return; }
     let html = `<h3>Public waters (DNR PWI)</h3>`;
     if (b) html += `<div><b>${escapeHtml(b.pw_basin_name || "Unnamed basin")}</b> · ${escapeHtml(b.pwi_label || "")}${b.pwi_class ? ` (class ${escapeHtml(b.pwi_class)})` : ""}${b.dowlknum ? ` · DOW ${escapeHtml(b.dowlknum)}` : ""}</div>
       <div class="small">${b.acres ? `${fmtNum(b.acres)} ac` : ""}${b.shore_mi ? ` · ${fmt(b.shore_mi, 1)} mi shoreline` : ""}${b.dnr_shoreland_class ? ` · shoreland class: <b>${escapeHtml(b.dnr_shoreland_class)}</b>` : ""}</div>`;
     if (ls.length) { const l = ls[0]; html += `<div style="margin-top:4px"><b>${escapeHtml(l.kittle_name || "Unnamed watercourse")}</b> · ${escapeHtml(l.pwi_label || "Public water watercourse")}${l.entire === "Y" ? " (entire length)" : ""} <span class="small">· ${fmtNum(l.m * 3.281)} ft away${l.kittle_nbr ? " · " + escapeHtml(l.kittle_nbr) : ""}${l.upsum_sqmi ? ` · ${fmt(l.upsum_sqmi, 1)} mi² upstream` : ""}</span></div>`; }
     html += `<div class="notice">Work in the bed or bank of a public water below the ordinary high water level needs a <a href="https://www.dnr.state.mn.us/permits/water/index.html" target="_blank" rel="noopener">DNR public waters work permit</a> (or must fit a general permit); shoreland zoning applies within 1,000 ft of a public water basin and 300 ft of a watercourse. Verify with the <a href="https://www.dnr.state.mn.us/waters/watermgmt_section/pwi/maps.html" target="_blank" rel="noopener">official PWI maps</a> and the area hydrologist.</div>`;
-    container.innerHTML = html;
-  } catch (e) { container.innerHTML = `<h3>Public waters (DNR PWI)</h3><div class="notice">PWI request failed: ${escapeHtml(e.message)}</div>`; }
+    container.innerHTML = html + asof(tag);
+  };
+  const snapFn = async () => {
+    const [bs, ln] = await Promise.all([snapNear("pwi-basins", lon, lat, 0), snapNear("pwi-lines", lon, lat, 150)]);
+    if (!bs && !ln) return null;
+    return { r: { b: bs?.features[0] || null, ls: ln?.features || [] }, fetched: bs?.fetched || ln?.fetched };
+  };
+  const liveFn = async () => {
+    const [basins, lines] = await Promise.all([
+      q(PWI.basins, { ...at(lon, lat), outFields: "pw_basin_name,dowlknum,pwi_class,pwi_label,wettype,acres,shore_mi,dnr_shoreland_class" }),
+      q(PWI.lines, { ...near(lon, lat, 150), outFields: "kittle_name,kittle_nbr,pwi_label,entire", returnGeometry: "true" }, "geojson"),
+    ]);
+    return { b: basins?.features?.[0]?.attributes || null, ls: (lines?.features || []).map((f) => ({ ...f.properties, m: distToGeom(lon, lat, f.geometry) })).sort((x, y) => x.m - y.m) };
+  };
+  return twoPhase(container, snapFn, liveFn, paint, "Public waters (DNR PWI)");
 }
 
 // ---- Impaired waters + TMDL ----
@@ -56,23 +97,32 @@ function impairedRow(p, kind) {
     <td class="small">${approved.length ? `TMDL approved: ${escapeHtml(approved.join("; "))}` : ""}${needs.length ? `${approved.length ? "<br>" : ""}TMDL needed: ${escapeHtml(needs.join("; "))}` : ""}${p.new_impair && p.new_impair !== "None" ? `<br>new 2024: ${escapeHtml(p.new_impair)}` : ""}</td></tr>`;
 }
 const IMP_FIELDS = "auid,name,reach_desc,affected_u,imp_param,new_impair,needs_pln,approved,huc_8_name,use_class";
-export async function renderImpairedAt(container, lon, lat) {
-  container.innerHTML = "";
-  try {
-    const [st, lk, tm] = await Promise.all([
-      q(IMPAIRED.streams, { ...near(lon, lat, 500), outFields: IMP_FIELDS, returnGeometry: "true", geometryPrecision: "5" }, "geojson").catch(() => null),
-      q(IMPAIRED.lakes, { ...near(lon, lat, 300), outFields: IMP_FIELDS + ",area_acres", returnGeometry: "true", geometryPrecision: "5" }, "geojson").catch(() => null),
-      q(IMPAIRED.tmdl, { ...at(lon, lat), outFields: "waterbody_name,tmdl_pollutant,epa_approval,source,area_sq_mi,wid" }).catch(() => null),
-    ]);
-    const streams = (st?.features || []).map((f) => ({ ...f.properties, m: distToGeom(lon, lat, f.geometry) })).sort((a, b) => a.m - b.m).slice(0, 4);
-    const lakes = (lk?.features || []).map((f) => ({ ...f.properties, m: distToGeom(lon, lat, f.geometry) })).sort((a, b) => a.m - b.m).slice(0, 2);
-    const tmdl = tm?.features?.map((f) => f.attributes) || [];
-    if (!streams.length && !lakes.length && !tmdl.length) return;
+export function renderImpairedAt(container, lon, lat) {
+  const paint = ({ streams, lakes, tmdl }, tag) => {
+    if (!streams.length && !lakes.length && !tmdl.length) { container.innerHTML = ""; return; }
     container.innerHTML = `<h3>Impaired waters (MPCA 2024 list) and TMDLs</h3>
       ${streams.length || lakes.length ? `<table class="data"><thead><tr><th>Water</th><th>Impairments</th><th>Affected uses</th><th>TMDL status</th></tr></thead><tbody>${streams.map((p) => impairedRow(p, "stream")).join("")}${lakes.map((p) => impairedRow(p, "lake")).join("")}</tbody></table>` : `<div class="small">No impaired stream reach within 500 m or impaired lake within 300 m.</div>`}
       ${tmdl.length ? `<div class="small" style="margin-top:4px"><b>Inside TMDL allocation area${tmdl.length > 1 ? "s" : ""}:</b> ${tmdl.map((t) => `${escapeHtml(t.waterbody_name || "")} · ${escapeHtml(t.tmdl_pollutant || "")}${t.epa_approval ? ` (EPA approved ${dateOf(t.epa_approval)})` : ""}${t.area_sq_mi ? ` · ${fmt(t.area_sq_mi, 1)} mi²` : ""}`).join("; ")}. Load allocations apply to new and expanded sources in this area.</div>` : ""}
-      <div class="small">Source: MPCA 2024 impaired waters list (303(d)) and TMDL allocation areas. Impairments drive Clean Water Fund and 319 eligibility; TMDL wasteload and load allocations are in the approved TMDL report on <a href="https://www.pca.state.mn.us/air-water-land-climate/minnesotas-impaired-waters-list" target="_blank" rel="noopener">MPCA's impaired waters page</a>.</div>`;
-  } catch (e) { container.innerHTML = `<h3>Impaired waters</h3><div class="notice">MPCA request failed: ${escapeHtml(e.message)}</div>`; }
+      <div class="small">Source: MPCA 2024 impaired waters list (303(d)) and TMDL allocation areas. Impairments drive Clean Water Fund and 319 eligibility; TMDL wasteload and load allocations are in the approved TMDL report on <a href="https://www.pca.state.mn.us/air-water-land-climate/minnesotas-impaired-waters-list" target="_blank" rel="noopener">MPCA's impaired waters page</a>.</div>` + asof(tag);
+  };
+  const snapFn = async () => {
+    const [st, lk, tm] = await Promise.all([snapNear("imp-streams", lon, lat, 500), snapNear("imp-lakes", lon, lat, 300), snapNear("tmdl-areas", lon, lat, 0)]);
+    if (!st && !lk && !tm) return null;
+    return { r: { streams: (st?.features || []).slice(0, 4), lakes: (lk?.features || []).slice(0, 2), tmdl: tm?.features || [] }, fetched: st?.fetched || lk?.fetched || tm?.fetched };
+  };
+  const liveFn = async () => {
+    const [st, lk, tm] = await Promise.all([
+      q(IMPAIRED.streams, { ...near(lon, lat, 500), outFields: IMP_FIELDS, returnGeometry: "true", geometryPrecision: "5" }, "geojson"),
+      q(IMPAIRED.lakes, { ...near(lon, lat, 300), outFields: IMP_FIELDS + ",area_acres", returnGeometry: "true", geometryPrecision: "5" }, "geojson"),
+      q(IMPAIRED.tmdl, { ...at(lon, lat), outFields: "waterbody_name,tmdl_pollutant,epa_approval,source,area_sq_mi,wid" }),
+    ]);
+    return {
+      streams: (st?.features || []).map((f) => ({ ...f.properties, m: distToGeom(lon, lat, f.geometry) })).sort((a, b) => a.m - b.m).slice(0, 4),
+      lakes: (lk?.features || []).map((f) => ({ ...f.properties, m: distToGeom(lon, lat, f.geometry) })).sort((a, b) => a.m - b.m).slice(0, 2),
+      tmdl: tm?.features?.map((f) => f.attributes) || [],
+    };
+  };
+  return twoPhase(container, snapFn, liveFn, paint, "Impaired waters");
 }
 // Impaired reaches and lakes intersecting a basin polygon (watershed section)
 const basinCache = new Map();
@@ -105,18 +155,25 @@ export async function renderBasinImpairments(container, geometry) {
 }
 
 // ---- Easements ----
-export async function renderEasementsAt(container, lon, lat) {
-  container.innerHTML = "";
-  try {
-    const [rim, bank] = await Promise.all([
-      q(EASE.rim, { ...near(lon, lat, 30), outFields: "ease_num,ease_type,ease_cat,fund_type,ease_acres,ease_year,exp_status,exp_date,swcd_name,recorded,rec_date" }).catch(() => null),
-      q(EASE.bank, { ...near(lon, lat, 30), outFields: "county,siteid,easement_number,acres,instrument_type,recording_date,description" }).catch(() => null),
-    ]);
-    const r = rim?.features?.map((f) => f.attributes) || []; const b = bank?.features?.map((f) => f.attributes) || [];
-    if (!r.length && !b.length) return;
+export function renderEasementsAt(container, lon, lat) {
+  const paint = ({ r, b }, tag) => {
+    if (!r.length && !b.length) { container.innerHTML = ""; return; }
     container.innerHTML = `<h3>Conservation easements at this point</h3>
       ${r.map((e) => `<div><b>BWSR ${escapeHtml(e.ease_cat || "RIM")} easement ${escapeHtml(e.ease_num || "")}</b> · ${escapeHtml(e.ease_type || "")}<div class="small">${fmt(e.ease_acres, 1)} ac · ${escapeHtml(e.swcd_name || "")} SWCD · signed ${escapeHtml(String(e.ease_year || ""))}${e.fund_type ? " · " + escapeHtml(e.fund_type) : ""} · status ${escapeHtml(e.exp_status || "")}${e.exp_date ? ", expires " + dateOf(e.exp_date) : ""}${e.recorded === "Y" ? " · recorded" + (e.rec_date ? " " + dateOf(e.rec_date) : "") : ""}</div></div>`).join("")}
       ${b.map((e) => `<div><b>Wetland bank easement ${escapeHtml(e.easement_number || e.easement_id || "")}</b> · site ${escapeHtml(String(e.siteid || ""))}<div class="small">${fmt(e.acres, 1)} ac · ${escapeHtml(e.county || "")} County${e.instrument_type ? " · " + escapeHtml(e.instrument_type) : ""}${e.recording_date ? " · recorded " + dateOf(e.recording_date) : ""}${e.description ? " · " + escapeHtml(e.description) : ""}</div></div>`).join("")}
-      <div class="notice">Easement land carries use restrictions; any project inside the boundary needs BWSR (RIM) or the wetland bank sponsor's sign-off. Boundaries here are the recorded GIS versions; the recorded legal description governs.</div>`;
-  } catch (e) { container.innerHTML = `<h3>Conservation easements</h3><div class="notice">BWSR request failed: ${escapeHtml(e.message)}</div>`; }
+      <div class="notice">Easement land carries use restrictions; any project inside the boundary needs BWSR (RIM) or the wetland bank sponsor's sign-off. Boundaries here are the recorded GIS versions; the recorded legal description governs.</div>` + asof(tag);
+  };
+  const snapFn = async () => {
+    const [rim, bank] = await Promise.all([snapNear("rim", lon, lat, 30), snapNear("wetbank", lon, lat, 30)]);
+    if (!rim && !bank) return null;
+    return { r: { r: rim?.features || [], b: bank?.features || [] }, fetched: rim?.fetched || bank?.fetched };
+  };
+  const liveFn = async () => {
+    const [rim, bank] = await Promise.all([
+      q(EASE.rim, { ...near(lon, lat, 30), outFields: "ease_num,ease_type,ease_cat,fund_type,ease_acres,ease_year,exp_status,exp_date,swcd_name,recorded,rec_date" }),
+      q(EASE.bank, { ...near(lon, lat, 30), outFields: "county,siteid,easement_number,acres,instrument_type,recording_date,description" }),
+    ]);
+    return { r: rim?.features?.map((f) => f.attributes) || [], b: bank?.features?.map((f) => f.attributes) || [] };
+  };
+  return twoPhase(container, snapFn, liveFn, paint, "Conservation easements");
 }

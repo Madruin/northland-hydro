@@ -412,3 +412,15 @@ table.fresh tr.warn td:last-child { color: var(--accent2); }
 .layer-row.loading .lr-zoom::before { content: "⟳ "; display: inline-block; animation: spin 1.2s linear infinite; }
 .layer-row.error .lr-zoom { color: #fca5a5; }
 .layer-row.error .lr-zoom::after { content: ""; }
+
+/* Radar QPE legend (NWS classes) */
+.qpe-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px 10px; margin: 4px 0; }
+.qpe-row { display: flex; align-items: center; gap: 5px; font-size: 11px; line-height: 16px; white-space: nowrap; }
+.qpe-row img { border-radius: 2px; flex: none; }
+#qpe-legend .warn { color: #f59e0b; }
+
+/* Freshness chips in the Sources tab (data/freshness.json) */
+.fresh { display: inline-block; margin: 2px 4px 0 0; padding: 0 6px; border-radius: 9px; font-size: 10.5px; line-height: 16px; background: #1f2937; color: #cbd5e1; border: 1px solid #374151; white-space: nowrap; }
+.fresh-ok { border-color: #14532d; color: #86efac; } .fresh-watch { border-color: #78350f; color: #fcd34d; }
+.fresh-stale, .fresh-newer { border-color: #7f1d1d; color: #fca5a5; } .fresh-error { color: #9ca3af; font-style: italic; }
+.fresh-flag { color: #fca5a5; }

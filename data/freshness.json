@@ -1,0 +1,198 @@
+{
+ "checked": "2026-09-17T20:56:44Z",
+ "flags": [],
+ "sources": {
+  "parcels_stlouis": {
+   "label": "St. Louis County parcels",
+   "asOf": "2026-08-25",
+   "detail": "newest recorded sale",
+   "status": "ok"
+  },
+  "parcels_cook": {
+   "label": "Cook County parcels",
+   "asOf": "2026-08-13",
+   "detail": "service data edit",
+   "status": "ok"
+  },
+  "parcels_carlton": {
+   "label": "Carlton County parcels",
+   "asOf": "2026",
+   "detail": "tax-parcel year",
+   "status": "ok"
+  },
+  "parcels_aitkin": {
+   "label": "Aitkin County parcels",
+   "asOf": "2027",
+   "detail": "tax year",
+   "status": "ok"
+  },
+  "parcels_millelacs": {
+   "label": "Mille Lacs County parcels",
+   "asOf": "2026",
+   "detail": "tax year (count query; server has no statistics)",
+   "status": "ok"
+  },
+  "parcels_lake": {
+   "label": "Lake County parcels",
+   "asOf": "2026-08-06",
+   "detail": "newest GIS edit (MnGeo copy)",
+   "status": "ok"
+  },
+  "parcels_kanabec": {
+   "label": "Kanabec County parcels",
+   "asOf": "2026-08-15",
+   "detail": "newest recorded sale",
+   "status": "ok"
+  },
+  "parcels_pine": {
+   "label": "Pine County parcels",
+   "asOf": "2026-09-09",
+   "detail": "county export shipped by email; ask the Auditor's office for a new one",
+   "status": "ok"
+  },
+  "pwi": {
+   "label": "DNR Public Waters Inventory",
+   "asOf": "2026-07-02",
+   "detail": "MnGeo content date",
+   "status": "ok"
+  },
+  "hydrography": {
+   "label": "DNR hydrography",
+   "asOf": "2026-06-04",
+   "detail": "MnGeo content date",
+   "status": "ok"
+  },
+  "dams": {
+   "label": "DNR dams inventory",
+   "asOf": "2026-07-02",
+   "detail": "MnGeo content date",
+   "status": "ok"
+  },
+  "culverts": {
+   "label": "DNR culvert inventory",
+   "asOf": "2026-04-23",
+   "detail": "newest edited survey",
+   "status": "ok"
+  },
+  "karst_pts": {
+   "label": "Karst feature points",
+   "asOf": "2026-07-02",
+   "detail": "MnGeo content date",
+   "status": "ok"
+  },
+  "karst_polys": {
+   "label": "Karst-prone regions",
+   "asOf": "2025-06-06",
+   "detail": "MnGeo content date",
+   "status": "ok"
+  },
+  "springs": {
+   "label": "Springs inventory",
+   "asOf": "2026-04-28",
+   "detail": "MnGeo content date",
+   "status": "ok"
+  },
+  "rim": {
+   "label": "BWSR RIM easements",
+   "asOf": "2026-05-15",
+   "detail": "newest recorded easement",
+   "status": "ok"
+  },
+  "wetbank": {
+   "label": "Wetland bank easements",
+   "asOf": "2026-08-04",
+   "detail": "newest recorded easement",
+   "status": "ok"
+  },
+  "nwi": {
+   "label": "National Wetlands Inventory (MN update)",
+   "asOf": "2019-05-23",
+   "detail": "MnGeo content date; 2009-2014 imagery",
+   "status": "ok"
+  },
+  "trout": {
+   "label": "Designated trout streams",
+   "asOf": "2020-05-14",
+   "detail": "MnGeo content date",
+   "status": "ok"
+  },
+  "impaired": {
+   "label": "MPCA impaired waters list",
+   "asOf": "2024",
+   "detail": "newest final list service on MnGeo (site uses 2024); drafts: env_impaired_water_2024_proposed, env_impaired_water_2026_draft",
+   "status": "ok"
+  },
+  "tmdl": {
+   "label": "TMDL allocation areas",
+   "asOf": "2025-12-19",
+   "detail": "MnGeo content date",
+   "status": "ok"
+  },
+  "cwi": {
+   "label": "County Well Index",
+   "asOf": "2026-09-10",
+   "detail": "newest well entry",
+   "status": "ok"
+  },
+  "drillholes": {
+   "label": "DNR drill holes",
+   "asOf": "2026-07-08",
+   "detail": "MnGeo content date",
+   "status": "ok"
+  },
+  "obwells": {
+   "label": "DNR observation wells",
+   "asOf": "2026-09-11",
+   "detail": "newest field visit",
+   "status": "ok"
+  },
+  "ssurgo": {
+   "label": "SSURGO soils",
+   "asOf": "2025-09-09",
+   "detail": "oldest county survey refresh (MN001 2025-09-10, MN017 2025-09-09, MN031 2026-05-05, MN061 2025-09-10, MN065 2025-09-10, MN075 2026-05-05, MN095 2025-09-10, MN115 2025-09-10)",
+   "status": "watch"
+  },
+  "nbi": {
+   "label": "National Bridge Inventory",
+   "asOf": "2025-06-20",
+   "detail": "FHWA file vintage per BTS description",
+   "status": "watch"
+  },
+  "imagery": {
+   "label": "MnGeo imagery (FSA)",
+   "asOf": "2025",
+   "detail": "newest statewide FSA flight in MnGeo WMS (site default: 2025)",
+   "status": "ok"
+  },
+  "lidar": {
+   "label": "MnTOPO lidar",
+   "asOf": "2021-2023 seamless DEM",
+   "detail": "MnTopo image services",
+   "status": "ok"
+  },
+  "nss": {
+   "label": "USGS NSS regressions",
+   "asOf": "2023",
+   "detail": "newest MN citation year in NSS (peak-flow regressions: SIR 2023-5079)",
+   "status": "ok"
+  },
+  "wlssd": {
+   "label": "WLSSD gauges",
+   "asOf": "2026-09-17",
+   "detail": "hourly harvest; gauges updated 2026-09-17T15:15:00-05:00",
+   "status": "ok"
+  },
+  "snapshots": {
+   "label": "Site layer snapshots",
+   "asOf": "2026-09-17",
+   "detail": "oldest layer snapshot in data/layers (monthly rebuild)",
+   "status": "ok"
+  },
+  "qpe": {
+   "label": "NWS radar QPE",
+   "asOf": "2026-09-17",
+   "detail": "last 24-h mosaic issue date (updates hourly)",
+   "status": "ok"
+  }
+ }
+}

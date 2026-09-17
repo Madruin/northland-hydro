@@ -1,5 +1,5 @@
 {
- "build": "20260917-2029-f378648",
+ "build": "20260917-2059-116bbb0",
  "files": [
   "css/app.css",
   "css/report.css",
@@ -38,6 +38,7 @@
   "js/parcels.js",
   "js/precip.js",
   "js/projects.js",
+  "js/qpelegend.js",
   "js/recent.js",
   "js/regional.js",
   "js/report-view.js",

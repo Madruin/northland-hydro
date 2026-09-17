@@ -69,7 +69,7 @@ function note(k, t) { const el = $(`${k}-note`); if (el) el.textContent = t; emi
 // Static snapshots (tools/build_static_layers.py → data/layers/<id>/) are read first; MnGeo is the fallback.
 const staticIdx = {}, staticCells = {};
 function bboxOfGeom(g) { if (g.__bb) return g.__bb; let w = 180, s = 90, e = -180, n = -90; const walk = (c) => { if (typeof c[0] === "number") { if (c[0] < w) w = c[0]; if (c[0] > e) e = c[0]; if (c[1] < s) s = c[1]; if (c[1] > n) n = c[1]; } else c.forEach(walk); }; walk(g.coordinates); return (g.__bb = [w, s, e, n]); }
-async function fetchStatic(s, bbox) {
+export async function fetchStatic(s, bbox) {
   const base = `data/layers/${s.id}`;
   if (staticIdx[s.id] === undefined) { try { const r = await fetch(`${base}/index.json`); staticIdx[s.id] = r.ok ? await r.json() : null; } catch { staticIdx[s.id] = null; } }
   const idx = staticIdx[s.id]; if (!idx) return null;

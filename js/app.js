@@ -17,6 +17,7 @@ import { initSearch } from "./search.js";
 import { initSoils, setSoilsEnabled, soilsLegendHtml, setSoilsTheme } from "./soils.js";
 import { initParcels, setParcelsEnabled, parcelsLegendHtml } from "./parcels.js";
 import { initNav, watchTooltips } from "./nav.js";
+import { renderQpeLegend } from "./qpelegend.js";
 import { initDnrLayers, setDnrLayerEnabled, dnrLegendHtml } from "./dnrlayers.js";
 import { initFema, setFemaEnabled, femaLegendHtml } from "./fema.js";
 import { initCrossings, setCrossingsEnabled, crossingsLegendHtml } from "./crossings.js";
@@ -283,7 +284,7 @@ function renderLegend() {
   if (state.layers.soils) lg.insertAdjacentHTML("beforeend", soilsLegendHtml());
   if (state.layers.streams) lg.insertAdjacentHTML("beforeend", `<h4>Streams (StreamStats grid)</h4><div class="legend-row"><span class="swatch sq" style="background:#0070ff"></span>Mapped stream cells (zoom 13+)</div><div class="small">The 10 m cells StreamStats delineates on; snap targets these.</div>`);
   lg.insertAdjacentHTML("beforeend", terrainLegendHtml(state.terrain));
-  if (state.layers.qpe) lg.insertAdjacentHTML("beforeend", `<h4>Radar QPE (${$("ctl-qpe").selectedOptions[0].text})</h4><div class="small">NWS RFC multi-sensor estimate, inches; colors per NWS scale (light green &lt;0.1 → purple/white &gt;5). <a href="https://water.noaa.gov/precip" target="_blank" rel="noopener">Legend</a></div>`);
+  if (state.layers.qpe) { const lbl = $("ctl-qpe").selectedOptions[0].text; lg.insertAdjacentHTML("beforeend", `<h4>Radar QPE (${lbl})</h4><div id="qpe-legend" data-win="${state.qpeWindow}"><div class="small">Loading NWS legend…</div></div>`); renderQpeLegend(state.qpeWindow, lbl); }
 }
 
 async function refreshPrecipNow() {

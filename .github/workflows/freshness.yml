@@ -1,0 +1,39 @@
+name: Check data freshness
+on:
+  schedule:
+    - cron: "41 10 2 * *"   # 2nd of each month, 10:41 UTC (after the 1st-of-month snapshot rebuild)
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency: freshness
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Run the checks (exit 1 = something stale or a newer edition exists)
+        id: check
+        run: |
+          set +e
+          python tools/check_freshness.py | tee freshness.log
+          echo "rc=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+      - name: Commit data/freshness.json
+        run: |
+          set -e
+          git config user.name "freshness-checker"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/freshness.json
+          if git diff --cached --quiet; then echo "no change"; else
+            git commit -m "Freshness check $(date -u +%Y-%m-%d)"
+            git pull --rebase
+            git push
+          fi
+      - name: Fail loudly if anything is flagged
+        if: steps.check.outputs.rc != '0'
+        run: |
+          echo "::error::A data source is stale or has a newer edition; see the log above and data/freshness.json"
+          grep -E "^  !" freshness.log || true
+          exit 1
