@@ -131,10 +131,45 @@ function ring(geometry, max = 400) {
   const r = polys.map((p) => p[0]).sort((a, b) => b.length - a.length)[0]; const step = Math.max(1, Math.ceil(r.length / max));
   const pts = r.filter((_, i) => i % step === 0).map(([x, y]) => [Number(x.toFixed(5)), Number(y.toFixed(5))]); if (pts[0][0] !== pts[pts.length - 1][0] || pts[0][1] !== pts[pts.length - 1][1]) pts.push(pts[0]); return pts;
 }
-export async function renderBasinImpairments(container, geometry) {
+// Does a snapshot feature touch the basin? vertex-in-polygon either way, or an edge crossing (bbox-prefiltered).
+function bboxOf(g) { if (g.__bb) return g.__bb; let x0 = 180, y0 = 90, x1 = -180, y1 = -90; const w = (c) => { if (typeof c[0] === "number") { if (c[0] < x0) x0 = c[0]; if (c[0] > x1) x1 = c[0]; if (c[1] < y0) y0 = c[1]; if (c[1] > y1) y1 = c[1]; } else c.forEach(w); }; w(g.coordinates); return (g.__bb = [x0, y0, x1, y1]); }
+function segCross(a, b, c, d) { const o = (p, q, r) => Math.sign((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])); return o(a, b, c) !== o(a, b, d) && o(c, d, a) !== o(c, d, b); }
+function touchesBasin(g, ring, rb) {
+  const bb = bboxOf(g); if (bb[0] > rb[2] || bb[2] < rb[0] || bb[1] > rb[3] || bb[3] < rb[1]) return false;
+  const basin = { type: "Polygon", coordinates: [ring] };
+  const lines = g.type === "LineString" ? [g.coordinates] : g.type === "MultiLineString" ? g.coordinates : g.type === "Polygon" ? g.coordinates : g.type === "MultiPolygon" ? g.coordinates.flat() : [];
+  for (const l of lines) for (const c of l) if (pip(c[0], c[1], basin)) return true;
+  if (/Polygon/.test(g.type)) for (const c of ring) if (pip(c[0], c[1], g)) return true;
+  for (const l of lines) for (let i = 1; i < l.length; i++) {
+    const a = l[i - 1], b = l[i]; const sx0 = Math.min(a[0], b[0]), sx1 = Math.max(a[0], b[0]), sy0 = Math.min(a[1], b[1]), sy1 = Math.max(a[1], b[1]);
+    if (sx0 > rb[2] || sx1 < rb[0] || sy0 > rb[3] || sy1 < rb[1]) continue;
+    for (let k = 1; k < ring.length; k++) { const c = ring[k - 1], d = ring[k]; if (Math.max(c[0], d[0]) < sx0 || Math.min(c[0], d[0]) > sx1 || Math.max(c[1], d[1]) < sy0 || Math.min(c[1], d[1]) > sy1) continue; if (segCross(a, b, c, d)) return true; }
+  }
+  return false;
+}
+async function snapInBasin(id, ring, rb) {
+  const st = await fetchStatic({ id }, rb); if (!st) return null;
+  return { features: st.fc.features.filter((f) => f.geometry && touchesBasin(f.geometry, ring, rb)).map((f) => f.properties), fetched: st.fetched };
+}
+export function renderBasinImpairments(container, geometry) {
   container.innerHTML = `<div class="small">Loading impaired waters in basin…</div>`;
-  try {
-    const rg = ring(geometry); const key = JSON.stringify(rg).slice(0, 200) + rg.length;
+  const rg = ring(geometry); const rb = bboxOf({ coordinates: rg }); const key = JSON.stringify(rg).slice(0, 200) + rg.length;
+  const paint = (res, tag) => {
+    const all = [...res.streams, ...res.lakes];
+    if (!all.length && !res.tmdl.length) { container.innerHTML = `<h3>Impaired waters in basin</h3><div class="small">No reach or lake in the basin is on the 2024 impaired waters list.</div>` + asof(tag); return; }
+    const tally = {}; for (const w of all) for (const i of impList(w.imp_param)) tally[i] = (tally[i] || 0) + 1;
+    container.innerHTML = `<h3>Impaired waters in basin <span class="pill">${all.length}</span></h3>
+      <div class="small">Impairments: ${Object.entries(tally).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${escapeHtml(k)} ×${n}`).join(" · ")}</div>
+      <table class="data"><thead><tr><th>Water</th><th>Impairments</th><th>Affected uses</th><th>TMDL status</th></tr></thead><tbody>${res.streams.map((p) => impairedRow(p, "stream")).join("")}${res.lakes.map((p) => impairedRow(p, "lake")).join("")}</tbody></table>
+      ${res.tmdl.length ? `<div class="small">TMDL allocation areas overlapping the basin: ${[...new Set(res.tmdl.map((t) => `${t.waterbody_name} (${t.tmdl_pollutant})`))].map(escapeHtml).join("; ")}.</div>` : ""}
+      <div class="small">MPCA 2024 list; reaches that touch the basin boundary are included.</div>` + asof(tag);
+  };
+  const snapFn = async () => {
+    const [st, lk, tm] = await Promise.all([snapInBasin("imp-streams", rg, rb), snapInBasin("imp-lakes", rg, rb), snapInBasin("tmdl-areas", rg, rb)]);
+    if (!st && !lk && !tm) return null;
+    return { r: { streams: st?.features || [], lakes: lk?.features || [], tmdl: tm?.features || [] }, fetched: st?.fetched || lk?.fetched || tm?.fetched };
+  };
+  const liveFn = async () => {
     let res = basinCache.get(key);
     if (!res) {
       const geom = JSON.stringify({ rings: [rg], spatialReference: { wkid: 4326 } });
@@ -143,15 +178,9 @@ export async function renderBasinImpairments(container, geometry) {
       res = { streams: (st.features || []).map((f) => f.attributes), lakes: (lk.features || []).map((f) => f.attributes), tmdl: (tm.features || []).map((f) => f.attributes) };
       basinCache.set(key, res);
     }
-    const all = [...res.streams, ...res.lakes];
-    if (!all.length && !res.tmdl.length) { container.innerHTML = `<h3>Impaired waters in basin</h3><div class="small">No reach or lake in the basin is on the 2024 impaired waters list.</div>`; return; }
-    const tally = {}; for (const w of all) for (const i of impList(w.imp_param)) tally[i] = (tally[i] || 0) + 1;
-    container.innerHTML = `<h3>Impaired waters in basin <span class="pill">${all.length}</span></h3>
-      <div class="small">Impairments: ${Object.entries(tally).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${escapeHtml(k)} ×${n}`).join(" · ")}</div>
-      <table class="data"><thead><tr><th>Water</th><th>Impairments</th><th>Affected uses</th><th>TMDL status</th></tr></thead><tbody>${res.streams.map((p) => impairedRow(p, "stream")).join("")}${res.lakes.map((p) => impairedRow(p, "lake")).join("")}</tbody></table>
-      ${res.tmdl.length ? `<div class="small">TMDL allocation areas overlapping the basin: ${[...new Set(res.tmdl.map((t) => `${t.waterbody_name} (${t.tmdl_pollutant})`))].map(escapeHtml).join("; ")}.</div>` : ""}
-      <div class="small">MPCA 2024 list; reaches that touch the basin boundary are included.</div>`;
-  } catch (e) { container.innerHTML = `<h3>Impaired waters in basin</h3><div class="notice">MPCA request failed: ${escapeHtml(e.message)}</div>`; }
+    return res;
+  };
+  return twoPhase(container, snapFn, liveFn, paint, "Impaired waters in basin");
 }
 
 // ---- Easements ----

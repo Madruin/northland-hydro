@@ -413,6 +413,7 @@ table.fresh tr.warn td:last-child { color: var(--accent2); }
 .layer-row.error .lr-zoom { color: #fca5a5; }
 .layer-row.error .lr-zoom::after { content: ""; }
 
+hr.popup-sep { border: 0; border-top: 1px solid #334155; margin: 6px 0; }
 /* Radar QPE legend (NWS classes) */
 .qpe-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px 10px; margin: 4px 0; }
 .qpe-row { display: flex; align-items: center; gap: 5px; font-size: 11px; line-height: 16px; white-space: nowrap; }
