@@ -3,7 +3,7 @@ import { APP, BASEMAPS, COUNTIES, HOME, WINDOWS } from "./config.js";
 import { $, isoDate, addDays, on, debounce, emit } from "./util.js";
 import { initMap, map, setBasemap, setLayerVisible, setQpeWindow, flyToCounty, setTerrainVisible, setTerrainOpacity } from "./map.js";
 import { TERRAIN, terrainLegendHtml } from "./terrain.js";
-import { loadPrecip, renderPrecipLegend } from "./precip.js";
+import { loadPrecip, renderPrecipLegend, lastDay as precipLastDay } from "./precip.js";
 import { loadGauges, renderGaugeLegend } from "./gauges.js";
 import { loadAlerts } from "./alerts.js";
 import { loadLake } from "./lake.js";
@@ -271,7 +271,8 @@ async function refreshPrecipNow() {
   syncUrl();
   try {
     const list = await track("stations", loadPrecip({ endDate: state.endDate, days: state.days }));
-    setStatus(`${list.filter((s) => !s.missingAll).length} stations reporting · ${state.days === 1 ? state.endDate : state.days + "-day window ending " + state.endDate} · updated ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`);
+    const ld = precipLastDay; const today = state.endDate === isoDate();
+    setStatus(`${list.filter((s) => !s.missingAll).length} stations reporting · ${state.days === 1 ? state.endDate : state.days + "-day window ending " + state.endDate} · ${ld.reported} of ${ld.total} have ${today ? "today's" : state.endDate + "'s"} observation${today && ld.reported < ld.total * 0.6 ? " so far (7 AM readings post through the day)" : ""} · fetched ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`);
     if (!firstLoadDone) { firstLoadDone = true; try { if (localStorage.getItem("nh-visited") !== "1") { localStorage.setItem("nh-visited", "1"); $("help").hidden = false; } } catch {} showHintOnce(); }
     renderLegend();
     if (!state.selection || state.selection.type === "region") renderRegion();

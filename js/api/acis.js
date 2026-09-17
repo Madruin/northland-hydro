@@ -33,6 +33,7 @@ export async function windowTotals({ bbox, endDate, days }) {
       { name: "pcpn", interval: "dly", duration: days, reduce: "sum", normal: "1" },
       { name: "snow", interval: "dly", duration: days, reduce: { reduce: "sum", add: "mcnt" } },
       { name: "pcpn", interval: "dly", duration: days, reduce: { reduce: "max", add: "date" } },
+      { name: "pcpn", interval: "dly", duration: 1 },
     ],
     meta: ["name", "sids", "ll", "elev", "valid_daterange"],
   };
@@ -41,7 +42,8 @@ export async function windowTotals({ bbox, endDate, days }) {
   for (const s of r.data || []) {
     const m = s.meta || {};
     if (!m.ll) continue;
-    const [sum, normal, snow, mx] = s.data || [];
+    const [sum, normal, snow, mx, last] = s.data || [];
+    const lastV = parseAcisValue(last);
     const [sumV, mcnt] = Array.isArray(sum) ? sum : [sum, 0];
     const [snowV, smcnt] = Array.isArray(snow) ? snow : [snow, 0];
     const [maxV, maxDate] = Array.isArray(mx) ? mx : [mx, null];
@@ -55,6 +57,7 @@ export async function windowTotals({ bbox, endDate, days }) {
       total: total.value, totalFlag: total.flag, missing: Number(mcnt) || 0,
       normal: nrm.value, snow: sn.value, snowMissing: Number(smcnt) || 0,
       max1: m1.value, max1Date: maxDate,
+      last: lastV.value, lastFlag: lastV.flag, // the end date's own observation: null with flag "M" means not reported (yet)
     });
   }
   return out;

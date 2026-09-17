@@ -2,10 +2,11 @@
 import { PRECIP_BINS, PRECIP_MISSING_COLOR, REGION_BBOX } from "./config.js";
 import { windowTotals } from "./api/acis.js";
 import { setStations } from "./map.js";
-import { $, escapeHtml, fmt, fmtDate, addDays, emit } from "./util.js";
+import { $, escapeHtml, fmt, fmtDate, addDays, emit, isoDate } from "./util.js";
 
 export let stations = [];      // last loaded station list (with totals)
 export let current = { endDate: null, days: 1 };
+export let lastDay = { date: null, reported: 0, total: 0, fetchedAt: null, stale: false }; // who has reported for the window's end date
 
 export function colorFor(total, missingAll) {
   if (missingAll || total == null) return PRECIP_MISSING_COLOR;
@@ -21,6 +22,7 @@ function finalize(list, endDate, days, stale) {
     const partial = !missingAll && s.missing > 0;
     return { ...s, missingAll, partial, color: colorFor(s.total, missingAll), startDate };
   }).sort((a, b) => (b.total ?? -1) - (a.total ?? -1));
+  lastDay = { date: endDate, reported: stations.filter((s) => s.last != null || s.lastFlag === "T").length, total: stations.length, fetchedAt: new Date(), stale };
   setStations(toFeatureCollection(stations, days));
   emit("precip:loaded", { stations, endDate, days, stale });
   return stations;
@@ -61,13 +63,15 @@ function popupHtml(s, days) {
     <div class="popup-sub">${days === 1 ? "on " + fmtDate(current.endDate) : days + "-day total ending " + fmtDate(current.endDate)}
     ${s.partial ? ` · ${s.missing} day${s.missing > 1 ? "s" : ""} missing` : ""}
     ${pctN != null ? ` · ${pctN}% of normal` : ""}</div>
-    <div class="popup-sub">${escapeHtml(s.network)} · ${escapeHtml(s.ids["10"] ? "CoCoRaHS " + s.ids["10"] : s.sid)}${s.max1 != null && days > 1 ? ` · max 1-day ${fmt(s.max1)}" (${s.max1Date ? fmtDate(s.max1Date) : ""})` : ""}</div>`;
+    <div class="popup-sub">${escapeHtml(s.network)} · ${escapeHtml(s.ids["10"] ? "CoCoRaHS " + s.ids["10"] : s.sid)}${s.max1 != null && days > 1 ? ` · max 1-day ${fmt(s.max1)}" (${s.max1Date ? fmtDate(s.max1Date) : ""})` : ""}</div>
+    <div class="popup-sub">${s.last != null || s.lastFlag === "T" ? `${fmtDate(current.endDate)} observation: ${s.lastFlag === "T" ? "trace" : fmt(s.last) + '"'}` : `<b>no ${fmtDate(current.endDate)} report yet</b>${days > 1 ? " (total is through the last reported day)" : ""}`}</div>`;
 }
 
 export function renderPrecipLegend(container, { days }) {
   const rows = PRECIP_BINS.map((b) => `<div class="legend-row"><span class="swatch" style="background:${b.color}"></span>${b.label}</div>`).join("");
   container.innerHTML = `<h4>Precipitation, in (${days === 1 ? "1 day" : days + " days"})</h4>${rows}
-    <div class="legend-row"><span class="swatch" style="background:${PRECIP_MISSING_COLOR};opacity:.5"></span>No report</div>`;
+    <div class="legend-row"><span class="swatch" style="background:${PRECIP_MISSING_COLOR};opacity:.5"></span>No report</div>
+    <div class="small">${lastDay.date ? `${lastDay.reported} of ${lastDay.total} stations have reported for ${fmtDate(lastDay.date)}${lastDay.date === isoDate() ? "; observers read at ~7 AM and reports post through the day" : ""}.` : ""}</div>`;
 }
 
 export function summarize(list) {

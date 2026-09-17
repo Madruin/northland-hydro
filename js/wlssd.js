@@ -1,10 +1,10 @@
 // WLSSD (Western Lake Superior Sanitary District) rain gauges around Duluth. The source page has no CORS and no
 // https, so a scheduled GitHub Action (tools/harvest_wlssd.py) snapshots it into data/wlssd.json, which this reads.
-import { $, escapeHtml, fmt, on, addDays } from "./util.js";
+import { $, escapeHtml, fmt, on, emit, addDays } from "./util.js";
 import { setOverlay } from "./map.js";
 import { colorFor, current as precipWindow } from "./precip.js";
 
-let doc = null;
+export let doc = null;
 export async function loadWlssd() {
   try {
     const r = await fetch("data/wlssd.json", { cache: "no-cache" }); if (!r.ok) throw new Error(r.status);
@@ -35,6 +35,7 @@ function draw() {
   });
   setOverlay("wlssd", { type: "FeatureCollection", features: feats });
   const el = $("region-wlssd"); if (el) renderWlssdSection(el);
+  emit("wlssd:loaded", doc);
 }
 const fmtUpd = () => (doc?.updated ? new Date(doc.updated).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "?");
 

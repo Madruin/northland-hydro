@@ -61,6 +61,14 @@ Then **TSA3 regional curves** turn the drainage area into bankfull channel dimen
 
 The **?** button opens the help dialog with two tabs: *How to use it* and *Sources & methods*. The second lists every data source (grouped as rainfall and weather; rivers, lakes and gauges; watersheds and channel design; terrain and imagery; soils, land and wetlands; flood hazard and infrastructure; subsurface; search, storage and hosting) with a link, what the site uses it for and any caveats, followed by the methods (windows, return periods, watershed, basin soils and bedrock, coordinates and measurement, CAD export, provisional data) and the software libraries with licenses. The list lives in `js/sources.js`; add an entry there whenever a source is added. The footer's *Sources* link opens the same tab.
 
+## Data freshness
+
+The status line reads, for example, "501 stations reporting · 7-day window ending 2026-09-17 · 24 of 562 have today's observation so far (7 AM readings post through the day) · fetched 9:44 AM". The distinction matters: *fetched* is when the site asked ACIS; the observation date is the window's end date, and CoCoRaHS and COOP observers read their gauges around 7 AM and their reports reach ACIS through the day, so a station with no report yet for today shows a total through its last reported day and its popup says so. Yesterday is the last complete day. The Region panel's **Data freshness** table repeats this for stations, gauges (latest reading and how many are stale), radar QPE, WLSSD and forecast, and the station legend notes how many stations have reported for the end date.
+
+## Elevation and profiles
+
+Every Point panel header shows the ground elevation from the MnTOPO 0.5 m lidar (2021–24) in feet NAVD88, falling back to the 1 m 2008–12 lidar where the new lidar is missing. In the distance measure tool, a **Profile** button samples the lidar along the drawn line (300 samples) and opens a floating chart of station versus elevation with length, start and end elevations, average grade, low and high points, total rise and fall, and a CSV download (station ft, elevation ft, lat, lon). This is the bare-earth DEM, so bridges and culverts read as the ground beneath them.
+
 ## Map tools, coordinates and the Point panel
 
 The left edge of the map has zoom, **locate me** and **measure** buttons. Locate centers on your GPS position with an accuracy circle and follows you until you drag the map or click it again; if the browser has location blocked for the site, the status line says so and how to allow it (the built-in MapLibre control was replaced because it greys itself out permanently in that case). Measure has a distance mode and an area mode: click or tap points, then Finish (or double-click or Enter on a desktop); Clear starts over (or Esc), ✕ exits. Segment lengths label the map; totals show in feet and miles, areas in acres, square feet and square miles, computed on the UTM 15N plane.

@@ -386,3 +386,11 @@ ul.src .small { display: block; margin-top: 1px; }
 .mb-actions .btn { padding: 6px 12px; min-height: 32px; }
 
 .sr-kind.parcel { color: var(--accent2); }
+
+table.fresh td { font-size: 12px; }
+table.fresh tr.warn td:last-child { color: var(--accent2); }
+
+#profile-box { left: 56px; right: 12px; bottom: 44px; max-width: 760px; z-index: 6; }
+#profile-box .pf-chart { height: 180px; }
+#profile-box .pf-stats { margin: 2px 0 4px; }
+@media (max-width: 900px) { #profile-box { left: 8px; right: 8px; bottom: 60px; } #profile-box .pf-chart { height: 150px; } }

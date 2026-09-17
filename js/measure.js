@@ -1,6 +1,9 @@
 // Distance / area measuring tool. Click to add vertices, double-click (or Enter) to finish, Esc to clear.
 // Lengths and areas are computed on the UTM 15N (NAD83) plane via proj4, which is exact enough for the region.
 import { UTM15, toUtm } from "./coords.js";
+import { profile } from "./elevation.js";
+import { plot } from "./loader.js";
+import { plotlyLayout, downloadCSV } from "./util.js";
 
 const M2FT = 3937 / 1200; // metres → US survey feet
 const RULER = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17 17 3l4 4L7 21z"/><path d="M14 6l2 2M11 9l2 2M8 12l2 2"/></svg>`;
@@ -29,11 +32,32 @@ export class MeasureControl {
   onRemove() { this.container.remove(); this.box.remove(); }
   mkBtn(c, icon, title, mode) { const b = document.createElement("button"); b.type = "button"; b.title = title; b.setAttribute("aria-label", title); b.innerHTML = icon; b.addEventListener("click", () => this.toggle(mode)); c.append(b); return b; }
   toggle(mode) { if (this.mode === mode) { this.exit(); return; } this.exit(); this.mode = mode; this.pts = []; this.done = false; document.body.classList.add("measuring"); (mode === "line" ? this.bLine : this.bArea).classList.add("active"); this.map.doubleClickZoom.disable(); this.map.getCanvas().style.cursor = "crosshair"; this.ensureLayers(); this.showBox(); }
-  exit() { this.clearData(); this.mode = null; document.body.classList.remove("measuring"); this.bLine.classList.remove("active"); this.bArea.classList.remove("active"); this.map.doubleClickZoom.enable(); this.map.getCanvas().style.cursor = ""; this.box.hidden = true; }
+  exit() { const pb = document.getElementById("profile-box"); if (pb) pb.hidden = true; this.clearData(); this.mode = null; document.body.classList.remove("measuring"); this.bLine.classList.remove("active"); this.bArea.classList.remove("active"); this.map.doubleClickZoom.enable(); this.map.getCanvas().style.cursor = ""; this.box.hidden = true; }
   clear() { this.pts = []; this.hover = null; this.done = false; this.draw(); this.showBox(); }
   clearData() { this.pts = []; this.hover = null; this.done = false; if (this.map.getSource("measure")) this.map.getSource("measure").setData({ type: "FeatureCollection", features: [] }); }
   onClick(e) { if (!this.mode) return; if (this.done) { this.pts = []; this.done = false; } this.pts.push([e.lngLat.lng, e.lngLat.lat]); this.hover = null; this.draw(); this.showBox(); }
   finish() { if (this.pts.length < 2) return; this.done = true; this.hover = null; this.draw(); this.showBox(); }
+  async showProfile() {
+    if (this.pts.length < 2) return; if (!this.done) this.finish();
+    let pb = document.getElementById("profile-box");
+    if (!pb) { pb = document.createElement("div"); pb.id = "profile-box"; pb.className = "floating"; document.getElementById("map-wrap").append(pb); }
+    pb.hidden = false; pb.innerHTML = `<div class="mb-title">Elevation profile <button class="mb-x" title="Close">✕</button></div><div class="spinner">Sampling lidar…</div>`;
+    pb.querySelector(".mb-x").addEventListener("click", () => (pb.hidden = true));
+    const res = await profile(this.pts, 300);
+    if (!res) { pb.innerHTML = `<div class="mb-title">Elevation profile <button class="mb-x">✕</button></div><div class="notice">No lidar coverage along this line.</div>`; pb.querySelector(".mb-x").addEventListener("click", () => (pb.hidden = true)); return; }
+    const s = res.samples; const ft = (m) => m * 3937 / 1200;
+    const zs = s.map((p) => p.ft); const zmin = Math.min(...zs), zmax = Math.max(...zs); const L = s[s.length - 1].d;
+    let rise = 0, fall = 0; for (let i = 1; i < s.length; i++) { const dz = s[i].ft - s[i - 1].ft; if (dz > 0) rise += dz; else fall -= dz; }
+    const slope = L ? ((s[s.length - 1].ft - s[0].ft) / ft(L)) * 100 : 0;
+    pb.innerHTML = `<div class="mb-title">Elevation profile <span class="small">${res.src} · NAVD88</span> <button class="mb-x" title="Close">✕</button></div>
+      <div class="pf-stats small">length ${Math.round(ft(L)).toLocaleString()} ft · start ${s[0].ft.toFixed(1)} → end ${s[s.length - 1].ft.toFixed(1)} ft (${slope >= 0 ? "+" : ""}${slope.toFixed(2)}%) · low ${zmin.toFixed(1)} · high ${zmax.toFixed(1)} · rise ${rise.toFixed(1)} / fall ${fall.toFixed(1)} ft</div>
+      <div id="profile-chart" class="pf-chart"></div>
+      <div class="mb-actions"><button class="btn" id="pf-csv">Download CSV</button><span class="small">Station (ft), elevation (ft), lat, lon; 0.5 m samples, first-return-free ground DEM.</span></div>`;
+    pb.querySelector(".mb-x").addEventListener("click", () => (pb.hidden = true));
+    document.getElementById("pf-csv").addEventListener("click", () => downloadCSV(`profile_${new Date().toISOString().slice(0, 10)}.csv`, [["station_ft", "elev_ft_navd88", "lat", "lon"], ...s.map((p) => [ft(p.d).toFixed(1), p.ft.toFixed(2), p.lat.toFixed(6), p.lon.toFixed(6)])]));
+    plot("profile-chart", [{ x: s.map((p) => ft(p.d)), y: zs, mode: "lines", fill: "tozeroy", line: { color: "#f59e0b", width: 2 }, fillcolor: "rgba(245,158,11,.15)", name: "ground", hovertemplate: "%{x:.0f} ft · %{y:.1f} ft<extra></extra>" }],
+      plotlyLayout({ showlegend: false, margin: { l: 48, r: 8, t: 6, b: 30 }, xaxis: { title: "station, ft" }, yaxis: { title: "ft NAVD88", range: [zmin - (zmax - zmin) * 0.1 - 1, zmax + (zmax - zmin) * 0.1 + 1] } }), { displayModeBar: false, responsive: true });
+  }
   ensureLayers() {
     const m = this.map; if (!m.getStyle()) return;
     if (m.getSource("measure")) return;
@@ -71,8 +95,8 @@ export class MeasureControl {
     this.box.innerHTML = `<div class="mb-title">${this.mode === "area" ? "Area" : "Distance"} <button class="mb-x" title="Close">✕</button></div>
       ${n ? (this.mode === "area" ? `<div class="mb-v">${n >= 3 ? fmtArea(area) : "–"}</div><div class="small">perimeter ${fmtLen(perim)} · ${n} corners</div>` : `<div class="mb-v">${fmtLen(len)}</div><div class="small">${n} points</div>`) : ""}
       <div class="small">${help}</div>
-      ${n ? `<div class="mb-actions">${!this.done && n >= (this.mode === "area" ? 3 : 2) ? `<button class="btn primary" data-a="finish">Finish</button>` : ""}<button class="btn" data-a="clear">Clear</button></div>` : ""}`;
+      ${n ? `<div class="mb-actions">${!this.done && n >= (this.mode === "area" ? 3 : 2) ? `<button class="btn primary" data-a="finish">Finish</button>` : ""}${this.mode === "line" && n >= 2 ? `<button class="btn ${this.done ? "primary" : ""}" data-a="profile" title="Elevation profile along this line from the lidar">Profile</button>` : ""}<button class="btn" data-a="clear">Clear</button></div>` : ""}`;
     this.box.querySelector(".mb-x").addEventListener("click", () => this.exit());
-    this.box.querySelectorAll("[data-a]").forEach((b) => b.addEventListener("click", () => (b.dataset.a === "finish" ? this.finish() : this.clear())));
+    this.box.querySelectorAll("[data-a]").forEach((b) => b.addEventListener("click", () => (b.dataset.a === "finish" ? this.finish() : b.dataset.a === "profile" ? this.showProfile() : this.clear())));
   }
 }

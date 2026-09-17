@@ -1,5 +1,5 @@
 {
- "build": "20260917-1324-2aee3b8",
+ "build": "20260917-1446-a0e0c5f",
  "files": [
   "css/app.css",
   "css/report.css",
@@ -22,6 +22,7 @@
   "js/coords.js",
   "js/crossings.js",
   "js/dnrlayers.js",
+  "js/elevation.js",
   "js/export.js",
   "js/fema.js",
   "js/gauges.js",

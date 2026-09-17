@@ -3,8 +3,10 @@ import { toUtm, utmFeet } from "./coords.js";
 import { addRecent } from "./recent.js";
 import { mscUrl } from "./fema.js";
 import { plot } from "./loader.js";
-import { $, el, escapeHtml, fmt, fmtNum, fmtDate, fmtDateTime, addDays, ago, haversineKm, kmToMi, downloadCSV, plotlyLayout } from "./util.js";
-import { stations as precipStations, current as precipWindow, summarize } from "./precip.js";
+import { $, el, on, escapeHtml, fmt, fmtNum, fmtDate, fmtDateTime, addDays, isoDate, ago, haversineKm, kmToMi, downloadCSV, plotlyLayout } from "./util.js";
+import { stations as precipStations, current as precipWindow, summarize, lastDay as precipLastDay } from "./precip.js";
+import { doc as wlssdDoc } from "./wlssd.js";
+import { pointElevation } from "./elevation.js";
 import { gauges, gaugeById } from "./gauges.js";
 import { alertsHtml } from "./alerts.js";
 import { renderLakeSection } from "./lake.js";
@@ -57,6 +59,8 @@ export function renderRegion() {
       <div class="stat ${s.max > 2 ? "warn" : ""}"><div class="v">${fmt(s.max)}"</div><div class="l">wettest station</div></div>
       <div class="stat ${s.pctNormal != null && s.pctNormal < 50 ? "bad" : s.pctNormal > 150 ? "warn" : ""}"><div class="v">${s.pctNormal != null ? s.pctNormal + "%" : "–"}</div><div class="l">of normal</div><div class="s">${w.days >= 7 ? "stations with normals, full windows" : "needs a 7-day or longer window"}</div></div>
     </div>
+    <h3>Data freshness</h3>
+    <div id="region-fresh">${freshnessHtml()}</div>
     <h3>Active alerts</h3>
     <div id="region-alerts">${alertsHtml()}</div>
     <h3>Wettest stations</h3>
@@ -75,6 +79,21 @@ export function renderRegion() {
   c.querySelectorAll("tr[data-gid]").forEach((tr) => tr.addEventListener("click", () => { const g = gaugeById(tr.dataset.gid); if (g) { map.flyTo({ center: [g.lon, g.lat], zoom: Math.max(map.getZoom(), 9.5) }); renderGauge(g.id); } }));
   renderLakeSection($("region-lake"));
   renderWlssdSection($("region-wlssd"));
+}
+on("wlssd:loaded", () => { const f = $("region-fresh"); if (f) f.innerHTML = freshnessHtml(); });
+function freshnessHtml() {
+  const ld = precipLastDay; const today = ld.date === isoDate();
+  const gTimes = gauges.map((g) => g.flowTime || g.stageTime).filter(Boolean).map((t) => new Date(t).getTime()).filter((t) => !isNaN(t));
+  const gLatest = gTimes.length ? new Date(Math.max(...gTimes)) : null; const gStale = gauges.filter((g) => g.stale).length;
+  const row = (k, v, cls = "") => `<tr class="${cls}"><td class="small" style="white-space:nowrap">${k}</td><td>${v}</td></tr>`;
+  const fetched = ld.fetchedAt ? ld.fetchedAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "–";
+  return `<table class="data fresh"><tbody>
+    ${row("Stations", ld.date ? `Observations through <b>${fmtDate(ld.date)}</b>: ${ld.reported} of ${ld.total} stations have reported for that day${today ? " (CoCoRaHS and COOP read at ~7 AM and post through the day; yesterday is the last complete day)" : ""}. ${ld.stale ? "<b>Showing cached data</b>, refreshing… " : ""}Fetched ${fetched}.` : "Loading stations…", today && ld.reported < ld.total * 0.6 ? "warn" : "")}
+    ${row("Gauges", gLatest ? `Latest reading ${fmtDateTime(gLatest)}${gStale ? ` · ${gStale} gauge${gStale > 1 ? "s" : ""} stale (no reading in 6 h, shown grey)` : ""}.` : "Loading…")}
+    ${row("Radar QPE", "NWS RFC multi-sensor estimate, valid for the window ending at the last hourly update; typically 1–2 h behind real time.")}
+    ${row("WLSSD gauges", wlssdDoc?.updated ? `Telemetry as of ${fmtDateTime(new Date(wlssdDoc.updated))} (snapshotted hourly)${Date.now() - new Date(wlssdDoc.updated).getTime() > 3 * 3600e3 ? " · <b>stale</b>" : ""}.` : "Not available.")}
+    ${row("Forecast", "NWS grid, refreshed on each click; alerts live.")}
+  </tbody></table>`;
 }
 function gaugeTable(list) {
   return `<table class="data"><thead><tr><th>Gauge</th><th>Class</th><th class="num">cfs</th><th class="num">ft</th></tr></thead><tbody>
@@ -263,6 +282,7 @@ export async function renderPoint(lon, lat) {
     <div class="coords">
       <span title="Decimal degrees, WGS84/NAD83">${lat.toFixed(5)}, ${lon.toFixed(5)}</span><button class="copy" data-copy="${lat.toFixed(6)}, ${lon.toFixed(6)}" title="Copy lat, lon">⧉</button>
       <span title="UTM zone 15N, NAD83, metres (E, N)">UTM 15N ${Math.round(ue).toLocaleString()} E, ${Math.round(un).toLocaleString()} N m</span><button class="copy" data-copy="${ue.toFixed(2)},${un.toFixed(2)}" title="Copy E,N in metres">⧉</button>
+      <span id="pt-elev" title="Ground elevation from MnTOPO 0.5 m lidar (2021–24), NAVD88">elev …</span>
       <span title="UTM zone 15N, NAD83, US survey feet (E, N) — the TSA3 CAD coordinate system">${Math.round(uf.e).toLocaleString()} E, ${Math.round(uf.n).toLocaleString()} N US ft</span><button class="copy" data-copy="${uf.e.toFixed(2)},${uf.n.toFixed(2)}" title="Copy E,N in US survey feet (paste as X,Y in AutoCAD)">⧉</button>
     </div>
     <div class="actions"><button class="btn" id="pt-report">🖨 Print site report</button><span id="pt-report-msg" class="small"></span></div>
@@ -289,6 +309,7 @@ export async function renderPoint(lon, lat) {
     <div id="pt-a14"></div>`;
 
   addRecent({ lon, lat });
+  pointElevation(lon, lat).then((e) => { const el = $("pt-elev"); if (el) el.innerHTML = e ? `Elev <b>${fmt(e.ft, 1)} ft</b> NAVD88 <span class="small">(${e.src})</span>` : "elev n/a"; });
   ptCur = { lon, lat };
   navRun = {
     "pt-watershed": () => renderWatershed($("pt-watershed"), lon, lat), "pt-soils": () => renderSoilsAt($("pt-soils"), lon, lat), "pt-parcel": () => renderParcelAt($("pt-parcel"), lon, lat),
