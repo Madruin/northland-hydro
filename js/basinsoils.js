@@ -40,7 +40,7 @@ export async function basinHsg(geometry) {
 }
 
 // CN by cover for the effective split (TR-55 Table 2-2 / 2-2a, AMC II). A handful of covers engineers ask for.
-const CN = {
+export const CN = {
   "Woods, good condition": { A: 30, B: 55, C: 70, D: 77 },
   "Woods, fair condition": { A: 36, B: 60, C: 73, D: 79 },
   "Brush, fair": { A: 35, B: 56, C: 70, D: 77 },
@@ -51,7 +51,7 @@ const CN = {
   "Gravel roads": { A: 76, B: 85, C: 89, D: 91 },
   "Impervious": { A: 98, B: 98, C: 98, D: 98 },
 };
-function composite(split, table) { const r = 1 - split.unrated; if (r <= 0) return null; return (split.A * table.A + split.B * table.B + split.C * table.C + split.D * table.D) / r; }
+export function composite(split, table) { const r = 1 - split.unrated; if (r <= 0) return null; return (split.A * table.A + split.B * table.B + split.C * table.C + split.D * table.D) / r; }
 
 export async function renderBasinSoils(container, geometry, daSqMi) {
   container.innerHTML = `<h3>Basin soils · hydrologic soil groups (SSURGO)</h3><div class="spinner">Area-weighting map units across the basin (Soil Data Access, 3–10 s)…</div>`;

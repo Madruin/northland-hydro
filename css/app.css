@@ -396,3 +396,14 @@ table.fresh tr.warn td:last-child { color: var(--accent2); }
 @media (max-width: 900px) { #profile-box { left: 8px; right: 8px; bottom: 60px; } #profile-box .pf-chart { height: 150px; } }
 
 .lg-select { display: block; margin: 2px 0 6px; background: var(--bg3); border: 1px solid var(--line); border-radius: 5px; color: var(--fg); font-size: 11px; padding: 2px 4px; max-width: 100%; }
+
+/* imagery compare */
+#compare { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
+#compare-map { position: absolute; inset: 0; }
+#compare-handle { position: absolute; top: 0; bottom: 0; width: 0; pointer-events: auto; cursor: col-resize; touch-action: none; }
+#compare-handle .ch-bar { position: absolute; top: 0; bottom: 0; left: -2px; width: 4px; background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.4); }
+#compare-handle .ch-grip { position: absolute; top: 50%; left: -18px; width: 36px; height: 36px; margin-top: -18px; border-radius: 50%; background: #1d4ed8; color: #fff; border: 2px solid #fff; display: flex; align-items: center; justify-content: center; font-size: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.5); }
+#compare-box { top: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; align-items: center; pointer-events: auto; white-space: nowrap; }
+#compare-box select { background: var(--bg3); border: 1px solid var(--line); border-radius: 5px; color: var(--fg); font-size: 11px; padding: 2px 4px; max-width: 220px; }
+#compare-box .mb-x { background: none; border: none; color: var(--fg2); cursor: pointer; font-size: 13px; }
+@media (max-width: 900px) { #compare-box { top: 52px; left: 8px; right: 8px; transform: none; white-space: normal; flex-wrap: wrap; } #compare-box select { max-width: 100%; } }

@@ -1,5 +1,5 @@
 {
- "build": "20260917-1505-292a907",
+ "build": "20260917-1509-1d165a8",
  "files": [
   "css/app.css",
   "css/report.css",
@@ -18,6 +18,7 @@
   "js/api/usgs.js",
   "js/app.js",
   "js/basinsoils.js",
+  "js/compare.js",
   "js/config.js",
   "js/coords.js",
   "js/crossings.js",
@@ -41,6 +42,7 @@
   "js/regional.js",
   "js/report-view.js",
   "js/report.js",
+  "js/runoff.js",
   "js/search.js",
   "js/soils.js",
   "js/sources.js",
