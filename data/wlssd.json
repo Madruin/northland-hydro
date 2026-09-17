@@ -1,7 +1,7 @@
 {
 "source": "http://extranet.wlssd.com/plantoverview/rain.aspx",
-"updated": "2026-09-17T11:55:00-05:00",
-"harvestedAt": "2026-09-17T16:58:16+00:00",
+"updated": "2026-09-17T15:15:00-05:00",
+"harvestedAt": "2026-09-17T20:19:20+00:00",
 "gauges": [
 {
 "name": "WLSSD Plant",
@@ -135,11 +135,11 @@
 "name": "Hermantown",
 "thisHour": 0.0,
 "lastHour": 0.0,
-"today": 0.0,
+"today": 0.01,
 "yesterday": 0.04,
 "raw": {
 "lastHour": "0.00",
-"today": "0.00",
+"today": "0.01",
 "yesterday": "0.04",
 "thisHour": "0.00"
 },
@@ -197,7 +197,7 @@
 "Pike Lake": 0.0,
 "Rice Lake": 0.0,
 "Proctor": 0.0,
-"Hermantown": 0.0
+"Hermantown": 0.01
 }
 }
 }
