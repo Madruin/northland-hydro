@@ -52,9 +52,10 @@
         <button class="toggle on" id="tg-precip" title="Observed precipitation at CoCoRaHS, COOP and ASOS stations (RCC-ACIS)">Stations</button>
         <button class="toggle on" id="tg-gauges" title="USGS + MN DNR/MPCA stream gauges">Gauges</button>
         <button class="toggle" id="tg-qpe" title="NWS radar-derived precipitation estimate (RFC QPE)">Radar</button>
-        <select id="ctl-qpe" title="QPE accumulation window">
-          <option value="1h">1 h</option><option value="3h">3 h</option><option value="6h">6 h</option>
-          <option value="12h">12 h</option><option value="24h" selected>24 h</option><option value="since12z">Since 12Z</option>
+        <select id="ctl-qpe" title="Live radar echoes, or rainfall totals estimated from radar and gauges">
+          <optgroup label="Live radar"><option value="live">Now (reflectivity)</option></optgroup>
+          <optgroup label="Rain totals (radar + gauges)"><option value="1h">Last 1 h</option><option value="3h">Last 3 h</option><option value="6h">Last 6 h</option>
+          <option value="12h">Last 12 h</option><option value="24h" selected>Last 24 h</option><option value="since12z">Since 7 AM (12Z)</option></optgroup>
         </select>
         <div class="menu-wrap"><button class="toggle" id="btn-layers" title="Water, land, hazard and subsurface layers">Layers ▾</button>
           <div class="menu layers-menu" id="layers-menu" hidden>

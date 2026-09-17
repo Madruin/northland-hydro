@@ -100,9 +100,11 @@ export function countyBboxes() {
   return countyBboxCache;
 }
 function qpeTileUrl(win) {
+  if (win === "live") return `${ENDPOINTS.radarRefl}/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&layers=show:3&format=png32&transparent=true&f=image&_t=${Math.floor(Date.now() / 120000)}`;
   const layer = QPE_LAYERS[win] ?? QPE_LAYERS["24h"];
   return `${ENDPOINTS.rfcQpe}/export?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&layers=show:${layer}&format=png32&transparent=true&f=image&_t=${Math.floor(Date.now() / 600000)}`;
 }
+let liveRadarTimer = null;
 
 async function addOverlays() {
   // Order: qpe raster (under labels if possible) → counties → gauges → stations → pin
@@ -270,9 +272,12 @@ export function setTerrainVisible(id, on) { terrainVis[id] = on; if (overlaysRea
 export function setTerrainOpacity(v) { terrainOpacity = v; if (overlaysReady) _sto(map, v); }
 export function setQpeWindow(win) {
   qpeWindow = win;
+  clearInterval(liveRadarTimer); liveRadarTimer = null;
   if (!overlaysReady || !map.getSource("qpe")) return;
   // MapLibre raster sources accept setTiles in v3+
   map.getSource("qpe").setTiles([qpeTileUrl(win)]);
+  // live reflectivity is re-issued every few minutes: re-pull the tiles so the picture keeps moving while the page is open
+  if (win === "live") liveRadarTimer = setInterval(() => { if (map.getSource("qpe")) map.getSource("qpe").setTiles([qpeTileUrl("live")]); }, 3 * 60 * 1000);
 }
 export function flyToCounty(fips) {
   const c = COUNTIES.find((x) => x.fips === fips);

@@ -5,7 +5,7 @@ export const APP = {
   name: "Northland Eco",
   userAgent: "northland-hydro (valeromatias@gmail.com)", // NWS asks for a contact UA
   version: "0.1.0",
-  build: "20260917-2059-116bbb0",
+  build: "20260917-2120-1f252ce",
 };
 
 // Working extent: MN SWCD TSA3 counties plus a margin (W, S, E, N)
@@ -45,6 +45,8 @@ export const ENDPOINTS = {
   openMeteoArchive: "https://archive-api.open-meteo.com/v1/archive",
   coops: "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter", // CORS *
   rfcQpe: "https://mapservices.weather.noaa.gov/raster/rest/services/obs/rfc_qpe/MapServer",
+  // NWS MRMS 1 km base reflectivity mosaic (what radar.weather.gov shows), refreshed every few minutes
+  radarRefl: "https://mapservices.weather.noaa.gov/eventdriven/rest/services/radar/radar_base_reflectivity/MapServer",
   mrmsQpe: "https://mapservices.weather.noaa.gov/raster/rest/services/obs/mrms_qpe/ImageServer",
   counties: "https://cdn.jsdelivr.net/npm/us-atlas@3/counties-10m.json",
   atlas14Grid: "data/atlas14_grid.json",                    // precomputed, see tools/

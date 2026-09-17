@@ -91,7 +91,7 @@ function buildControls() {
   win.addEventListener("change", (e) => { state.days = Number(e.target.value); refreshPrecip(); });
   cty.addEventListener("change", (e) => { flyToCounty(e.target.value); e.target.value = ""; });
   bm.addEventListener("change", (e) => { state.basemap = e.target.value; setBasemap(state.basemap); syncUrl(); });
-  $("ctl-qpe").addEventListener("change", (e) => { state.qpeWindow = e.target.value; setQpeWindow(state.qpeWindow); if (!state.layers.qpe) toggleLayer("qpe", true); syncUrl(); });
+  $("ctl-qpe").addEventListener("change", (e) => { state.qpeWindow = e.target.value; setQpeWindow(state.qpeWindow); if (!state.layers.qpe) toggleLayer("qpe", true); else renderLegend(); syncUrl(); });
   $("tg-precip").addEventListener("click", () => toggleLayer("stations"));
   $("tg-gauges").addEventListener("click", () => toggleLayer("gauges"));
   $("tg-qpe").addEventListener("click", () => toggleLayer("qpe"));
@@ -284,7 +284,7 @@ function renderLegend() {
   if (state.layers.soils) lg.insertAdjacentHTML("beforeend", soilsLegendHtml());
   if (state.layers.streams) lg.insertAdjacentHTML("beforeend", `<h4>Streams (StreamStats grid)</h4><div class="legend-row"><span class="swatch sq" style="background:#0070ff"></span>Mapped stream cells (zoom 13+)</div><div class="small">The 10 m cells StreamStats delineates on; snap targets these.</div>`);
   lg.insertAdjacentHTML("beforeend", terrainLegendHtml(state.terrain));
-  if (state.layers.qpe) { const lbl = $("ctl-qpe").selectedOptions[0].text; lg.insertAdjacentHTML("beforeend", `<h4>Radar QPE (${lbl})</h4><div id="qpe-legend" data-win="${state.qpeWindow}"><div class="small">Loading NWS legend…</div></div>`); renderQpeLegend(state.qpeWindow, lbl); }
+  if (state.layers.qpe) { const lbl = $("ctl-qpe").selectedOptions[0].text; lg.insertAdjacentHTML("beforeend", `<h4>${state.qpeWindow === "live" ? "Live radar (NWS reflectivity)" : `Rain totals from radar + gauges (${lbl})`}</h4><div id="qpe-legend" data-win="${state.qpeWindow}"><div class="small">Loading NWS legend…</div></div>`); renderQpeLegend(state.qpeWindow, lbl); }
 }
 
 async function refreshPrecipNow() {
