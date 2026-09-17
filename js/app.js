@@ -343,6 +343,7 @@ async function boot() {
   on("select:station", (p) => { state.selection = { type: "station", id: p.sid }; syncUrl(); renderStation(p.sid); });
   on("select:gauge", (p) => { state.selection = { type: "gauge", id: p.id }; syncUrl(); renderGauge(p.id); });
   on("select:project", (p) => { state.selection = { type: "project", id: p.id }; syncUrl(); });
+  on("layer:on", ({ name }) => { if (name in state.layers && !state.layers[name]) toggleLayer(name, true); });
   on("select:point", ({ lon, lat }) => { state.selection = { type: "point", id: `${lon.toFixed(4)},${lat.toFixed(4)}` }; syncUrl(); renderPoint(lon, lat); });
   // refresh live layers every 10 min
   setInterval(() => { track("gauges", loadGauges()).catch(() => {}); track("alerts", loadAlerts()).catch(() => {}); track("lake level", loadLake()); }, 10 * 60_000);

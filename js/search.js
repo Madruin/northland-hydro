@@ -7,9 +7,11 @@ import { gauges } from "./gauges.js";
 import { authState } from "./projects.js";
 import { map } from "./map.js";
 import { REGION_BBOX } from "./config.js";
+import { searchParcels, looksLikePin } from "./parcels.js";
 
 const PHOTON = "https://photon.komoot.io/api/";
 let items = [];
+let runSeq = 0;
 let activeIdx = -1;
 
 export function initSearch() {
@@ -21,11 +23,12 @@ export function initSearch() {
     if (cc) { items = [{ kind: "place", label: `Go to ${cc.input}`, sub: `${cc.kind} · ${cc.lat.toFixed(5)}, ${cc.lon.toFixed(5)}`, lon: cc.lon, lat: cc.lat, zoom: 14, s: 9 }]; render(box, items, false); return; }
     items = localMatches(q);
     render(box, items, true);
-    try {
-      const places = await placeMatches(q);
-      items = [...localMatches(q), ...places];
-      render(box, items, false);
-    } catch { render(box, items, false); }
+    const seq = ++runSeq;
+    const wantParcels = looksLikePin(q) || /[a-z]{3,}/i.test(q) && q.length >= 4;
+    const [places, parcels] = await Promise.all([placeMatches(q).catch(() => []), wantParcels ? searchParcels(q).catch(() => []) : Promise.resolve([])]);
+    if (seq !== runSeq) return; // a newer keystroke superseded this search
+    items = [...localMatches(q), ...parcels, ...places];
+    render(box, items, false);
   }, 200);
   input.addEventListener("input", run);
   const showRecents = () => { const r = getRecents(); if (!r.length) { box.hidden = true; return; } items = r.map((p) => ({ kind: "recent", label: p.label, sub: `Recent point · ${ago(p.t)}`, lon: p.lon, lat: p.lat, zoom: 14, s: 0 })); render(box, items, false); };
@@ -54,7 +57,7 @@ async function placeMatches(q) {
   const c = map.getCenter();
   const url = `${PHOTON}?q=${encodeURIComponent(q)}&limit=5&lat=${c.lat.toFixed(3)}&lon=${c.lng.toFixed(3)}&bbox=${REGION_BBOX.join(",")}`;
   const d = await getJSON(url, { ttl: 60_000 });
-  return (d.features || []).map((f) => {
+  return (d.features || []).filter((f) => { const p = f.properties; return p.state !== "Wisconsin" && p.state !== "Michigan" && p.state !== "Ontario" && (p.country == null || p.country === "United States") && f.geometry.coordinates[0] < -89.45; }).map((f) => {
     const p = f.properties; const [lon, lat] = f.geometry.coordinates;
     const name = [p.name, p.street, p.city || p.town || p.village, p.county, p.state].filter(Boolean);
     return { kind: "place", label: name.slice(0, 2).join(", "), sub: `Place · ${name.slice(2).join(", ")}${p.osm_value ? " · " + p.osm_value.replace(/_/g, " ") : ""}`, lon, lat, s: 0 };
@@ -63,7 +66,7 @@ async function placeMatches(q) {
 function render(box, list, loading) {
   activeIdx = -1;
   if (!list.length && !loading) { box.innerHTML = `<div class="sr-empty">No matches</div>`; box.hidden = false; return; }
-  box.innerHTML = list.map((it, i) => `<div class="sr-item" data-i="${i}"><span class="sr-kind ${it.kind}">${it.kind === "gauge" ? "▲" : it.kind === "station" ? "●" : it.kind === "project" ? "★" : it.kind === "recent" ? "🕘" : "⌖"}</span><div><div>${escapeHtml(it.label)}</div><div class="small">${escapeHtml(it.sub)}</div></div></div>`).join("") + (loading ? `<div class="sr-empty">Searching places…</div>` : "");
+  box.innerHTML = list.map((it, i) => `<div class="sr-item" data-i="${i}"><span class="sr-kind ${it.kind}">${it.kind === "gauge" ? "▲" : it.kind === "station" ? "●" : it.kind === "project" ? "★" : it.kind === "recent" ? "🕘" : it.kind === "parcel" ? "▭" : "⌖"}</span><div><div>${escapeHtml(it.label)}</div><div class="small">${escapeHtml(it.sub)}</div></div></div>`).join("") + (loading ? `<div class="sr-empty">Searching places…</div>` : "");
   box.hidden = false;
   box.querySelectorAll(".sr-item").forEach((el) => el.addEventListener("mousedown", (e) => { e.preventDefault(); choose(list[Number(el.dataset.i)]); }));
 }
@@ -75,5 +78,6 @@ function choose(it) {
   if (it.kind === "gauge") emit("select:gauge", { id: it.id });
   else if (it.kind === "station") emit("select:station", { sid: it.id });
   else if (it.kind === "project") emit("select:project", { id: it.id });
+  else if (it.kind === "parcel") { emit("layer:on", { name: "parcels" }); emit("select:point", { lon: it.lon, lat: it.lat }); }
   else emit("select:point", { lon: it.lon, lat: it.lat });
 }

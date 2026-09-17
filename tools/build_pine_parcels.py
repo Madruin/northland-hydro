@@ -17,6 +17,7 @@ crs = pyproj.CRS.from_wkt(open(src[:-4] + ".prj").read())
 tr = pyproj.Transformer.from_crs(crs, "EPSG:4326", always_xy=True)
 names = [f[0] for f in r.fields[1:]]
 cells = {}
+search = []
 n = 0
 def clean(s): return " ".join(str(s or "").split())
 for sr in r.iterShapeRecords():
@@ -45,11 +46,14 @@ for sr in r.iterShapeRecords():
         for cy in range(math.floor(min(ys) / CELL), math.floor(max(ys) / CELL) + 1):
             cells.setdefault((cx, cy), []).append(feat)
     n += 1
+    cx_, cy_ = tr.transform(rec.get("CENTROID_X") or shp.points[0][0], rec.get("CENTROID_Y") or shp.points[0][1])
+    search.append([props["pin"], owner, addr, round(cx_, 5), round(cy_, 5)])
 index = {"cell": CELL, "crs": "EPSG:4326", "source": "Pine County Auditor's Office, parcel export 2026-09-09 (received 2026-09-14)", "parcels": n, "cells": []}
 for (cx, cy), feats in sorted(cells.items()):
     name = f"c_{cx}_{cy}.json"
     with open(os.path.join(out, name), "w", encoding="utf-8") as f: json.dump({"type": "FeatureCollection", "features": feats}, f, separators=(",", ":"))
     index["cells"].append({"f": name, "bbox": [round(cx * CELL, 4), round(cy * CELL, 4), round((cx + 1) * CELL, 4), round((cy + 1) * CELL, 4)], "n": len(feats)})
 with open(os.path.join(out, "index.json"), "w", encoding="utf-8") as f: json.dump(index, f, separators=(",", ":"))
+with open(os.path.join(out, "search.json"), "w", encoding="utf-8") as f: json.dump(search, f, separators=(",", ":"))  # [pin, owner, address, lon, lat] for the search box
 total = sum(os.path.getsize(os.path.join(out, c["f"])) for c in index["cells"])
 print(f"{n} parcels -> {len(index['cells'])} cells, {total/1e6:.1f} MB; largest cell {max(c['n'] for c in index['cells'])} parcels")

@@ -384,3 +384,5 @@ ul.src .small { display: block; margin-top: 1px; }
 }
 .mb-actions { display: flex; gap: 6px; margin-top: 6px; }
 .mb-actions .btn { padding: 6px 12px; min-height: 32px; }
+
+.sr-kind.parcel { color: var(--accent2); }

@@ -23,6 +23,43 @@ const SERVICES = {
 // tools/build_pine_parcels.py into WGS84 GeoJSON chunks under data/pine_parcels (0.1 degree cells) read from this origin.
 const STATIC = { "27115": { name: "Pine", base: "data/pine_parcels", note: "Pine County parcels are a county export dated 2026-09-09, not a live feed." } };
 export const NO_SERVICE = {};
+// Attribute search (PIN or owner) across every county: field names per live service; Pine from its static search index.
+const SEARCH_FIELDS = {
+  "27137": { pin: "PRCL_NBR", owners: ["OWNAME"], addr: "PHYSADDR" }, "27031": { pin: "COUNTY_PIN", owners: ["OWNER_NAME"], addr: null },
+  "27017": { pin: "PARCELID", owners: ["OWNAME", "TXNAME"], addr: "PHYSADDR" }, "27001": { pin: "PRCL_NBR", owners: ["OWNNAME"], addr: "Physical_Address" },
+  "27095": { pin: "dbo.tblParcelJoin.PARCEL_NUMBER", owners: ["dbo.tblParcelJoin.OWNER_NAME", "dbo.tblParcelJoin.TAXPAYER_NAME"], addr: null },
+  "27075": { pin: "gis_pid", owners: ["tax_ownname", "tax_taxname"], addr: null }, "27065": { pin: "PIN", owners: ["OwnerName1", "OwnerName2"], addr: "SiteAddress" },
+};
+let pineSearch = null;
+function centerOf(g) { if (!g) return null; const bb = bboxOf(g); return [(bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2]; }
+export function looksLikePin(q) { return /\d/.test(q) && /^[\d.\-\s]+$/.test(q.trim()) && q.replace(/\D/g, "").length >= 5; }
+export async function searchParcels(q, { limitPerCounty = 5, signal } = {}) {
+  const raw = q.trim().replace(/'/g, "''"); const isPin = looksLikePin(q); const digits = raw.replace(/\D/g, "");
+  const upper = raw.toUpperCase();
+  const jobs = Object.entries(SERVICES).map(async ([fips, s]) => {
+    const f = SEARCH_FIELDS[fips]; if (!f) return [];
+    const where = isPin ? `${f.pin} LIKE '%${raw}%'${digits !== raw ? ` OR ${f.pin} LIKE '%${digits}%'` : ""}` : f.owners.map((o) => `UPPER(${o}) LIKE '%${upper}%'`).join(" OR ");
+    const p = new URLSearchParams({ where, outFields: [f.pin, ...f.owners, f.addr].filter(Boolean).join(","), returnGeometry: "true", outSR: "4326", geometryPrecision: "4", f: "json" });
+    if (!s.noPaging) p.set("resultRecordCount", String(limitPerCounty));
+    const r = await fetch(`${s.url}/query?${p}`, { signal }); if (!r.ok) throw new Error(`${s.name} ${r.status}`);
+    const d = await r.json(); if (d.error) throw new Error(`${s.name}: ${d.error.message}`);
+    return (d.features || []).slice(0, limitPerCounty).map((ft) => {
+      const a = ft.attributes || {}; const g = ft.geometry?.rings ? { type: "Polygon", coordinates: ft.geometry.rings } : null; const c = centerOf(g); if (!c) return null;
+      const owner = f.owners.map((o) => a[o]).filter(Boolean).join(" & ");
+      return { kind: "parcel", label: owner || a[f.pin], sub: `Parcel · ${s.name} County · PIN ${a[f.pin] || "?"}${f.addr && a[f.addr] ? " · " + String(a[f.addr]).trim() : ""}`, lon: c[0], lat: c[1], zoom: 16, s: 5, pin: a[f.pin] };
+    }).filter(Boolean);
+  });
+  jobs.push((async () => {
+    if (!pineSearch) { const r = await fetch(`${STATIC["27115"].base}/search.json`, { signal }); if (!r.ok) return []; pineSearch = await r.json(); }
+    const hits = [];
+    for (const [pin, owner, addr, lon, lat] of pineSearch) {
+      if (isPin ? (pin.includes(raw) || (digits && pin.replace(/\D/g, "").includes(digits))) : owner.toUpperCase().includes(upper)) { hits.push({ kind: "parcel", label: owner || pin, sub: `Parcel · Pine County · PIN ${pin}${addr ? " · " + addr : ""}`, lon, lat, zoom: 16, s: 5, pin }); if (hits.length >= limitPerCounty) break; }
+    }
+    return hits;
+  })());
+  const results = await Promise.allSettled(jobs);
+  return results.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
+}
 const staticCache = { index: {}, cells: {} };
 async function staticIndex(fips) {
   const s = STATIC[fips]; if (staticCache.index[fips]) return staticCache.index[fips];

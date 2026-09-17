@@ -33,7 +33,7 @@
 
     <div class="controls">
       <div class="ctl search-wrap">
-        <input type="search" id="ctl-search" placeholder="Search gauge, station, place, or coordinates  ( / )" autocomplete="off" />
+        <input type="search" id="ctl-search" placeholder="Search place, PIN, owner, gauge, station, or coordinates  ( / )" autocomplete="off" />
         <div id="search-results" class="menu" hidden></div>
       </div>
       <label class="ctl">
@@ -156,7 +156,7 @@
         <h4>Controls</h4>
         <ul>
           <li><b>End date / Window</b>: the station colors and all totals follow these. ← → step the date; the ‹ › buttons do the same.</li>
-          <li><b>Map tools</b> (left edge): zoom, <b>locate me</b> (centers on your GPS position and follows until you drag the map; if the button reports that location is blocked, allow it for this site from the lock icon in the address bar), and <b>measure</b> distance or area (click points, double-click or Enter to finish, Esc clears). The search box also takes coordinates: <code>46.9476, -91.7849</code>, or UTM 15N as metres <code>592123, 5200456</code> or US survey feet <code>1943000, 17062000</code>. Every Point panel shows the spot in lat/lon and UTM 15N metres and US feet with copy buttons.</li>
+          <li><b>Map tools</b> (left edge): zoom, <b>locate me</b> (centers on your GPS position and follows until you drag the map; if the button reports that location is blocked, allow it for this site from the lock icon in the address bar), and <b>measure</b> distance or area (click points, double-click or Enter to finish, Esc clears). The search box also finds <b>tax parcels</b> by PIN (any county, dashes optional) or by <b>owner name</b> (4+ letters), and takes coordinates: <code>46.9476, -91.7849</code>, or UTM 15N as metres <code>592123, 5200456</code> or US survey feet <code>1943000, 17062000</code>. Every Point panel shows the spot in lat/lon and UTM 15N metres and US feet with copy buttons.</li>
           <li><b>Layers</b> (Stations, Gauges and Radar are on the bar; everything else is under <b>Layers ▾</b>, grouped Water / Land / Hazards &amp; subsurface, each with its minimum zoom): Stations, radar QPE (NWS estimate for the last 1–24 h), Gauges, Streams (StreamStats grid), Soils (hydrologic soil group), Parcels, Wetlands (MN NWI update with Cowardin and Circular 39 codes), FEMA (effective flood zones and floodways, BFE lines, lettered cross sections, LOMRs), Crossings (DNR culvert surveys with span-vs-bankfull and passage, plus NBI bridges and large culverts with condition ratings), Wells (County Well Index wells and borings colored by depth to bedrock, with driller logs; DNR drill holes), Trout (DNR designated trout streams), Karst (karst-prone bedrock, sinkholes, springs), and Terrain (MnTOPO lidar hillshade, DEM and contours).</li>
           <li><b>Search</b> ( / ): gauge, station, project or place name.</li>
           <li><b>Watershed</b> (Point tab): delineates with USGS StreamStats, returns basin characteristics and regression flows, and runs the TSA3 regional curves for bankfull dimensions. Save results to a project.</li>
