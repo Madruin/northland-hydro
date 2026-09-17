@@ -1,6 +1,7 @@
 // Wells and borings: Minnesota County Well Index (MGS/MDH) points with stratigraphy logs, water levels and construction,
 // plus DNR Drill Core Library boring locations. Viewport layer at zoom 12+, point section, and basin depth-to-bedrock.
-import { $, escapeHtml, fmt, fmtNum, debounce, haversineKm } from "./util.js";
+import { $, escapeHtml, fmt, fmtNum, debounce, haversineKm, emit } from "./util.js";
+import { track } from "./loader.js";
 import { map, setOverlay } from "./map.js";
 
 const CWI = "https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_health/water_well_information_non_pws/FeatureServer";
@@ -26,7 +27,7 @@ function decorateObwell(p) {
   p.popup = `<div class="popup-title">DNR observation well ${escapeHtml(p.dnr_obwell_id || p.station || "")}</div><div class="popup-sub">${escapeHtml(p.aquifer_name || "")}${p.completed_depth ? ` · ${fmt(Number(p.completed_depth), 0)} ft deep` : ""} · ${p.read_status === "YES" ? "actively read" : "not currently read"}${p.lastfieldvisit ? " · last visit " + new Date(p.lastfieldvisit).toLocaleDateString() : ""}</div><div class="popup-sub">${escapeHtml(p.well_type || "")} · water levels on the DNR CGM page</div>`;
 }
 const empty = () => ({ type: "FeatureCollection", features: [] });
-function note(t) { const el = $("wells-note"); if (el) el.textContent = t; }
+function note(t) { const el = $("wells-note"); if (el) el.textContent = t; emit("layer:status", { name: "wells", text: t }); }
 
 async function qgeo(base, params, fmtOut = "geojson") {
   const u = new URLSearchParams({ inSR: "4326", outSR: "4326", geometryPrecision: "6", f: fmtOut, ...params });
@@ -72,6 +73,7 @@ async function refresh() {
   await loadCodes().catch(() => {});
   const env = { geometry: bbox.map((v) => v.toFixed(5)).join(","), geometryType: "esriGeometryEnvelope", spatialRel: "esriSpatialRelIntersects", resultRecordCount: "2000" };
   const mine = (inflight = Promise.allSettled([qgeo(`${CWI}/1`, { ...env, outFields: WELL_FIELDS }), qgeo(DCL, { ...env, outFields: DCL_FIELDS }), qgeo(CGM, { ...env, outFields: CGM_FIELDS })]));
+  track("Wells", mine);
   const [wr, hr, orr] = await mine; if (inflight !== mine || !enabled) return;
   let nw = 0, nh = 0; const errs = [];
   if (orr.status === "fulfilled") { for (const f of orr.value.features) decorateObwell(f.properties); setOverlay("obwells", orr.value); } else errs.push("obwells " + orr.reason?.message);

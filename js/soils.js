@@ -1,5 +1,6 @@
 // SSURGO soils: hydrologic-soil-group map layer (viewport-driven) and a soils section for the Point panel.
-import { $, escapeHtml, fmt, fmtNum, debounce, on } from "./util.js";
+import { $, escapeHtml, fmt, fmtNum, debounce, on, emit } from "./util.js";
+import { track } from "./loader.js";
 import * as sda from "./api/sda.js";
 import { map, setSoils } from "./map.js";
 
@@ -25,7 +26,7 @@ export function setSoilsEnabled(on) {
   enabled = on;
   if (on) refresh(); else { setSoils({ type: "FeatureCollection", features: [] }); lastKey = null; setStatusNote(""); }
 }
-function setStatusNote(t) { const el = $("soils-note"); if (el) el.textContent = t; }
+function setStatusNote(t) { const el = $("soils-note"); if (el) el.textContent = t; emit("layer:status", { name: "soils", text: t }); }
 
 async function refresh() {
   const z = map.getZoom();
@@ -39,6 +40,7 @@ async function refresh() {
   lastKey = key;
   setStatusNote("Soils: loading map units…");
   const mine = (inflight = sda.polygonsInBbox(bbox));
+  track("Soils", mine);
   try {
     const fc = await mine;
     if (inflight !== mine || !enabled) return;

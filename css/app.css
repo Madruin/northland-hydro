@@ -407,3 +407,8 @@ table.fresh tr.warn td:last-child { color: var(--accent2); }
 #compare-box select { background: var(--bg3); border: 1px solid var(--line); border-radius: 5px; color: var(--fg); font-size: 11px; padding: 2px 4px; max-width: 220px; }
 #compare-box .mb-x { background: none; border: none; color: var(--fg2); cursor: pointer; font-size: 13px; }
 @media (max-width: 900px) { #compare-box { top: 52px; left: 8px; right: 8px; transform: none; white-space: normal; flex-wrap: wrap; } #compare-box select { max-width: 100%; } }
+
+.layer-row.loading .lr-zoom { color: var(--accent); }
+.layer-row.loading .lr-zoom::before { content: "⟳ "; display: inline-block; animation: spin 1.2s linear infinite; }
+.layer-row.error .lr-zoom { color: #fca5a5; }
+.layer-row.error .lr-zoom::after { content: ""; }

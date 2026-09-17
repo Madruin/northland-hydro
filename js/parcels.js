@@ -1,6 +1,7 @@
 // Tax parcels from each county's own ArcGIS service (the MnGeo statewide compilation is too slow for live use).
 // Viewport-driven at zoom 14+; fields normalized to one shape per feature: pin, owner, acres, address, city, use, emv.
-import { $, escapeHtml, fmt, fmtNum, debounce } from "./util.js";
+import { $, escapeHtml, fmt, fmtNum, debounce, emit } from "./util.js";
+import { track } from "./loader.js";
 import { map, setParcels, countyBboxes } from "./map.js";
 
 const SERVICES = {
@@ -103,7 +104,7 @@ export const MIN_ZOOM = 14;
 let enabled = false, lastKey = null, inflight = null;
 export function initParcels() { map.on("moveend", debounce(() => { if (enabled) refresh(); }, 350)); }
 export function setParcelsEnabled(on) { enabled = on; if (on) refresh(); else { setParcels({ type: "FeatureCollection", features: [] }); lastKey = null; note(""); } }
-function note(t) { const el = $("parcels-note"); if (el) el.textContent = t; }
+function note(t) { const el = $("parcels-note"); if (el) el.textContent = t; emit("layer:status", { name: "parcels", text: t }); }
 
 function countiesFor(bbox) {
   const out = [];
@@ -146,6 +147,7 @@ async function refresh() {
   const nameOf = (f) => (SERVICES[f] || STATIC[f]).name;
   note(`Parcels: loading ${have.map(nameOf).join(", ")}…`);
   const mine = (inflight = Promise.allSettled(have.map((f) => (STATIC[f] ? fetchStatic(f, bbox) : fetchCounty(f, bbox)))));
+  track("Parcels", mine);
   const results = await mine;
   if (inflight !== mine || !enabled) return;
   const feats = []; let exceeded = false; const errs = [];

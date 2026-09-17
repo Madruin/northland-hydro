@@ -1,6 +1,7 @@
 // DNR overlay layers loaded per viewport: designated trout streams, karst (Pine County sandstone karst polygons,
 // karst feature points, springs). All from enterprise.gisdata.mn.gov (CORS).
-import { $, escapeHtml, fmt, debounce } from "./util.js";
+import { $, escapeHtml, fmt, debounce, emit } from "./util.js";
+import { track } from "./loader.js";
 import { map, setOverlay } from "./map.js";
 
 const B = "https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_dnr";
@@ -63,7 +64,7 @@ const enabled = {}; const lastKey = {}; const inflight = {};
 
 export function initDnrLayers() { map.on("moveend", debounce(() => { for (const k of Object.keys(LAYERS)) if (enabled[k]) refresh(k); }, 350)); }
 export function setDnrLayerEnabled(k, on) { enabled[k] = on; if (on) refresh(k); else { for (const s of LAYERS[k].sources) setOverlay(s.id, { type: "FeatureCollection", features: [] }); lastKey[k] = null; note(k, ""); } }
-function note(k, t) { const el = $(`${k}-note`); if (el) el.textContent = t; }
+function note(k, t) { const el = $(`${k}-note`); if (el) el.textContent = t; emit("layer:status", { name: k, text: t }); }
 
 async function fetchSrc(s, bbox) {
   const offset = (360 / (256 * 2 ** map.getZoom())) / 2; // half a screen pixel in degrees: simplify big polygons server-side
@@ -99,10 +100,11 @@ async function refresh(k) {
   if (key === lastKey[k]) return; lastKey[k] = key;
   note(k, `${L.label}: loading…`);
   const mine = (inflight[k] = Promise.allSettled(L.sources.map((s) => fetchSrc(s, bbox))));
+  track(L.label.replace(/ \(.*\)| &.*$/, ""), mine);
   const res = await mine; if (inflight[k] !== mine || !enabled[k]) return;
   let n = 0, exceeded = false; const errs = [];
   res.forEach((r, i) => { const s = L.sources[i]; if (r.status === "fulfilled") { setOverlay(s.id, r.value.fc); n += r.value.fc.features.length; exceeded ||= r.value.exceeded; } else errs.push(r.reason?.message || String(r.reason)); });
-  note(k, `${L.label}: ${n} features${exceeded ? " (limit hit, zoom in)" : ""}${errs.length ? " · failed: " + errs.join("; ") : ""}`);
+  note(k, `${L.label}: ${n} features${exceeded ? " (limit hit, zoom in)" : ""}${errs.length ? " · failed: " + errs.join("; ") + " · toggle the layer to retry" : ""}`);
 }
 // Wetlands intersecting a point (for the Point panel)
 export async function wetlandsAt(lon, lat) {

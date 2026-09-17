@@ -220,6 +220,14 @@ function showHintOnce() {
   setTimeout(() => { if ($("help").hidden) $("map-hint").hidden = false; else $("help-close").addEventListener("click", () => ($("map-hint").hidden = false), { once: true }); }, 400);
 }
 function dismissHint() { $("map-hint").hidden = true; try { localStorage.setItem("nh-hint", "1"); } catch {} }
+const layerStatus = {};
+on("layer:status", ({ name, text }) => {
+  layerStatus[name] = text; const row = $("tg-" + name); if (!row) return; const z = row.querySelector(".lr-zoom"); if (!z) return;
+  const loading = /loading|querying/i.test(text) && !/failed/i.test(text), failed = /failed|did not answer|unavailable/i.test(text);
+  row.classList.toggle("loading", loading); row.classList.toggle("error", failed);
+  z.textContent = loading ? "loading…" : failed ? "failed · toggle to retry" : `zoom ${row.dataset.minzoom}+`;
+  row.title = text || "";
+});
 let sourcesRendered = false;
 function showHelpPane(pane) {
   if (pane === "sources" && !sourcesRendered) { renderSources($("help-pane-sources")); sourcesRendered = true; }

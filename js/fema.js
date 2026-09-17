@@ -1,6 +1,6 @@
 // FEMA National Flood Hazard Layer (NFHL): flood zones (with floodway), BFE lines, cross sections, LOMRs;
 // viewport layer + point section geared to no-rise / CLOMR / LOMR planning. hazards.fema.gov is CORS-enabled.
-import { $, escapeHtml, fmt, fmtNum, debounce, haversineKm } from "./util.js";
+import { $, escapeHtml, fmt, fmtNum, debounce, haversineKm, emit } from "./util.js";
 import { map, setOverlay } from "./map.js";
 
 const N = "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer";
@@ -23,7 +23,7 @@ let enabled = false, lastKey = null, inflight = null;
 export function initFema() { map.on("moveend", debounce(() => { if (enabled) refresh(); }, 350)); }
 export function setFemaEnabled(on) { enabled = on; if (on) refresh(); else { for (const id of ["fema-zones", "fema-xs", "fema-bfe", "fema-lomr"]) setOverlay(id, empty()); lastKey = null; note(""); } }
 const empty = () => ({ type: "FeatureCollection", features: [] });
-function note(t) { const el = $("fema-note"); if (el) el.textContent = t; }
+function note(t) { const el = $("fema-note"); if (el) el.textContent = t; emit("layer:status", { name: "fema", text: t }); }
 
 async function q(layer, params) {
   const u = new URLSearchParams({ inSR: "4326", outSR: "4326", geometryPrecision: "5", f: "geojson", ...params });

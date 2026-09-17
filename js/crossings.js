@@ -1,6 +1,7 @@
 // Stream crossings: MN DNR Culvert Inventory Suite (stream crossing summary + culvert openings + bridge assessments)
 // and the FHWA National Bridge Inventory (NTAD feature service) for MnDOT/county/township bridges and large culverts.
-import { $, escapeHtml, fmt, fmtNum, debounce, haversineKm } from "./util.js";
+import { $, escapeHtml, fmt, fmtNum, debounce, haversineKm, emit } from "./util.js";
+import { track } from "./loader.js";
 import { map, setOverlay } from "./map.js";
 
 const DNR = "https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_dnr/struc_culvert_inventory_pub/FeatureServer";
@@ -19,7 +20,7 @@ let enabled = false, lastKey = null, inflight = null;
 export function initCrossings() { map.on("moveend", debounce(() => { if (enabled) refresh(); }, 350)); }
 export function setCrossingsEnabled(on) { enabled = on; if (on) refresh(); else { setOverlay("xing-dnr", empty()); setOverlay("xing-nbi", empty()); lastKey = null; note(""); } }
 const empty = () => ({ type: "FeatureCollection", features: [] });
-function note(t) { const el = $("crossings-note"); if (el) el.textContent = t; }
+function note(t) { const el = $("crossings-note"); if (el) el.textContent = t; emit("layer:status", { name: "crossings", text: t }); }
 
 async function qgeo(base, params) {
   const u = new URLSearchParams({ inSR: "4326", outSR: "4326", geometryPrecision: "6", f: "geojson", ...params });
@@ -50,6 +51,7 @@ async function refresh() {
   note("Crossings: loading…");
   const env = { geometry: bbox.map((v) => v.toFixed(5)).join(","), geometryType: "esriGeometryEnvelope", spatialRel: "esriSpatialRelIntersects", resultRecordCount: "2000" };
   const mine = (inflight = Promise.allSettled([qgeo(`${DNR}/0`, { ...env, outFields: DNR_FIELDS }), qgeo(NBI, { ...env, outFields: NBI_FIELDS })]));
+  track("Crossings", mine);
   const [dr, nr] = await mine; if (inflight !== mine || !enabled) return;
   let nd = 0, nn = 0; const errs = [];
   if (dr.status === "fulfilled") { for (const f of dr.value.features) decorateDnr(f.properties); setOverlay("xing-dnr", dr.value); nd = dr.value.features.length; } else errs.push("DNR " + dr.reason?.message);
