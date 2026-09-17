@@ -5,7 +5,7 @@ export const APP = {
   name: "Northland Eco",
   userAgent: "northland-hydro (valeromatias@gmail.com)", // NWS asks for a contact UA
   version: "0.1.0",
-  build: "20260917-2134-cbaa4f4",
+  build: "20260917-2155-19a227d",
 };
 
 // Working extent: MN SWCD TSA3 counties plus a margin (W, S, E, N)

@@ -44,10 +44,11 @@ def fetch(url, params, tries=4):
             if i == tries - 1: raise
             time.sleep(5 * (i + 1))
 
-def page(lid):
+OV_OFFSET = 0.002   # ~200 m: region-wide "overview" geometry drawn below each layer's normal zoom (a few hundred KB per layer)
+def page(lid, offset=None):
     url, fields, where = LAYERS[lid]
     base = {"geometry": ",".join(map(str, BBOX)), "geometryType": "esriGeometryEnvelope", "inSR": "4326", "spatialRel": "esriSpatialRelIntersects",
-            "outFields": fields, "outSR": "4326", "geometryPrecision": "5", "maxAllowableOffset": str(OPTS.get(lid, {}).get("offset", 0.00004)), "where": where or "1=1", "f": "geojson", "orderByFields": "objectid", "resultRecordCount": "2000"}
+            "outFields": fields, "outSR": "4326", "geometryPrecision": "4" if offset else "5", "maxAllowableOffset": str(offset or OPTS.get(lid, {}).get("offset", 0.00004)), "where": where or "1=1", "f": "geojson", "orderByFields": "objectid", "resultRecordCount": "2000"}
     feats, offset = [], 0
     while True:
         d = fetch(url, {**base, "resultOffset": str(offset)})
@@ -69,7 +70,8 @@ def bbox_of(g):
 
 def write(lid, feats, url):
     d = os.path.join(OUT, lid); os.makedirs(d, exist_ok=True)
-    for f in os.listdir(d): os.remove(os.path.join(d, f))
+    for f in os.listdir(d):
+        if f != "overview.json": os.remove(os.path.join(d, f))
     cells = {}
     for i, f in enumerate(feats):
         if not f.get("geometry"): continue
@@ -94,10 +96,20 @@ def write(lid, feats, url):
     with open(os.path.join(d, "index.json"), "w", encoding="utf-8") as fh: json.dump(index, fh, separators=(",", ":"))
     print(f"{lid}: {len(feats)} features, {len(cells)} cells, {total/1e6:.1f} MB", flush=True)
 
+def write_overview(lid, feats):
+    """One simplified FeatureCollection for the whole region (points: the full set), read by the site below the layer's minZoom."""
+    d = os.path.join(OUT, lid)
+    is_point = any((f.get("geometry") or {}).get("type", "").endswith("Point") for f in feats[:20])
+    ov = feats if is_point else page(lid, OV_OFFSET)
+    for i, f in enumerate(ov): f["properties"]["__id"] = i
+    p = os.path.join(d, "overview.json")
+    with open(p, "w", encoding="utf-8") as fh: json.dump({"type": "FeatureCollection", "features": [f for f in ov if f.get("geometry")]}, fh, separators=(",", ":"))
+    print(f"{lid}: overview {len(ov)} features, {os.path.getsize(p)/1e6:.1f} MB", flush=True)
+
 def build(lid):
     t = time.time()
     try:
-        feats = page(lid); write(lid, feats, LAYERS[lid][0]); return f"{lid} ok in {time.time()-t:.0f}s"
+        feats = page(lid); write(lid, feats, LAYERS[lid][0]); write_overview(lid, feats); return f"{lid} ok in {time.time()-t:.0f}s"
     except Exception as e: return f"{lid} FAILED: {e}"
 
 if __name__ == "__main__":

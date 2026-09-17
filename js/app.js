@@ -235,7 +235,7 @@ on("layer:status", ({ name, text }) => {
   layerStatus[name] = text; const row = $("tg-" + name); if (!row) return; const z = row.querySelector(".lr-zoom"); if (!z) return;
   const loading = /loading|querying/i.test(text) && !/failed/i.test(text), failed = /failed|did not answer|unavailable/i.test(text);
   row.classList.toggle("loading", loading); row.classList.toggle("error", failed);
-  z.textContent = loading ? "loading…" : failed ? "failed · toggle to retry" : `zoom ${row.dataset.minzoom}+`;
+  z.textContent = loading ? "loading…" : failed ? "failed · toggle to retry" : /overview/.test(text || "") ? `overview · detail at zoom ${row.dataset.minzoom}+` : `zoom ${row.dataset.minzoom}+`;
   row.title = text || "";
   clearTimeout(slowTimers[name]);
   if (loading) slowTimers[name] = setTimeout(() => { if (row.classList.contains("loading")) z.textContent = "still loading… server is slow (up to 90 s)"; }, 12000);

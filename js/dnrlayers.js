@@ -109,9 +109,28 @@ function decorate(id, p) {
   else if (id === "karst-pts") { p.color = "#7e22ce"; p.popup = `<div class="popup-title">${KARST_FEATURE[p.feature] || "Karst feature"}${p.name ? ": " + escapeHtml(p.name) : ""}</div><div class="popup-sub">${escapeHtml(p.feat_label || "")}${p.first_bdrk ? " · bedrock " + escapeHtml(p.first_bdrk) : ""}${p.depth2bdrk != null ? " · depth to bedrock " + p.depth2bdrk + " ft" : ""}${p.elevation ? " · el. " + p.elevation + " " + escapeHtml(p.vert_datum || "") : ""}${p.field_check_date ? " · checked " + new Date(p.field_check_date).getFullYear() : ""}</div>`; }
   else if (id === "springs") { p.color = "#06b6d4"; p.popup = `<div class="popup-title">Spring${p.name ? ": " + escapeHtml(p.name) : ""}</div><div class="popup-sub">${escapeHtml(p.spring_type || p.feature || "")}${p.lithology ? " · " + escapeHtml(p.lithology) : ""}${p.flow ? " · " + p.flow + " " + escapeHtml(p.flow_units || "") : ""}${p.temp_c != null ? " · " + p.temp_c + " °C" : ""}${p.flowing ? " · " + escapeHtml(p.flowing) : ""}</div>`; }
 }
+// Region-wide simplified overview (data/layers/<id>/overview.json, built with tools/build_static_layers.py) drawn
+// below a layer's normal zoom, so the whole TSA3 area can be seen at once; full-detail cells take over past minZoom.
+const overviewCache = {};
+async function loadOverview(id) {
+  if (overviewCache[id] === undefined) {
+    overviewCache[id] = fetch(`data/layers/${id}/overview.json`).then(async (r) => { if (!r.ok) return null; const fc = await r.json(); for (const f of fc.features) decorate(id, f.properties); return fc; }).catch(() => null);
+  }
+  return overviewCache[id];
+}
 async function refresh(k) {
   const L = LAYERS[k]; const z = map.getZoom(); const b = map.getBounds();
-  if (z < L.minZoom) { for (const s of L.sources) setOverlay(s.id, { type: "FeatureCollection", features: [] }); lastKey[k] = null; note(k, `${L.label}: zoom in (${L.minZoom}+) to load`); return; }
+  if (z < L.minZoom) {
+    if (lastKey[k] === "overview") return;
+    const p = Promise.all(L.sources.map((s) => (s.static === false ? null : loadOverview(s.id))));
+    track(L.label.replace(/ \(.*\)| &.*$/, "") + " overview", p);
+    const ov = await p; if (!enabled[k] || map.getZoom() >= L.minZoom) return;
+    if (ov.some(Boolean)) {
+      L.sources.forEach((s, i) => setOverlay(s.id, ov[i] || { type: "FeatureCollection", features: [] }));
+      lastKey[k] = "overview"; note(k, `${L.label}: whole-region overview (simplified geometry; zoom to ${L.minZoom}+ for full detail)`); return;
+    }
+    for (const s of L.sources) setOverlay(s.id, { type: "FeatureCollection", features: [] }); lastKey[k] = null; note(k, `${L.label}: zoom in (${L.minZoom}+) to load`); return;
+  }
   const pad = 0.15;
   const bbox = [b.getWest() - (b.getEast() - b.getWest()) * pad, b.getSouth() - (b.getNorth() - b.getSouth()) * pad, b.getEast() + (b.getEast() - b.getWest()) * pad, b.getNorth() + (b.getNorth() - b.getSouth()) * pad];
   const key = bbox.map((v) => v.toFixed(3)).join(",");

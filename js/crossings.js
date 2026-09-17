@@ -42,7 +42,7 @@ function decorateNbi(p) {
   p.color = p.BRIDGE_CONDITION === "P" ? "#dc2626" : p.BRIDGE_CONDITION === "F" ? "#f59e0b" : "#2563eb";
   p.popup = `<div class="popup-title">${isCulvert ? "Culvert" : "Bridge"} ${escapeHtml(p.STRUCTURE_NUMBER_008 || "")} · ${escapeHtml(p.FACILITY_CARRIED_007 || "")}</div><div class="popup-sub">over ${escapeHtml(p.FEATURES_DESC_006A || "")} · ${escapeHtml(NBI_KIND[p.STRUCTURE_KIND_043A] || "")} ${escapeHtml(NBI_TYPE[p.STRUCTURE_TYPE_043B] || "")} · built ${p.YEAR_BUILT_027 || "?"}${p.YEAR_RECONSTRUCTED_106 ? ", recon. " + p.YEAR_RECONSTRUCTED_106 : ""}</div><div class="popup-sub">length ${fmt(p.STRUCTURE_LEN_MT_049 * M2FT, 0)} ft · condition ${BC[p.BRIDGE_CONDITION] || p.BRIDGE_CONDITION || "?"} (lowest ${p.LOWEST_RATING ?? "?"}) · scour ${escapeHtml(SCOUR(p.SCOUR_CRITICAL_113))} · ${escapeHtml(NBI_OWNER[p.OWNER_022] || p.OWNER_022 || "")}</div>`;
 }
-let xIdx, xCells = {};
+let xIdx, xCells = {}, xOverview;
 async function staticDnr(bbox) {
   if (xIdx === undefined) { try { const r = await fetch("data/layers/xing-dnr/index.json"); xIdx = r.ok ? await r.json() : null; } catch { xIdx = null; } }
   if (!xIdx) return null;
@@ -54,7 +54,13 @@ async function staticDnr(bbox) {
 }
 async function refresh() {
   const z = map.getZoom(); const b = map.getBounds();
-  if (z < MIN_ZOOM) { setOverlay("xing-dnr", empty()); setOverlay("xing-nbi", empty()); lastKey = null; note(`Crossings: zoom in (${MIN_ZOOM}+) to load`); return; }
+  if (z < MIN_ZOOM) {
+    if (lastKey === "overview") return;
+    if (xOverview === undefined) { xOverview = fetch("data/layers/xing-dnr/overview.json").then(async (r) => { if (!r.ok) return null; const fc = await r.json(); for (const f of fc.features) decorateDnr(f.properties); return fc; }).catch(() => null); track("Crossings overview", xOverview); }
+    const ov = await xOverview; if (!enabled || map.getZoom() >= MIN_ZOOM) return;
+    setOverlay("xing-dnr", ov || empty()); setOverlay("xing-nbi", empty()); lastKey = ov ? "overview" : null;
+    note(ov ? `Crossings: ${ov.features.length} DNR-surveyed crossings region-wide (overview; NBI bridges load at zoom ${MIN_ZOOM}+)` : `Crossings: zoom in (${MIN_ZOOM}+) to load`); return;
+  }
   const pad = 0.15;
   const bbox = [b.getWest() - (b.getEast() - b.getWest()) * pad, b.getSouth() - (b.getNorth() - b.getSouth()) * pad, b.getEast() + (b.getEast() - b.getWest()) * pad, b.getNorth() + (b.getNorth() - b.getSouth()) * pad];
   const key = bbox.map((v) => v.toFixed(3)).join(","); if (key === lastKey) return; lastKey = key;
