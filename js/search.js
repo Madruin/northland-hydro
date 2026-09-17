@@ -25,10 +25,13 @@ export function initSearch() {
     render(box, items, true);
     const seq = ++runSeq;
     const wantParcels = looksLikePin(q) || /[a-z]{3,}/i.test(q) && q.length >= 4;
-    const [places, parcels] = await Promise.all([placeMatches(q).catch(() => []), wantParcels ? searchParcels(q).catch(() => []) : Promise.resolve([])]);
-    if (seq !== runSeq) return; // a newer keystroke superseded this search
-    items = [...localMatches(q), ...parcels, ...places];
-    render(box, items, false);
+    let places = [], parcels = [];
+    const show = (loading) => { if (seq !== runSeq) return; items = [...localMatches(q), ...parcels, ...places]; render(box, items, loading); };
+    await Promise.all([
+      placeMatches(q).then((p) => { places = p; show(true); }).catch(() => {}),
+      wantParcels ? searchParcels(q, { onPartial: (p) => { parcels = p; show(true); } }).then((p) => { parcels = p; }).catch(() => {}) : Promise.resolve(),
+    ]);
+    show(false); // a newer keystroke supersedes via seq
   }, 200);
   input.addEventListener("input", run);
   const showRecents = () => { const r = getRecents(); if (!r.length) { box.hidden = true; return; } items = r.map((p) => ({ kind: "recent", label: p.label, sub: `Recent point · ${ago(p.t)}`, lon: p.lon, lat: p.lat, zoom: 14, s: 0 })); render(box, items, false); };

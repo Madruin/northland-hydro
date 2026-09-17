@@ -33,7 +33,7 @@ const SEARCH_FIELDS = {
 let pineSearch = null;
 function centerOf(g) { if (!g) return null; const bb = bboxOf(g); return [(bb[0] + bb[2]) / 2, (bb[1] + bb[3]) / 2]; }
 export function looksLikePin(q) { return /\d/.test(q) && /^[\d.\-\s]+$/.test(q.trim()) && q.replace(/\D/g, "").length >= 5; }
-export async function searchParcels(q, { limitPerCounty = 5, signal } = {}) {
+export async function searchParcels(q, { limitPerCounty = 5, signal, onPartial } = {}) {
   const raw = q.trim().replace(/'/g, "''"); const isPin = looksLikePin(q); const digits = raw.replace(/\D/g, "");
   const upper = raw.toUpperCase();
   const jobs = Object.entries(SERVICES).map(async ([fips, s]) => {
@@ -57,7 +57,9 @@ export async function searchParcels(q, { limitPerCounty = 5, signal } = {}) {
     }
     return hits;
   })());
-  const results = await Promise.allSettled(jobs);
+  // report each county as it answers (Lake County takes ~5 s) so the search box can fill in progressively
+  const found = [];
+  const results = await Promise.allSettled(jobs.map((j) => j.then((hits) => { found.push(...hits); onPartial?.(found.slice()); return hits; })));
   return results.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
 }
 const staticCache = { index: {}, cells: {} };
