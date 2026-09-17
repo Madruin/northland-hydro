@@ -27,6 +27,7 @@ import { renderFemaAt } from "./fema.js";
 import { renderCrossingAt } from "./crossings.js";
 import { renderWlssdSection } from "./wlssd.js";
 import { renderWellsAt } from "./wells.js";
+import { renderPwiAt, renderImpairedAt, renderEasementsAt } from "./waterregs.js";
 import { visit } from "./nav.js";
 import { openReport } from "./report.js";
 const countyName = (fips) => { const c = COUNTIES.find((x) => x.fips === String(fips)); return c ? c.name.replace(" (WI)", "") + " County" : fips ? "FIPS " + fips : ""; };
@@ -246,7 +247,7 @@ function mergeSeries(q, h) {
 
 // ---------------- Point ----------------
 // Sticky jump bar for the Point panel: one chip per section, spinning until the section has settled, dimmed when it has nothing to say.
-const PT_SECTIONS = [["pt-lake", "Lake"], ["pt-watershed", "Watershed"], ["pt-crossing", "Crossing"], ["pt-fema", "FEMA"], ["pt-wetland", "Wetland"], ["pt-parcel", "Parcel"], ["pt-soils", "Soils"], ["pt-wells", "Wells"], ["pt-precip", "Rainfall"], ["pt-nearby", "Nearby"], ["pt-wx", "Forecast"], ["pt-soil", "Soil moisture"], ["pt-a14", "Atlas 14"]];
+const PT_SECTIONS = [["pt-lake", "Lake"], ["pt-watershed", "Watershed"], ["pt-crossing", "Crossing"], ["pt-pwi", "PWI"], ["pt-impaired", "Impaired"], ["pt-fema", "FEMA"], ["pt-easement", "Easements"], ["pt-wetland", "Wetland"], ["pt-parcel", "Parcel"], ["pt-soils", "Soils"], ["pt-wells", "Wells"], ["pt-precip", "Rainfall"], ["pt-nearby", "Nearby"], ["pt-wx", "Forecast"], ["pt-soil", "Soil moisture"], ["pt-a14", "Atlas 14"]];
 let navDone = {}, navObserver = null, navTimer = null, navRun = {}, ptCur = null;
 const FAILED = /failed|timed out|unavailable|error/i;
 function startPointNav(container) {
@@ -297,7 +298,10 @@ export async function renderPoint(lon, lat) {
     <div id="pt-lake"></div>
     <div id="pt-watershed"></div>
     <div id="pt-crossing"></div>
+    <div id="pt-pwi"></div>
+    <div id="pt-impaired"></div>
     <div id="pt-fema"></div>
+    <div id="pt-easement"></div>
     <div id="pt-wetland"></div>
     <div id="pt-parcel"></div>
     <div id="pt-soils"></div>
@@ -315,6 +319,7 @@ export async function renderPoint(lon, lat) {
     "pt-watershed": () => renderWatershed($("pt-watershed"), lon, lat), "pt-soils": () => renderSoilsAt($("pt-soils"), lon, lat), "pt-parcel": () => renderParcelAt($("pt-parcel"), lon, lat),
     "pt-lake": () => renderLakeAt($("pt-lake"), lon, lat), "pt-wetland": () => renderWetlandAt($("pt-wetland"), lon, lat), "pt-fema": () => renderFemaAt($("pt-fema"), lon, lat),
     "pt-crossing": () => renderCrossingAt($("pt-crossing"), lon, lat), "pt-wells": () => renderWellsAt($("pt-wells"), lon, lat),
+    "pt-pwi": () => renderPwiAt($("pt-pwi"), lon, lat), "pt-impaired": () => renderImpairedAt($("pt-impaired"), lon, lat), "pt-easement": () => renderEasementsAt($("pt-easement"), lon, lat),
   };
   c.querySelectorAll(".copy").forEach((b) => (b.onclick = async () => { try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = "✓"; setTimeout(() => (b.textContent = "⧉"), 1200); } catch { prompt("Copy:", b.dataset.copy); } }));
   startPointNav(c);
@@ -326,6 +331,9 @@ export async function renderPoint(lon, lat) {
   navTrack("pt-fema", renderFemaAt($("pt-fema"), lon, lat));
   navTrack("pt-crossing", renderCrossingAt($("pt-crossing"), lon, lat));
   navTrack("pt-wells", renderWellsAt($("pt-wells"), lon, lat));
+  navTrack("pt-pwi", renderPwiAt($("pt-pwi"), lon, lat));
+  navTrack("pt-impaired", renderImpairedAt($("pt-impaired"), lon, lat));
+  navTrack("pt-easement", renderEasementsAt($("pt-easement"), lon, lat));
   $("pt-report").onclick = async () => { const m = $("pt-report-msg"); try { await openReport({ lon, lat, onStatus: (t) => (m.textContent = t) }); m.textContent = ""; } catch (e) { m.textContent = "Report failed: " + e.message; } };
 
   // Nearby observers (from the already-loaded station layer)

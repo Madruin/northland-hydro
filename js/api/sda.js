@@ -19,9 +19,9 @@ export async function query(sql, { ttl = 10 * 60_000 } = {}) {
 // Map-unit polygons intersecting a lon/lat bbox, with the dominant component's hydrologic group etc.
 export async function polygonsInBbox([w, s, e, n], { tolerance = 0.00004 } = {}) {
   const poly = `POLYGON((${w} ${s}, ${e} ${s}, ${e} ${n}, ${w} ${n}, ${w} ${s}))`;
-  const sql = `SELECT mp.mukey, m.musym, m.muname, c.compname, c.comppct_r, c.hydgrp, c.drainagecl, c.hydricrating, c.slope_r,
+  const sql = `SELECT mp.mukey, m.musym, m.muname, c.compname, c.comppct_r, c.hydgrp, c.drainagecl, c.hydricrating, c.slope_r, a.wtdepannmin, a.wtdepaprjunmin, a.flodfreqdcd,
     mp.mupolygongeo.Reduce(${tolerance}).STAsText() AS wkt
-    FROM mupolygon mp INNER JOIN mapunit m ON m.mukey = mp.mukey
+    FROM mupolygon mp INNER JOIN mapunit m ON m.mukey = mp.mukey LEFT JOIN muaggatt a ON a.mukey = m.mukey
     OUTER APPLY (SELECT TOP 1 compname, comppct_r, hydgrp, drainagecl, hydricrating, slope_r FROM component WHERE mukey = m.mukey ORDER BY comppct_r DESC) c
     WHERE mp.mupolygongeo.STIntersects(geometry::STGeomFromText('${poly}', 4326)) = 1`;
   const rows = await query(sql);
@@ -29,7 +29,7 @@ export async function polygonsInBbox([w, s, e, n], { tolerance = 0.00004 } = {})
   for (const r of rows) {
     const g = wktToGeometry(r.wkt);
     if (!g) continue;
-    features.push({ type: "Feature", geometry: g, properties: { mukey: r.mukey, musym: r.musym, muname: r.muname, compname: r.compname, comppct: Number(r.comppct_r) || null, hydgrp: r.hydgrp || null, drainagecl: r.drainagecl, hydric: r.hydricrating, slope: r.slope_r == null ? null : Number(r.slope_r) } });
+    features.push({ type: "Feature", geometry: g, properties: { mukey: r.mukey, musym: r.musym, muname: r.muname, compname: r.compname, comppct: Number(r.comppct_r) || null, hydgrp: r.hydgrp || null, wtdep: r.wtdepannmin != null && r.wtdepannmin !== "" ? Number(r.wtdepannmin) : null, wtdepSpring: r.wtdepaprjunmin != null && r.wtdepaprjunmin !== "" ? Number(r.wtdepaprjunmin) : null, flodfreq: r.flodfreqdcd || null, drainagecl: r.drainagecl, hydric: r.hydricrating, slope: r.slope_r == null ? null : Number(r.slope_r) } });
   }
   return { type: "FeatureCollection", features };
 }

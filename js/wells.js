@@ -5,6 +5,8 @@ import { map, setOverlay } from "./map.js";
 
 const CWI = "https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_health/water_well_information_non_pws/FeatureServer";
 const DCL = "https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_dnr/geos_boring_hole_locations/FeatureServer/0";
+const CGM = "https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_dnr/env_wiski_groundwater_monitoring/FeatureServer/0";
+const CGM_FIELDS = "station,name,dnr_obwell_id,usgs_id,well_type,read_status,station_type,aquifer_name,aquifer_type,completed_depth,completion_date,firstfieldvisit,lastfieldvisit,has_provisional_data,has_approved_data,url";
 export const MIN_ZOOM = 12;
 const WELL_FIELDS = "relateid,unique_no,wellname,elevation,elev_mc,depth_drll,depth_comp,date_drll,case_diam,case_depth,use_c,status_c,depth2bdrk,first_bdrk,last_strat,aquifer,strat_mc,strat_src,loc_mc,swl,core,cuttings,bhgeophys,data_src";
 const DCL_FIELDS = "dhname,dhalias,drilldate,drillfor,totdep,azimuth,dip,z_elevft,dnrnum,mdhnum,drillmthd,drlpurpose,project,coreloc";
@@ -18,7 +20,11 @@ const ERA = { Q: "Quaternary (glacial/alluvial)", R: "Recent / surface", P: "Pre
 
 let enabled = false, lastKey = null, inflight = null;
 export function initWells() { map.on("moveend", debounce(() => { if (enabled) refresh(); }, 350)); }
-export function setWellsEnabled(on) { enabled = on; if (on) refresh(); else { setOverlay("wells", empty()); setOverlay("drillholes", empty()); lastKey = null; note(""); } }
+export function setWellsEnabled(on) { enabled = on; if (on) refresh(); else { setOverlay("wells", empty()); setOverlay("drillholes", empty()); setOverlay("obwells", empty()); lastKey = null; note(""); } }
+function decorateObwell(p) {
+  p.color = p.read_status === "YES" ? "#0d9488" : "#64748b";
+  p.popup = `<div class="popup-title">DNR observation well ${escapeHtml(p.dnr_obwell_id || p.station || "")}</div><div class="popup-sub">${escapeHtml(p.aquifer_name || "")}${p.completed_depth ? ` · ${fmt(Number(p.completed_depth), 0)} ft deep` : ""} · ${p.read_status === "YES" ? "actively read" : "not currently read"}${p.lastfieldvisit ? " · last visit " + new Date(p.lastfieldvisit).toLocaleDateString() : ""}</div><div class="popup-sub">${escapeHtml(p.well_type || "")} · water levels on the DNR CGM page</div>`;
+}
 const empty = () => ({ type: "FeatureCollection", features: [] });
 function note(t) { const el = $("wells-note"); if (el) el.textContent = t; }
 
@@ -58,16 +64,17 @@ function decorateHole(p) {
 }
 async function refresh() {
   const z = map.getZoom(); const b = map.getBounds();
-  if (z < MIN_ZOOM) { setOverlay("wells", empty()); setOverlay("drillholes", empty()); lastKey = null; note(`Wells: zoom in (${MIN_ZOOM}+) to load`); return; }
+  if (z < MIN_ZOOM) { setOverlay("wells", empty()); setOverlay("drillholes", empty()); setOverlay("obwells", empty()); lastKey = null; note(`Wells: zoom in (${MIN_ZOOM}+) to load`); return; }
   const pad = 0.15;
   const bbox = [b.getWest() - (b.getEast() - b.getWest()) * pad, b.getSouth() - (b.getNorth() - b.getSouth()) * pad, b.getEast() + (b.getEast() - b.getWest()) * pad, b.getNorth() + (b.getNorth() - b.getSouth()) * pad];
   const key = bbox.map((v) => v.toFixed(3)).join(","); if (key === lastKey) return; lastKey = key;
   note("Wells: loading…");
   await loadCodes().catch(() => {});
   const env = { geometry: bbox.map((v) => v.toFixed(5)).join(","), geometryType: "esriGeometryEnvelope", spatialRel: "esriSpatialRelIntersects", resultRecordCount: "2000" };
-  const mine = (inflight = Promise.allSettled([qgeo(`${CWI}/1`, { ...env, outFields: WELL_FIELDS }), qgeo(DCL, { ...env, outFields: DCL_FIELDS })]));
-  const [wr, hr] = await mine; if (inflight !== mine || !enabled) return;
+  const mine = (inflight = Promise.allSettled([qgeo(`${CWI}/1`, { ...env, outFields: WELL_FIELDS }), qgeo(DCL, { ...env, outFields: DCL_FIELDS }), qgeo(CGM, { ...env, outFields: CGM_FIELDS })]));
+  const [wr, hr, orr] = await mine; if (inflight !== mine || !enabled) return;
   let nw = 0, nh = 0; const errs = [];
+  if (orr.status === "fulfilled") { for (const f of orr.value.features) decorateObwell(f.properties); setOverlay("obwells", orr.value); } else errs.push("obwells " + orr.reason?.message);
   if (wr.status === "fulfilled") { for (const f of wr.value.features) decorateWell(f.properties); setOverlay("wells", wr.value); nw = wr.value.features.length; } else errs.push("CWI " + wr.reason?.message);
   if (hr.status === "fulfilled") { for (const f of hr.value.features) decorateHole(f.properties); setOverlay("drillholes", hr.value); nh = hr.value.features.length; } else errs.push("DNR " + hr.reason?.message);
   note(`Wells: ${nw}${nw >= 2000 ? "+ (capped, zoom in)" : ""} CWI wells, ${nh} DNR drill holes${errs.length ? " · failed: " + errs.join("; ") : ""}`);
@@ -78,6 +85,7 @@ export function wellsLegendHtml() {
     ${BDRK_CLASSES.map(([, c, l]) => `<div class="legend-row"><span class="swatch" style="background:${c}"></span>${l}</div>`).join("")}
     <div class="legend-row"><span class="swatch" style="background:${NO_BDRK}"></span>no interpreted stratigraphy</div>
     <div class="legend-row"><span class="swatch sq" style="background:#7c3aed;transform:rotate(45deg);width:10px;height:10px"></span>DNR drill hole (purple exploration · teal engineering · blue scientific)</div>
+    <div class="legend-row"><span class="swatch" style="background:#0d9488"></span>DNR observation well (grey = not currently read)</div>
     <div class="small">MN County Well Index (MGS/MDH): located wells and borings with driller logs interpreted by MGS. Loads at zoom ${MIN_ZOOM}+. <span id="wells-note"></span></div>`;
 }
 
@@ -86,11 +94,12 @@ export async function renderWellsAt(container, lon, lat) {
   container.innerHTML = "";
   const box = (m) => { const d = m / 111320, dx = d / Math.cos((lat * Math.PI) / 180); return { geometry: `${(lon - dx).toFixed(6)},${(lat - d).toFixed(6)},${(lon + dx).toFixed(6)},${(lat + d).toFixed(6)}`, geometryType: "esriGeometryEnvelope", spatialRel: "esriSpatialRelIntersects" }; };
   try {
-    const [, wr, hr] = await Promise.all([loadCodes().catch(() => {}), qgeo(`${CWI}/1`, { ...box(600), outFields: WELL_FIELDS, resultRecordCount: "400" }).catch(() => null), qgeo(DCL, { ...box(600), outFields: DCL_FIELDS, resultRecordCount: "100" }).catch(() => null)]);
+    const [, wr, hr, orr] = await Promise.all([loadCodes().catch(() => {}), qgeo(`${CWI}/1`, { ...box(600), outFields: WELL_FIELDS, resultRecordCount: "400" }).catch(() => null), qgeo(DCL, { ...box(600), outFields: DCL_FIELDS, resultRecordCount: "100" }).catch(() => null), qgeo(CGM, { ...box(2000), outFields: CGM_FIELDS, resultRecordCount: "20" }).catch(() => null)]);
+    const obwells = (orr?.features || []).map((f) => ({ ...f.properties, d: haversineKm(lat, lon, f.geometry.coordinates[1], f.geometry.coordinates[0]) * 1000 })).sort((a, b) => a.d - b.d);
     const dist = (f) => haversineKm(lat, lon, f.geometry.coordinates[1], f.geometry.coordinates[0]) * 1000;
     const wells = (wr?.features || []).map((f) => ({ ...f.properties, d: dist(f) })).sort((a, b) => a.d - b.d);
     const holes = (hr?.features || []).map((f) => ({ ...f.properties, d: dist(f) })).sort((a, b) => a.d - b.d);
-    if (!wells.length && !holes.length) return;
+    if (!wells.length && !holes.length && !obwells.length) return;
     const near = wells.slice(0, 5);
     const ids = near.map((w) => `'${w.relateid}'`).join(",");
     let strat = [], wl = [];
@@ -125,6 +134,11 @@ export async function renderWellsAt(container, lon, lat) {
       html += `<div style="margin-top:8px"><b>DNR Drill Core Library holes within 600 m</b></div><table class="data"><thead><tr><th>Hole</th><th>Purpose</th><th>Drilled for</th><th class="num">Year</th><th class="num">Depth ft</th><th>Method</th><th class="num">Dist ft</th></tr></thead><tbody>
         ${holes.slice(0, 8).map((h) => `<tr><td>${escapeHtml(h.dhname || "")}${h.mdhnum ? `<div class="small">MDH ${h.mdhnum}</div>` : ""}</td><td>${escapeHtml(h.drlpurpose || "")}</td><td>${escapeHtml(h.drillfor || "")}${h.project ? `<div class="small">${escapeHtml(h.project)}</div>` : ""}</td><td class="num">${h.drilldate ? new Date(h.drilldate).getFullYear() : "–"}</td><td class="num">${h.totdep ? fmt(h.totdep, 0) : "–"}</td><td>${escapeHtml(h.drillmthd || "")}${h.dip != null && h.dip !== -90 ? ` <span class="small">dip ${h.dip}°</span>` : ""}</td><td class="num">${fmtNum(h.d * 3.281)}</td></tr>`).join("")}</tbody></table>
         <div class="small">Core and logs for these holes are held at the <a href="https://www.dnr.state.mn.us/lands_minerals/dc_library.html" target="_blank" rel="noopener">DNR Drill Core Library</a> in Hibbing; documents via the <a href="https://www.dnr.state.mn.us/lands_minerals/mpes_projects/mmrd.html" target="_blank" rel="noopener">Minnesota Mineral Resources Database</a>.</div>`;
+    }
+    if (obwells.length) {
+      html += `<div style="margin-top:8px"><b>DNR observation wells within 2 km</b></div><table class="data"><thead><tr><th>Well</th><th>Aquifer</th><th class="num">Depth ft</th><th>Status</th><th class="num">Dist ft</th></tr></thead><tbody>
+        ${obwells.slice(0, 6).map((o) => `<tr><td><a href="${escapeHtml(o.url || "https://www.dnr.state.mn.us/waters/cgm/index.html")}" target="_blank" rel="noopener">${escapeHtml(o.dnr_obwell_id || o.station || "")}</a><div class="small">${escapeHtml(o.well_type || "")}</div></td><td>${escapeHtml(o.aquifer_name || "")}</td><td class="num">${o.completed_depth ? fmt(Number(o.completed_depth), 0) : "–"}</td><td class="small">${o.read_status === "YES" ? "read" : "inactive"}${o.lastfieldvisit ? "<br>" + new Date(o.lastfieldvisit).toLocaleDateString() : ""}${o.has_provisional_data === "Y" ? "<br>provisional data" : ""}</td><td class="num">${fmtNum(o.d * 3.281)}</td></tr>`).join("")}</tbody></table>
+        <div class="small">DNR Cooperative Groundwater Monitoring network; the well link opens its hydrograph and downloadable water-level record.</div>`;
     }
     html += `<div class="small">Source: MN County Well Index (Minnesota Geological Survey and MDH). Driller descriptions are as logged by the contractor; unit codes are the MGS interpretation. Well locations vary from GPS to section-level; check the location method before relying on a log. <a href="https://mnwellindex.web.health.state.mn.us/mwi/" target="_blank" rel="noopener">Minnesota Well Index map</a>.</div>`;
     container.innerHTML = html;

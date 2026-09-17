@@ -3,6 +3,13 @@ import { $, escapeHtml, fmt, fmtNum, debounce, on } from "./util.js";
 import * as sda from "./api/sda.js";
 import { map, setSoils } from "./map.js";
 
+export const WT_BINS = [[30, "#1e3a8a", "< 1 ft (0–30 cm)"], [60, "#1d4ed8", "1–2 ft"], [100, "#3b82f6", "2–3.3 ft"], [150, "#93c5fd", "3.3–5 ft"], [200, "#dbeafe", "5–6.6 ft"], [Infinity, "#f5f5f4", "> 6.6 ft / none within 2 m"]];
+export const wtColor = (cm) => { if (cm == null || isNaN(cm)) return "#9e9e9e"; for (const [lim, c] of WT_BINS) if (cm < lim) return c; return "#f5f5f4"; };
+export let soilsTheme = "hsg";
+export function setSoilsTheme(t) { soilsTheme = t; try { localStorage.setItem("nh-soils-theme", t); } catch {} if (lastFc) { for (const f of lastFc.features) paint(f.properties); setSoils(lastFc); } }
+try { soilsTheme = localStorage.getItem("nh-soils-theme") || "hsg"; } catch {}
+let lastFc = null;
+function paint(p) { p.color = soilsTheme === "wtdep" ? wtColor(p.wtdep) : (HSG_COLORS[p.hydgrp] || "#9e9e9e"); }
 export const HSG_COLORS = { A: "#2e7d32", B: "#7cb342", C: "#ffb300", D: "#d32f2f", "A/D": "#5e35b1", "B/D": "#8e24aa", "C/D": "#e91e63" };
 export const HSG_NOTE = { A: "high infiltration, low runoff", B: "moderate infiltration", C: "slow infiltration", D: "very slow infiltration, high runoff", "A/D": "A if drained, D undrained", "B/D": "B if drained, D undrained", "C/D": "C if drained, D undrained" };
 export const MIN_ZOOM = 12, MAX_SPAN_KM = 7;
@@ -37,17 +44,19 @@ async function refresh() {
     if (inflight !== mine || !enabled) return;
     for (const f of fc.features) {
       const p = f.properties;
-      p.color = HSG_COLORS[p.hydgrp] || "#9e9e9e";
+      paint(p);
       p.label = p.musym || "";
-      p.popup = `<div class="popup-title">${escapeHtml(p.muname || p.musym)}</div><div><span class="popup-big" style="color:${p.color}">${escapeHtml(p.hydgrp || "–")}</span> <span class="popup-sub">hydrologic soil group${p.hydgrp ? " · " + (HSG_NOTE[p.hydgrp] || "") : ""}</span></div><div class="popup-sub">${escapeHtml(p.musym)} · ${escapeHtml(p.compname || "")} ${p.comppct ? p.comppct + "%" : ""} · ${escapeHtml(p.drainagecl || "")}${p.hydric === "Yes" ? " · hydric" : ""}${p.slope != null ? " · " + p.slope + "% slope" : ""}</div>`;
+      p.popup = `<div class="popup-title">${escapeHtml(p.muname || p.musym)}</div><div><span class="popup-big" style="color:${p.color}">${escapeHtml(p.hydgrp || "–")}</span> <span class="popup-sub">hydrologic soil group${p.hydgrp ? " · " + (HSG_NOTE[p.hydgrp] || "") : ""}</span></div><div class="popup-sub">water table: ${p.wtdep != null ? (p.wtdep >= 200 ? "none within 2 m" : (p.wtdep / 30.48).toFixed(1) + " ft (annual min)") : "not rated"}${p.flodfreq ? " · flooding: " + escapeHtml(p.flodfreq) : ""}</div><div class="popup-sub">${escapeHtml(p.musym)} · ${escapeHtml(p.compname || "")} ${p.comppct ? p.comppct + "%" : ""} · ${escapeHtml(p.drainagecl || "")}${p.hydric === "Yes" ? " · hydric" : ""}${p.slope != null ? " · " + p.slope + "% slope" : ""}</div>`;
     }
-    setSoils(fc);
+    lastFc = fc; setSoils(fc);
     setStatusNote(`Soils: ${fc.features.length} map-unit polygons (SSURGO)`);
   } catch (e) { console.warn("soils failed", e); setStatusNote("Soils: Soil Data Access request failed"); }
 }
 
 export function soilsLegendHtml() {
-  return `<h4>Hydrologic soil group (SSURGO)</h4>${Object.entries(HSG_COLORS).map(([k, c]) => `<div class="legend-row"><span class="swatch sq" style="background:${c};opacity:.8"></span>${k} <span class="small">${HSG_NOTE[k]}</span></div>`).join("")}<div class="legend-row"><span class="swatch sq" style="background:#9e9e9e;opacity:.6"></span>Not rated</div><div class="small">Dominant component of each map unit. Loads for the view at zoom ${MIN_ZOOM}+; symbols label the units at 14+. <span id="soils-note"></span></div>`;
+  const sel = `<select id="soils-theme" class="lg-select" title="Soils color theme"><option value="hsg" ${soilsTheme === "hsg" ? "selected" : ""}>Hydrologic soil group</option><option value="wtdep" ${soilsTheme === "wtdep" ? "selected" : ""}>Water table depth (annual min)</option></select>`;
+  if (soilsTheme === "wtdep") return `<h4>Soils: water table (SSURGO)</h4>${sel}${WT_BINS.map(([, c, l]) => `<div class="legend-row"><span class="swatch sq" style="background:${c};opacity:.85"></span>${l}</div>`).join("")}<div class="legend-row"><span class="swatch sq" style="background:#9e9e9e;opacity:.6"></span>not rated</div><div class="small">Shallowest annual depth to a saturated zone (muaggatt wtdepannmin), map-unit aggregate; the spring (Apr–Jun) value is in the point section. <span id="soils-note"></span></div>`;
+  return `<h4>Hydrologic soil group (SSURGO)</h4>${sel}${Object.entries(HSG_COLORS).map(([k, c]) => `<div class="legend-row"><span class="swatch sq" style="background:${c};opacity:.8"></span>${k} <span class="small">${HSG_NOTE[k]}</span></div>`).join("")}<div class="legend-row"><span class="swatch sq" style="background:#9e9e9e;opacity:.6"></span>Not rated</div><div class="small">Dominant component of each map unit. Loads for the view at zoom ${MIN_ZOOM}+; symbols label the units at 14+. <span id="soils-note"></span></div>`;
 }
 
 // ---- Point panel section ----

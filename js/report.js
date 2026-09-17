@@ -100,7 +100,7 @@ export async function buildReport({ lon, lat, project = null, analysis = null, o
 }
 
 // The Point panel's site-condition sections, as rendered (charts, buttons and spinners stripped), for the printed report.
-const REPORT_SECTIONS = ["pt-lake", "pt-crossing", "pt-fema", "pt-wetland", "pt-parcel", "pt-soils", "pt-wells"];
+const REPORT_SECTIONS = ["pt-lake", "pt-crossing", "pt-pwi", "pt-impaired", "pt-fema", "pt-easement", "pt-wetland", "pt-parcel", "pt-soils", "pt-wells"];
 function captureSections(lon, lat) {
   const c = document.getElementById("tab-point");
   if (!c || c.dataset.pt !== `${lon.toFixed(5)},${lat.toFixed(5)}`) return [];

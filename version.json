@@ -1,5 +1,5 @@
 {
- "build": "20260917-1446-a0e0c5f",
+ "build": "20260917-1505-292a907",
  "files": [
   "css/app.css",
   "css/report.css",
@@ -47,6 +47,7 @@
   "js/terrain.js",
   "js/url.js",
   "js/util.js",
+  "js/waterregs.js",
   "js/watershed.js",
   "js/wells.js",
   "js/wlssd.js",

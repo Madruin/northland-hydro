@@ -394,3 +394,5 @@ table.fresh tr.warn td:last-child { color: var(--accent2); }
 #profile-box .pf-chart { height: 180px; }
 #profile-box .pf-stats { margin: 2px 0 4px; }
 @media (max-width: 900px) { #profile-box { left: 8px; right: 8px; bottom: 60px; } #profile-box .pf-chart { height: 150px; } }
+
+.lg-select { display: block; margin: 2px 0 6px; background: var(--bg3); border: 1px solid var(--line); border-radius: 5px; color: var(--fg); font-size: 11px; padding: 2px 4px; max-width: 100%; }

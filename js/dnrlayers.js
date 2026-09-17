@@ -4,6 +4,8 @@ import { $, escapeHtml, fmt, debounce } from "./util.js";
 import { map, setOverlay } from "./map.js";
 
 const B = "https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_dnr";
+const PCA = "https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_pca";
+const BWSR = "https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_bwsr";
 const KARST_FEATURE = { D: "Sinkhole", X: "Stream sink / disappearing stream", B: "Karst spring / seep", I: "Karst window", U: "Karst feature (unclassified)" };
 export const WETLAND_COLORS = { "Freshwater Emergent Wetland": "#7fc97f", "Freshwater Forested Wetland": "#1b7837", "Freshwater Shrub Wetland": "#5aae61", "Freshwater Pond": "#74add1", "Lake": "#2166ac", "Riverine": "#4575b4", "Other": "#bdbdbd", "Estuarine and Marine Wetland": "#c2a5cf", "Estuarine and Marine Deepwater": "#762a83" };
 const CIRC39 = { 1: "Type 1 seasonally flooded basin/flat", 2: "Type 2 wet meadow", 3: "Type 3 shallow marsh", 4: "Type 4 deep marsh", 5: "Type 5 shallow open water", 6: "Type 6 shrub swamp", 7: "Type 7 wooded swamp", 8: "Type 8 bog", 80: "Type 80 municipal/industrial", 90: "Type 90 riverine" };
@@ -11,6 +13,31 @@ export const circ39 = (c) => CIRC39[c] || (c != null ? "Type " + c : "");
 const TROUT_FLAG = { 1: "Designated trout stream", 2: "Designated trout stream (tributary reach)" };
 
 export const LAYERS = {
+  pwi: {
+    label: "Public waters (PWI)", minZoom: 11, note: "DNR Public Waters Inventory: public water basins and wetlands (with DNR shoreland class) and public watercourses. Bed or bank work below the OHWL needs a DNR public waters work permit; shoreland rules apply within 1,000 ft of a basin and 300 ft of a watercourse.",
+    sources: [
+      { id: "pwi-basins", url: `${B}/water_mn_public_waters/FeatureServer/1`, fields: "pw_basin_name,dowlknum,pwi_class,pwi_label,wettype,acres,dnr_shoreland_class", kind: "fill", where: "dowlknum <> '16000100'" },
+      { id: "pwi-lines", url: `${B}/water_mn_public_waters/FeatureServer/0`, fields: "kittle_name,kittle_nbr,pwi_label,entire", kind: "line" },
+    ],
+    legend: `<div class="legend-row"><span class="swatch sq" style="background:#38bdf8;opacity:.5"></span>Public water basin</div><div class="legend-row"><span class="swatch sq" style="background:#a3e635;opacity:.5"></span>Public water wetland</div><div class="legend-row"><span class="swatch sq" style="background:#0284c7"></span>Public watercourse</div>`,
+  },
+  impaired: {
+    label: "Impaired waters & TMDLs", minZoom: 10, note: "MPCA 2024 impaired waters list (303(d)): stream reaches and lakes with their impairments, and approved TMDL allocation areas. Hover for the impairments; click a point for TMDL status and affected uses.",
+    sources: [
+      { id: "tmdl-areas", url: `${PCA}/env_tmdl_allocation_areas/FeatureServer/3`, fields: "waterbody_name,tmdl_pollutant,epa_approval,source,area_sq_mi", kind: "fill" },
+      { id: "imp-lakes", url: `${PCA}/env_impaired_water_2024/FeatureServer/13`, fields: "auid,name,reach_desc,affected_u,imp_param,approved,needs_pln,area_acres", kind: "fill", where: "area_acres < 200000" },
+      { id: "imp-streams", url: `${PCA}/env_impaired_water_2024/FeatureServer/7`, fields: "auid,name,reach_desc,affected_u,imp_param,approved,needs_pln", kind: "line" },
+    ],
+    legend: `<div class="legend-row"><span class="swatch sq" style="background:#dc2626"></span>Impaired stream reach</div><div class="legend-row"><span class="swatch sq" style="background:#f97316;opacity:.6"></span>Impaired lake</div><div class="legend-row"><span class="swatch sq" style="background:#a855f7;opacity:.35"></span>TMDL allocation area</div>`,
+  },
+  easements: {
+    label: "Conservation easements", minZoom: 10, note: "BWSR Reinvest in Minnesota (RIM) conservation easements and wetland banking easements. Use restrictions apply inside the boundary; the recorded legal description governs.",
+    sources: [
+      { id: "rim", url: `${BWSR}/bdry_bwsr_rim_cons_easements/FeatureServer/0`, fields: "ease_num,ease_type,ease_cat,ease_acres,ease_year,exp_status,swcd_name", kind: "fill" },
+      { id: "wetbank", url: `${BWSR}/bdry_wetland_banking_easements/FeatureServer/0`, fields: "county,siteid,easement_number,acres,instrument_type,recording_date", kind: "fill" },
+    ],
+    legend: `<div class="legend-row"><span class="swatch sq" style="background:#16a34a;opacity:.6"></span>RIM easement</div><div class="legend-row"><span class="swatch sq" style="background:#0d9488;opacity:.6"></span>Wetland bank easement</div>`,
+  },
   wetlands: {
     label: "Wetlands (NWI)", minZoom: 11, note: "Minnesota National Wetlands Inventory update (DNR, 2009–2014 imagery): Cowardin code, wetland type, Circular 39 type and hydrogeomorphic class. Inventory-level mapping; jurisdictional boundaries require a delineation.",
     sources: [{ id: "wetlands", url: `${B}/water_nat_wetlands_inv_2009_2014/FeatureServer/0`, fields: "attribute,wetland_type,acres,circ39_class,hgm_desc,spcc_desc", kind: "fill" }],
@@ -39,13 +66,24 @@ export function setDnrLayerEnabled(k, on) { enabled[k] = on; if (on) refresh(k);
 function note(k, t) { const el = $(`${k}-note`); if (el) el.textContent = t; }
 
 async function fetchSrc(s, bbox) {
-  const q = new URLSearchParams({ geometry: bbox.map((v) => v.toFixed(5)).join(","), geometryType: "esriGeometryEnvelope", inSR: "4326", spatialRel: "esriSpatialRelIntersects", outFields: s.fields, outSR: "4326", geometryPrecision: "5", f: "geojson", resultRecordCount: "2000" });
-  const r = await fetch(`${s.url}/query?${q}`); if (!r.ok) throw new Error(`${s.id} ${r.status}`);
+  const offset = (360 / (256 * 2 ** map.getZoom())) / 2; // half a screen pixel in degrees: simplify big polygons server-side
+  const q = new URLSearchParams({ geometry: bbox.map((v) => v.toFixed(5)).join(","), geometryType: "esriGeometryEnvelope", inSR: "4326", spatialRel: "esriSpatialRelIntersects", outFields: s.fields, outSR: "4326", geometryPrecision: "5", maxAllowableOffset: offset.toFixed(6), where: s.where || "1=1", f: "geojson", resultRecordCount: "2000" });
+  let r; try { r = await fetch(`${s.url}/query?${q}`, { signal: AbortSignal.timeout(45000) }); } catch (e) { throw new Error(`${s.id}: ${e.name === "TimeoutError" ? "MnGeo did not answer in 45 s" : e.message}`); }
+  if (!r.ok) throw new Error(`${s.id} ${r.status}`);
   const d = await r.json(); if (d.error) throw new Error(`${s.id}: ${d.error.message}`);
   for (const f of d.features || []) decorate(s.id, f.properties);
   return { fc: { type: "FeatureCollection", features: d.features || [] }, exceeded: !!d.properties?.exceededTransferLimit };
 }
+const IMPN = { "Hg-F": "mercury (fish)", "Hg-W": "mercury (water)", T: "turbidity", TSS: "TSS", "E.coli": "E. coli", FC: "fecal coliform", DO: "dissolved oxygen", Nutrients: "nutrients", "Fishes bio": "fish IBI", "Invert bio": "invertebrate IBI", Chloride: "chloride", "PCB-F": "PCBs (fish)", "PFOS-F": "PFOS (fish)", pH: "pH", Temp: "temperature" };
+const impShort = (s) => (s || "").split(";").map((x) => x.trim()).filter((x) => x && x !== "None").map((x) => IMPN[x] || x).join(", ");
 function decorate(id, p) {
+  if (id === "pwi-basins") { p.color = /wetland/i.test(p.pwi_label || "") ? "#a3e635" : "#38bdf8"; p.opacity = 0.35; p.popup = `<div class="popup-title">${escapeHtml(p.pw_basin_name || "Unnamed basin")}</div><div class="popup-sub">${escapeHtml(p.pwi_label || "")}${p.dowlknum ? " · DOW " + escapeHtml(p.dowlknum) : ""}${p.acres ? " · " + Math.round(p.acres).toLocaleString() + " ac" : ""}${p.dnr_shoreland_class ? " · shoreland: " + escapeHtml(p.dnr_shoreland_class) : ""}</div>`; return; }
+  if (id === "pwi-lines") { p.color = "#0284c7"; p.popup = `<div class="popup-title">${escapeHtml(p.kittle_name || "Unnamed watercourse")}</div><div class="popup-sub">${escapeHtml(p.pwi_label || "Public watercourse")}${p.entire === "Y" ? " · entire length" : ""}${p.upsum_sqmi ? ` · ${fmt(p.upsum_sqmi, 1)} mi² upstream` : ""}${p.kittle_nbr ? " · " + escapeHtml(p.kittle_nbr) : ""}</div>`; return; }
+  if (id === "imp-streams") { p.color = "#dc2626"; p.popup = `<div class="popup-title">${escapeHtml(p.name || "Impaired reach")}</div><div class="popup-sub">${escapeHtml(p.reach_desc || "")} · AUID ${escapeHtml(p.auid || "")}</div><div class="popup-sub">Impaired: ${escapeHtml(impShort(p.imp_param))}${p.approved && p.approved !== "None" ? " · TMDL approved: " + escapeHtml(impShort(p.approved)) : ""}${p.needs_pln && p.needs_pln !== "None" ? " · TMDL needed: " + escapeHtml(impShort(p.needs_pln)) : ""}</div>`; return; }
+  if (id === "imp-lakes") { p.color = "#f97316"; p.opacity = 0.4; p.popup = `<div class="popup-title">${escapeHtml(p.name || "Impaired lake")}</div><div class="popup-sub">AUID ${escapeHtml(p.auid || "")}${p.area_acres ? " · " + Math.round(p.area_acres).toLocaleString() + " ac" : ""}</div><div class="popup-sub">Impaired: ${escapeHtml(impShort(p.imp_param))}${p.approved && p.approved !== "None" ? " · TMDL approved: " + escapeHtml(impShort(p.approved)) : ""}</div>`; return; }
+  if (id === "tmdl-areas") { p.color = "#a855f7"; p.opacity = 0.18; p.popup = `<div class="popup-title">TMDL allocation area · ${escapeHtml(p.waterbody_name || "")}</div><div class="popup-sub">${escapeHtml(p.tmdl_pollutant || "")}${p.epa_approval ? " · EPA approved " + new Date(p.epa_approval).toLocaleDateString() : ""}${p.area_sq_mi ? ` · ${fmt(p.area_sq_mi, 1)} mi²` : ""}</div>`; return; }
+  if (id === "rim") { p.color = "#16a34a"; p.opacity = 0.4; p.popup = `<div class="popup-title">BWSR ${escapeHtml(p.ease_cat || "RIM")} easement ${escapeHtml(p.ease_num || "")}</div><div class="popup-sub">${escapeHtml(p.ease_type || "")} · ${fmt(p.ease_acres, 1)} ac · ${escapeHtml(String(p.ease_year || ""))} · ${escapeHtml(p.swcd_name || "")} SWCD · ${escapeHtml(p.exp_status || "")}</div>`; return; }
+  if (id === "wetbank") { p.color = "#0d9488"; p.opacity = 0.4; p.popup = `<div class="popup-title">Wetland bank easement ${escapeHtml(p.easement_number || "")}</div><div class="popup-sub">site ${escapeHtml(String(p.siteid || ""))} · ${fmt(p.acres, 1)} ac · ${escapeHtml(p.county || "")} County${p.instrument_type ? " · " + escapeHtml(p.instrument_type) : ""}</div>`; return; }
   if (id === "trout") { p.color = p.trout_flag === 1 ? "#1d4ed8" : "#60a5fa"; p.popup = `<div class="popup-title">${escapeHtml(p.kittle_name || "Unnamed stream")}</div><div class="popup-sub">${TROUT_FLAG[p.trout_flag] || "Trout stream"} · ${escapeHtml(p.kittle_nbr || "")} · ${fmt(p.length_mi, 2)} mi segment</div>`; }
   else if (id === "wetlands") { p.color = WETLAND_COLORS[p.wetland_type] || "#bdbdbd"; p.popup = `<div class="popup-title">${escapeHtml(p.wetland_type || "Wetland")} <span class="popup-sub">${escapeHtml(p.attribute || "")}</span></div><div class="popup-sub">${escapeHtml(circ39(p.circ39_class))}${p.spcc_desc ? " · " + escapeHtml(p.spcc_desc) : ""} · ${fmt(p.acres, 2)} ac</div><div class="popup-sub">${escapeHtml(p.hgm_desc || "")}</div>`; }
   else if (id === "karst-poly") { p.popup = `<div class="popup-title">Karst-prone bedrock: ${escapeHtml(p.descriptn || p.maplabel)}</div><div class="popup-sub">Unit ${escapeHtml(p.maplabel || "")} · MGS map ${escapeHtml(p.map || "")}</div>`; }
