@@ -24,7 +24,7 @@ function note(t) { const el = $("crossings-note"); if (el) el.textContent = t; e
 
 async function qgeo(base, params) {
   const u = new URLSearchParams({ inSR: "4326", outSR: "4326", geometryPrecision: "6", f: "geojson", ...params });
-  const r = await fetch(`${base}/query?${u}`); if (!r.ok) throw new Error(`${r.status}`);
+  const r = await fetch(`${base}/query?${u}`, { signal: AbortSignal.timeout(90000) }); if (!r.ok) throw new Error(`${r.status}`);
   const d = await r.json(); if (d.error) throw new Error(d.error.message); return d;
 }
 const DNR_FIELDS = "crossing_id,crossing_type,stream_name,stream_kittle,road_path_or_railway_name,own_type,maint_name,county,year_built,crossing_condition,condition_issues,total_span,bankfull_width_ft,bankfull_estimate_confidence,fish_barrier_at_some_flows,fish_barrier_at_all_flows,primary_limiting_factor_for_pas,scour_pool,scour_pool_depth_ft,upstream_pool,upstream_deposition,bank_erosion_caused_by_crossing,crossing_properly_aligned,stream_stability_impact,priority,recommended_corrective_actions,field_date,survey_purpose,quantity,channel_gradient,floodprone_width_ft,inlet_bed_elevation,outlet_bed_elevation,headwater_surface_elevation,tailwater_surface_elevation,road_width_ft,notes_and_comments";
@@ -66,7 +66,23 @@ async function refresh() {
   let nd = 0, nn = 0; const errs = [];
   if (dr.status === "fulfilled") { for (const f of dr.value.features) decorateDnr(f.properties); setOverlay("xing-dnr", dr.value); nd = dr.value.features.length; } else errs.push("DNR " + dr.reason?.message);
   if (nr.status === "fulfilled") { for (const f of nr.value.features) decorateNbi(f.properties); setOverlay("xing-nbi", nr.value); nn = nr.value.features.length; } else errs.push("NBI " + nr.reason?.message);
-  note(`Crossings: ${nd} DNR-surveyed${dr.value?.fetched ? ` (snapshot ${dr.value.fetched})` : ""}, ${nn} NBI structures${errs.length ? " · failed: " + errs.join("; ") : ""}`);
+  const base = `Crossings: ${nd} DNR-surveyed${dr.value?.fetched ? ` (snapshot ${dr.value.fetched})` : ""}, ${nn} NBI structures${errs.length ? " · failed: " + errs.join("; ") : ""}`;
+  note(base);
+  if (dr.value?.fetched) revalidateDnr(bbox, key, env, base, nn);
+}
+// Snapshot first, then the live DNR inventory swaps in when MnGeo answers (see dnrlayers.js revalidate).
+let dnrBackoffUntil = 0;
+async function revalidateDnr(bbox, key, env, base, nn) {
+  if (Date.now() < dnrBackoffUntil) { note(`${base} · MnGeo was not answering, live check paused a few minutes`); return; }
+  note(`${base} · checking MnGeo for newer data…`);
+  const p = qgeo(`${DNR}/0`, { ...env, outFields: DNR_FIELDS });
+  track("Crossings live check", p.catch(() => {}));
+  const at = () => new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  try {
+    const d = await p; if (lastKey !== key || !enabled) return;
+    for (const f of d.features) decorateDnr(f.properties); setOverlay("xing-dnr", d);
+    note(`Crossings: ${d.features.length} DNR-surveyed (live from MnGeo, ${at()}), ${nn} NBI structures`);
+  } catch { if (lastKey !== key || !enabled) return; dnrBackoffUntil = Date.now() + 5 * 60 * 1000; note(`${base} · MnGeo not answering (${at()}), showing snapshot`); }
 }
 
 export function crossingsLegendHtml() {

@@ -82,9 +82,12 @@ async function fetchStatic(s, bbox) {
 }
 async function fetchSrc(s, bbox) {
   if (s.static !== false) { const st = await fetchStatic(s, bbox); if (st) return st; }
+  return fetchLive(s, bbox);
+}
+async function fetchLive(s, bbox, signal) {
   const offset = (360 / (256 * 2 ** map.getZoom())) / 2; // half a screen pixel in degrees: simplify big polygons server-side
   const q = new URLSearchParams({ geometry: bbox.map((v) => v.toFixed(5)).join(","), geometryType: "esriGeometryEnvelope", inSR: "4326", spatialRel: "esriSpatialRelIntersects", outFields: s.fields, outSR: "4326", geometryPrecision: "5", maxAllowableOffset: offset.toFixed(6), where: s.where || "1=1", f: "geojson", resultRecordCount: "2000" });
-  let r; try { r = await fetch(`${s.url}/query?${q}`, { signal: AbortSignal.timeout(90000) }); } catch (e) { throw new Error(`${s.id}: ${e.name === "TimeoutError" ? "MnGeo did not answer in 90 s" : e.message}`); }
+  let r; try { r = await fetch(`${s.url}/query?${q}`, { signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(90000)]) : AbortSignal.timeout(90000) }); } catch (e) { throw new Error(`${s.id}: ${e.name === "TimeoutError" ? "MnGeo did not answer in 90 s" : e.message}`); }
   if (!r.ok) throw new Error(`${s.id} ${r.status}`);
   const d = await r.json(); if (d.error) throw new Error(`${s.id}: ${d.error.message}`);
   for (const f of d.features || []) decorate(s.id, f.properties);
@@ -120,7 +123,29 @@ async function refresh(k) {
   let n = 0, exceeded = false; const errs = [];
   res.forEach((r, i) => { const s = L.sources[i]; if (r.status === "fulfilled") { setOverlay(s.id, r.value.fc); n += r.value.fc.features.length; exceeded ||= r.value.exceeded; } else errs.push(r.reason?.message || String(r.reason)); });
   const snap = res.map((r) => r.value?.fetched).find(Boolean);
-  note(k, `${L.label}: ${n} features${snap ? ` (snapshot ${snap})` : ""}${exceeded ? " (limit hit, zoom in)" : ""}${errs.length ? " · failed: " + errs.join("; ") + " · toggle the layer to retry" : ""}`);
+  const base = `${L.label}: ${n} features${snap ? ` (snapshot ${snap})` : ""}${exceeded ? " (limit hit, zoom in)" : ""}${errs.length ? " · failed: " + errs.join("; ") + " · toggle the layer to retry" : ""}`;
+  note(k, base);
+  const snapSrcs = L.sources.filter((s, i) => res[i].value?.fetched);
+  if (snapSrcs.length) revalidate(k, bbox, key, snapSrcs, base);
+}
+// Stale-while-revalidate: the snapshot is drawn at once, then MnGeo is asked for the current features in the
+// background and swaps them in when (if) it answers. A failed or timed-out check keeps the snapshot and backs off
+// for a few minutes so a slow MnGeo day doesn't pile up 90 s requests on every pan.
+const liveCtl = {}, liveBackoffUntil = {};
+async function revalidate(k, bbox, key, srcs, base) {
+  const L = LAYERS[k];
+  if (Date.now() < (liveBackoffUntil[k] || 0)) { note(k, `${base} · MnGeo was not answering, live check paused a few minutes`); return; }
+  liveCtl[k]?.abort(); const ctl = (liveCtl[k] = new AbortController());
+  note(k, `${base} · checking MnGeo for newer data…`);
+  const p = Promise.allSettled(srcs.map((s) => fetchLive(s, bbox, ctl.signal)));
+  track(`${L.label.replace(/ \(.*\)| &.*$/, "")} live check`, p);
+  const res = await p; if (ctl.signal.aborted || lastKey[k] !== key || !enabled[k]) return;
+  let n = 0, ok = 0, exceeded = false;
+  res.forEach((r, i) => { if (r.status === "fulfilled") { setOverlay(srcs[i].id, r.value.fc); n += r.value.fc.features.length; exceeded ||= r.value.exceeded; ok++; } });
+  const at = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  if (ok === srcs.length) note(k, `${L.label}: ${n} features (live from MnGeo, ${at})${exceeded ? " (limit hit, zoom in)" : ""}`);
+  else if (ok) note(k, `${L.label}: partly live (${at}), rest from snapshot`);
+  else { liveBackoffUntil[k] = Date.now() + 5 * 60 * 1000; note(k, `${base} · MnGeo not answering (${at}), showing snapshot`); }
 }
 // Wetlands intersecting a point (for the Point panel)
 export async function wetlandsAt(lon, lat) {

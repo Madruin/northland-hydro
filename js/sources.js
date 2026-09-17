@@ -80,7 +80,7 @@ export const SOFTWARE = [
 ];
 
 export function renderSources(el) {
-  el.innerHTML = `<p>Everything on the map comes live from the public services below; the site keeps no copy of their data. Each Point panel section and the printed report name the source and retrieval time of what they show.</p>
+  el.innerHTML = `<p>Everything on the map comes from the public services below. The slow-changing regional layers (PWI, impaired waters, easements, trout, karst, springs, DNR culvert surveys) draw first from monthly snapshots kept in the site and are then replaced by the live MnGeo data as soon as it answers; the legend note says which one you are seeing. Everything else is fetched live. Each Point panel section and the printed report name the source and retrieval time of what they show.</p>
     ${SOURCES.map((g) => `<h4>${escapeHtml(g.group)}</h4><ul class="src">${g.items.map((it) => `<li><b><a href="${escapeHtml(it.url)}" target="_blank" rel="noopener">${escapeHtml(it.name)}</a></b> — ${escapeHtml(it.use)}${it.note ? ` <span class="small">${escapeHtml(it.note)}</span>` : ""}</li>`).join("")}</ul>`).join("")}
     <h4>Methods</h4><ul class="src">${METHODS.map(([k, v]) => `<li><b>${escapeHtml(k)}.</b> ${escapeHtml(v)}</li>`).join("")}</ul>
     <h4>Software</h4><p class="small">${SOFTWARE.map(([n, u, l]) => `<a href="${escapeHtml(u)}" target="_blank" rel="noopener">${escapeHtml(n)}</a> (${l})`).join(" · ")}. Site code: <a href="https://github.com/Madruin/northland-hydro" target="_blank" rel="noopener">github.com/Madruin/northland-hydro</a>, MIT license. Built by MN SWCD Technical Service Area 3.</p>`;
