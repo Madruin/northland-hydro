@@ -134,7 +134,7 @@ The **Parcels** layer draws tax-parcel boundaries with owner labels from zoom 16
 | County | Service | Notes |
 |---|---|---|
 | St. Louis | `gis.stlouiscountymn.gov/server2/.../GeneralUse/Open_Data/MapServer/7` | ~0.7 s |
-| Cook | ArcGIS Online `Tax_Parcel_Polygons` (state-standard fields) | ~0.9 s |
+| Cook | ArcGIS Online `Tax_Parcel_Layer_(Current)` (state-standard fields, refreshed by the county; the older `Tax_Parcel_Polygons` service froze in 2024) | ~0.9 s |
 | Lake | MnGeo-hosted `us_mn_co_lake/plan_tax_parcels` | ~3 s |
 | Carlton | `gis.co.carlton.mn.us/.../OpenData/Parcels_CarltonCountyMN` | no acreage field; computed from geometry |
 | Aitkin | `gisweb.co.aitkin.mn.us/.../ParcelTaxData` | ~0.5 s |
