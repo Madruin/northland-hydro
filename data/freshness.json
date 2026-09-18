@@ -1,6 +1,8 @@
 {
- "checked": "2026-09-17T21:00:16Z",
- "flags": [],
+ "checked": "2026-09-18T00:22:40Z",
+ "flags": [
+  "MnTOPO lidar: newer (NEW: Gen_2_1M_DEM, Gen_2_2M_DEM; MnTopo image services)"
+ ],
  "sources": {
   "parcels_stlouis": {
    "label": "St. Louis County parcels",
@@ -40,7 +42,7 @@
   },
   "parcels_kanabec": {
    "label": "Kanabec County parcels",
-   "asOf": "2026-08-15",
+   "asOf": "2026-08-21",
    "detail": "newest recorded sale",
    "status": "ok"
   },
@@ -166,9 +168,9 @@
   },
   "lidar": {
    "label": "MnTOPO lidar",
-   "asOf": "2021-2023 seamless DEM",
+   "asOf": "NEW: Gen_2_1M_DEM, Gen_2_2M_DEM",
    "detail": "MnTopo image services",
-   "status": "ok"
+   "status": "newer"
   },
   "nss": {
    "label": "USGS NSS regressions",

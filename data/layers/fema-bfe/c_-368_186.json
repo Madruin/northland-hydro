@@ -1,0 +1,1 @@
+{"type":"FeatureCollection","features":[{"type":"Feature","geometry":{"type":"LineString","coordinates":[[-91.99862,46.67781],[-91.9987,46.67815]]},"properties":{"ELEV":605,"V_DATUM":"NAVD88","__id":663}},{"type":"Feature","geometry":{"type":"LineString","coordinates":[[-91.9992,46.6772],[-91.99955,46.67736]]},"properties":{"ELEV":607,"V_DATUM":"NAVD88","__id":664}}]}

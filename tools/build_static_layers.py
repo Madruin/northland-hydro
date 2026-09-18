@@ -12,12 +12,16 @@ import json, math, os, sys, time, urllib.request, urllib.parse
 import concurrent.futures as cf
 
 B = "https://enterprise.gisdata.mn.gov/aghost/rest/services"
-BBOX = [-93.45, 45.55, -89.45, 48.35]   # TSA3 counties plus a margin
+BBOX = [-93.85, 45.50, -89.45, 48.65]   # TSA3 counties (TIGER extent -93.81..-89.48, 45.56..48.63) plus a margin
 CELL = 0.25
 OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "layers")
 # id: (url, fields, where, options) — options: offset = maxAllowableOffset in degrees (default 0.00004 ≈ 4 m),
 # single = write one all.json instead of cells (for a few huge polygons that would be duplicated across many cells)
-OPTS = {"tmdl-areas": {"offset": 0.0004, "single": True}, "pwi-basins": {"offset": 0.00006}, "pwi-lines": {"offset": 0.00006}, "imp-lakes": {"offset": 0.00006}}
+# ov_where = extra filter for the overview pass; overview_only = no detail cells (source too big to snapshot); oid = order field
+OPTS = {"tmdl-areas": {"offset": 0.0004, "single": True}, "pwi-basins": {"offset": 0.00006}, "pwi-lines": {"offset": 0.00006}, "imp-lakes": {"offset": 0.00006},
+        "fema-zones": {"offset": 0.0001, "oid": "OBJECTID"}, "fema-xs": {"oid": "OBJECTID"}, "fema-bfe": {"oid": "OBJECTID"}, "fema-lomr": {"oid": "OBJECTID"},
+        "wetlands": {"overview_only": True, "ov_where": "acres >= 20"}}
+FEMA = "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer"
 LAYERS = {
     "trout":       (f"{B}/us_mn_state_dnr/env_trout_stream_designations/FeatureServer/0", "kittle_nbr,kittle_name,trout_flag,length_mi", None),
     "karst-poly":  (f"{B}/us_mn_state_dnr/geos_surface_karst_feature_devel/FeatureServer/1", "maplabel,descriptn,map", None),
@@ -30,6 +34,13 @@ LAYERS = {
     "tmdl-areas":  (f"{B}/us_mn_state_pca/env_tmdl_allocation_areas/FeatureServer/3", "waterbody_name,tmdl_pollutant,epa_approval,source,area_sq_mi,wid", None),
     "pwi-basins":  (f"{B}/us_mn_state_dnr/water_mn_public_waters/FeatureServer/1", "pw_basin_name,dowlknum,pwi_class,pwi_label,wettype,acres,shore_mi,dnr_shoreland_class", "dowlknum <> '16000100'"),
     "pwi-lines":   (f"{B}/us_mn_state_dnr/water_mn_public_waters/FeatureServer/0", "kittle_name,kittle_nbr,pwi_label,entire", None),
+    # FEMA NFHL: hazard zones only (SFHA + 0.2%); unshaded X covers most land and is drawn live at zoom 12+
+    "fema-zones":  (f"{FEMA}/28", "FLD_ZONE,ZONE_SUBTY,SFHA_TF,STATIC_BFE,DEPTH,V_DATUM,STUDY_TYP,DFIRM_ID,SOURCE_CIT", "SFHA_TF = 'T' OR ZONE_SUBTY LIKE '%0.2%'"),
+    "fema-xs":     (f"{FEMA}/14", "XS_LTR,WSEL_REG,STREAM_STN,WTR_NM,XS_LN_TYP,V_DATUM", None),
+    "fema-bfe":    (f"{FEMA}/16", "ELEV,V_DATUM", None),
+    "fema-lomr":   (f"{FEMA}/1", "CASE_NO,EFF_DATE,STATUS", None),
+    # NWI: overview only (812k polygons region-wide, ~500 MB); the map draws wetlands >= 20 ac below zoom 11, live detail above
+    "wetlands":    (f"{B}/us_mn_state_dnr/water_nat_wetlands_inv_2009_2014/FeatureServer/0", "attribute,wetland_type,acres,circ39_class,hgm_desc,spcc_desc", None),
     "xing-dnr":    (f"{B}/us_mn_state_dnr/struc_culvert_inventory_pub/FeatureServer/0", "crossing_id,crossing_type,stream_name,stream_kittle,road_path_or_railway_name,total_span,bankfull_width_ft,crossing_condition,priority,fish_barrier_at_some_flows,fish_barrier_at_all_flows,recommended_corrective_actions", None),
 }
 
@@ -45,10 +56,11 @@ def fetch(url, params, tries=4):
             time.sleep(5 * (i + 1))
 
 OV_OFFSET = 0.002   # ~200 m: region-wide "overview" geometry drawn below each layer's normal zoom (a few hundred KB per layer)
-def page(lid, offset=None):
-    url, fields, where = LAYERS[lid]
+def page(lid, offset=None, where=None):
+    url, fields, where0 = LAYERS[lid]
+    where = " AND ".join(f"({w})" for w in (where0, where) if w) or "1=1"
     base = {"geometry": ",".join(map(str, BBOX)), "geometryType": "esriGeometryEnvelope", "inSR": "4326", "spatialRel": "esriSpatialRelIntersects",
-            "outFields": fields, "outSR": "4326", "geometryPrecision": "4" if offset else "5", "maxAllowableOffset": str(offset or OPTS.get(lid, {}).get("offset", 0.00004)), "where": where or "1=1", "f": "geojson", "orderByFields": "objectid", "resultRecordCount": "2000"}
+            "outFields": fields, "outSR": "4326", "geometryPrecision": "4" if offset else "5", "maxAllowableOffset": str(offset or OPTS.get(lid, {}).get("offset", 0.00004)), "where": where, "f": "geojson", "orderByFields": OPTS.get(lid, {}).get("oid", "objectid"), "resultRecordCount": "2000"}
     feats, offset = [], 0
     while True:
         d = fetch(url, {**base, "resultOffset": str(offset)})
@@ -72,14 +84,17 @@ def write(lid, feats, url):
     d = os.path.join(OUT, lid); os.makedirs(d, exist_ok=True)
     for f in os.listdir(d):
         if f != "overview.json": os.remove(os.path.join(d, f))
-    cells = {}
+    # Each feature is stored once, in the cell holding its bbox centre; the cell's index bbox is then widened to the
+    # union of its features' bboxes, so the client (which picks cells by index bbox) still finds long river-following
+    # polygons and lines without them being copied into every cell they cross (FEMA zones were 5x inflated).
+    cells, cbb = {}, {}
     for i, f in enumerate(feats):
         if not f.get("geometry"): continue
         f["properties"]["__id"] = i
         bb = bbox_of(f["geometry"])
-        for cx in range(math.floor(bb[0] / CELL), math.floor(bb[2] / CELL) + 1):
-            for cy in range(math.floor(bb[1] / CELL), math.floor(bb[3] / CELL) + 1):
-                cells.setdefault((cx, cy), []).append(f)
+        cx, cy = math.floor((bb[0] + bb[2]) / 2 / CELL), math.floor((bb[1] + bb[3]) / 2 / CELL)
+        cells.setdefault((cx, cy), []).append(f)
+        u = cbb.get((cx, cy)); cbb[(cx, cy)] = [min(u[0], bb[0]), min(u[1], bb[1]), max(u[2], bb[2]), max(u[3], bb[3])] if u else list(bb)
     index = {"cell": CELL, "bbox": BBOX, "source": url, "fetched": time.strftime("%Y-%m-%d"), "n": len(feats), "cells": []}
     total = 0
     if OPTS.get(lid, {}).get("single"):
@@ -92,7 +107,7 @@ def write(lid, feats, url):
         name = f"c_{cx}_{cy}.json"; p = os.path.join(d, name)
         with open(p, "w", encoding="utf-8") as fh: json.dump({"type": "FeatureCollection", "features": fs}, fh, separators=(",", ":"))
         total += os.path.getsize(p)
-        index["cells"].append({"f": name, "bbox": [round(cx * CELL, 4), round(cy * CELL, 4), round((cx + 1) * CELL, 4), round((cy + 1) * CELL, 4)], "n": len(fs)})
+        b = cbb[(cx, cy)]; index["cells"].append({"f": name, "bbox": [round(b[0] - 1e-4, 4), round(b[1] - 1e-4, 4), round(b[2] + 1e-4, 4), round(b[3] + 1e-4, 4)], "n": len(fs)})
     with open(os.path.join(d, "index.json"), "w", encoding="utf-8") as fh: json.dump(index, fh, separators=(",", ":"))
     print(f"{lid}: {len(feats)} features, {len(cells)} cells, {total/1e6:.1f} MB", flush=True)
 
@@ -100,7 +115,7 @@ def write_overview(lid, feats):
     """One simplified FeatureCollection for the whole region (points: the full set), read by the site below the layer's minZoom."""
     d = os.path.join(OUT, lid)
     is_point = any((f.get("geometry") or {}).get("type", "").endswith("Point") for f in feats[:20])
-    ov = feats if is_point else page(lid, OV_OFFSET)
+    ov = feats if is_point else page(lid, OV_OFFSET, OPTS.get(lid, {}).get("ov_where"))
     for i, f in enumerate(ov): f["properties"]["__id"] = i
     p = os.path.join(d, "overview.json")
     with open(p, "w", encoding="utf-8") as fh: json.dump({"type": "FeatureCollection", "features": [f for f in ov if f.get("geometry")]}, fh, separators=(",", ":"))
@@ -109,6 +124,10 @@ def write_overview(lid, feats):
 def build(lid):
     t = time.time()
     try:
+        if OPTS.get(lid, {}).get("overview_only"):
+            os.makedirs(os.path.join(OUT, lid), exist_ok=True); write_overview(lid, [])
+            with open(os.path.join(OUT, lid, "index.json"), "w", encoding="utf-8") as fh: json.dump({"cell": CELL, "bbox": BBOX, "source": LAYERS[lid][0], "fetched": time.strftime("%Y-%m-%d"), "n": 0, "cells": [], "overview_only": True}, fh, separators=(",", ":"))
+            return f"{lid} overview ok in {time.time()-t:.0f}s"
         feats = page(lid); write(lid, feats, LAYERS[lid][0]); write_overview(lid, feats); return f"{lid} ok in {time.time()-t:.0f}s"
     except Exception as e: return f"{lid} FAILED: {e}"
 

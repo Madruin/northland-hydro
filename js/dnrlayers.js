@@ -40,7 +40,7 @@ export const LAYERS = {
     legend: `<div class="legend-row"><span class="swatch sq" style="background:#16a34a;opacity:.6"></span>RIM easement</div><div class="legend-row"><span class="swatch sq" style="background:#0d9488;opacity:.6"></span>Wetland bank easement</div>`,
   },
   wetlands: {
-    label: "Wetlands (NWI)", minZoom: 11, note: "Minnesota National Wetlands Inventory update (DNR, 2009–2014 imagery): Cowardin code, wetland type, Circular 39 type and hydrogeomorphic class. Inventory-level mapping; jurisdictional boundaries require a delineation.",
+    label: "Wetlands (NWI)", minZoom: 11, overviewNote: "wetlands of 20 acres and more, simplified", note: "Minnesota National Wetlands Inventory update (DNR, 2009–2014 imagery): Cowardin code, wetland type, Circular 39 type and hydrogeomorphic class. Inventory-level mapping; jurisdictional boundaries require a delineation.",
     sources: [{ id: "wetlands", url: `${B}/water_nat_wetlands_inv_2009_2014/FeatureServer/0`, fields: "attribute,wetland_type,acres,circ39_class,hgm_desc,spcc_desc", kind: "fill", static: false }],
     legend: Object.entries(WETLAND_COLORS).filter(([k]) => !/Estuarine/.test(k)).map(([k, c]) => `<div class="legend-row"><span class="swatch sq" style="background:${c};opacity:.75"></span>${k.replace("Freshwater ", "")}</div>`).join(""),
   },
@@ -122,12 +122,12 @@ async function refresh(k) {
   const L = LAYERS[k]; const z = map.getZoom(); const b = map.getBounds();
   if (z < L.minZoom) {
     if (lastKey[k] === "overview") return;
-    const p = Promise.all(L.sources.map((s) => (s.static === false ? null : loadOverview(s.id))));
+    const p = Promise.all(L.sources.map((s) => (s.overview === false ? null : loadOverview(s.id))));
     track(L.label.replace(/ \(.*\)| &.*$/, "") + " overview", p);
     const ov = await p; if (!enabled[k] || map.getZoom() >= L.minZoom) return;
     if (ov.some(Boolean)) {
       L.sources.forEach((s, i) => setOverlay(s.id, ov[i] || { type: "FeatureCollection", features: [] }));
-      lastKey[k] = "overview"; note(k, `${L.label}: whole-region overview (simplified geometry; zoom to ${L.minZoom}+ for full detail)`); return;
+      lastKey[k] = "overview"; note(k, `${L.label}: whole-region overview (${L.overviewNote || "simplified geometry"}; zoom to ${L.minZoom}+ for full detail)`); return;
     }
     for (const s of L.sources) setOverlay(s.id, { type: "FeatureCollection", features: [] }); lastKey[k] = null; note(k, `${L.label}: zoom in (${L.minZoom}+) to load`); return;
   }

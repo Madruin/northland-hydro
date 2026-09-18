@@ -21,7 +21,7 @@ jobs:
           set -e
           total=$(du -sm data/layers | cut -f1)
           echo "snapshot size: ${total} MB"
-          if [ "$total" -gt 150 ]; then echo "snapshot unexpectedly large, not committing"; exit 1; fi
+          if [ "$total" -gt 250 ]; then echo "snapshot unexpectedly large, not committing"; exit 1; fi
           for d in data/layers/*/; do [ -f "$d/index.json" ] || { echo "missing index in $d"; exit 1; }; done
           git config user.name "snapshot-refresher"
           git config user.email "actions@users.noreply.github.com"

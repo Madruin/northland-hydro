@@ -2,6 +2,8 @@
 // viewport layer + point section geared to no-rise / CLOMR / LOMR planning. hazards.fema.gov is CORS-enabled.
 import { $, escapeHtml, fmt, fmtNum, debounce, haversineKm, emit } from "./util.js";
 import { map, setOverlay } from "./map.js";
+import { track } from "./loader.js";
+import { fetchStatic } from "./dnrlayers.js";
 
 const N = "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer";
 const L = { zones: 28, xs: 14, bfe: 16, lomr: 1, panels: 3, baselines: 17, lomas: 34 };
@@ -31,29 +33,51 @@ async function q(layer, params) {
   const d = await r.json(); if (d.error) throw new Error(`NFHL ${layer}: ${d.error.message}`);
   return d;
 }
+function decoZones(fc) { for (const f of fc.features) { const p = f.properties; const st = zoneStyle(p.FLD_ZONE, p.ZONE_SUBTY); p.color = st.color; p.opacity = st.opacity; p.minimal = st.label === "Minimal flood hazard" ? 1 : 0; p.popup = `<div class="popup-title">Zone ${escapeHtml(p.FLD_ZONE)}${p.ZONE_SUBTY ? " · " + escapeHtml(titleCase(p.ZONE_SUBTY)) : ""}</div><div class="popup-sub">${escapeHtml(st.label)}${p.STATIC_BFE > -9999 ? ` · static BFE ${p.STATIC_BFE} ft ${escapeHtml(p.V_DATUM || "")}` : ""}${p.DEPTH > -9999 ? ` · depth ${p.DEPTH} ft` : ""} · ${p.STUDY_TYP === "NP" ? "" : escapeHtml(p.STUDY_TYP || "")} FIRM ${escapeHtml(p.DFIRM_ID || "")}</div>`; } return fc; }
+function decoXs(fc) { for (const f of fc.features) { const p = f.properties; p.label = p.XS_LTR || ""; p.popup = `<div class="popup-title">Cross section ${escapeHtml(p.XS_LTR || "(unlettered)")} · ${escapeHtml(p.WTR_NM || "")}</div><div class="popup-sub">Regulatory WSEL ${fmt(p.WSEL_REG, 1)} ft ${escapeHtml(p.V_DATUM || "")} · station ${fmtNum(p.STREAM_STN)} ft · ${escapeHtml(p.XS_LN_TYP || "")}</div>`; } return fc; }
+function decoBfe(fc) { for (const f of fc.features) { const p = f.properties; p.label = String(p.ELEV); p.popup = `<div class="popup-title">BFE ${p.ELEV} ft ${escapeHtml(p.V_DATUM || "")}</div>`; } return fc; }
+function decoLomr(fc) { for (const f of fc.features) { const p = f.properties; p.popup = `<div class="popup-title">LOMR ${escapeHtml(p.CASE_NO || "")}</div><div class="popup-sub">${escapeHtml(p.STATUS || "")} · effective ${p.EFF_DATE ? new Date(p.EFF_DATE).toLocaleDateString() : "?"}</div>`; } return fc; }
+const IDS = ["fema-zones", "fema-xs", "fema-bfe", "fema-lomr"]; const DECO = [decoZones, decoXs, decoBfe, decoLomr];
+const LIVE = [
+  (env) => q(L.zones, { ...env, outFields: "FLD_ZONE,ZONE_SUBTY,SFHA_TF,STATIC_BFE,DEPTH,V_DATUM,STUDY_TYP,DFIRM_ID" }),
+  (env) => q(L.xs, { ...env, outFields: "XS_LTR,WSEL_REG,STREAM_STN,WTR_NM,XS_LN_TYP,V_DATUM" }),
+  (env) => q(L.bfe, { ...env, outFields: "ELEV,V_DATUM" }),
+  (env) => q(L.lomr, { ...env, outFields: "CASE_NO,EFF_DATE,STATUS" }),
+];
+const counts = (fcs) => `${fcs[0]?.features.length || 0} zones, ${fcs[1]?.features.length || 0} cross sections, ${fcs[2]?.features.length || 0} BFEs, ${fcs[3]?.features.length || 0} LOMRs`;
+let overview, backoffUntil = 0;
+// Snapshot first (data/layers/fema-*, hazard zones only), then FEMA live; region overview of the zones below MIN_ZOOM.
 async function refresh() {
   const z = map.getZoom(); const b = map.getBounds();
-  if (z < MIN_ZOOM) { for (const id of ["fema-zones", "fema-xs", "fema-bfe", "fema-lomr"]) setOverlay(id, empty()); lastKey = null; note(`FEMA: zoom in (${MIN_ZOOM}+) to load`); return; }
+  if (z < MIN_ZOOM) {
+    if (lastKey === "overview") return;
+    if (overview === undefined) { overview = fetch("data/layers/fema-zones/overview.json").then(async (r) => (r.ok ? decoZones(await r.json()) : null)).catch(() => null); track("FEMA overview", overview); }
+    const ov = await overview; if (!enabled || map.getZoom() >= MIN_ZOOM) return;
+    setOverlay("fema-zones", ov || empty()); for (const id of IDS.slice(1)) setOverlay(id, empty());
+    lastKey = ov ? "overview" : null; note(ov ? `FEMA: whole-region overview of hazard zones (simplified; zoom to ${MIN_ZOOM}+ for cross sections, BFEs, LOMRs and full detail)` : `FEMA: zoom in (${MIN_ZOOM}+) to load`); return;
+  }
   const pad = 0.15;
   const bbox = [b.getWest() - (b.getEast() - b.getWest()) * pad, b.getSouth() - (b.getNorth() - b.getSouth()) * pad, b.getEast() + (b.getEast() - b.getWest()) * pad, b.getNorth() + (b.getNorth() - b.getSouth()) * pad];
   const key = bbox.map((v) => v.toFixed(3)).join(","); if (key === lastKey) return; lastKey = key;
   note("FEMA: loading…");
   const env = { geometry: bbox.map((v) => v.toFixed(5)).join(","), geometryType: "esriGeometryEnvelope", spatialRel: "esriSpatialRelIntersects", resultRecordCount: "2000" };
-  const mine = (inflight = Promise.allSettled([
-    q(L.zones, { ...env, outFields: "FLD_ZONE,ZONE_SUBTY,SFHA_TF,STATIC_BFE,DEPTH,V_DATUM,STUDY_TYP,DFIRM_ID" }),
-    q(L.xs, { ...env, outFields: "XS_LTR,WSEL_REG,STREAM_STN,WTR_NM,XS_LN_TYP,V_DATUM" }),
-    q(L.bfe, { ...env, outFields: "ELEV,V_DATUM" }),
-    q(L.lomr, { ...env, outFields: "CASE_NO,EFF_DATE,STATUS" }),
-  ]));
-  const res = await mine; if (inflight !== mine || !enabled) return;
-  const [zr, xr, br, lr] = res.map((r) => (r.status === "fulfilled" ? r.value : null));
+  const live = (inflight = Promise.allSettled(LIVE.map((fn) => fn(env))));
+  const snap = await Promise.all(IDS.map((id) => fetchStatic({ id }, bbox).catch(() => null)));
+  if (inflight !== live || !enabled) return;
+  const haveSnap = snap.some(Boolean);
+  if (haveSnap) {
+    snap.forEach((st, i) => setOverlay(IDS[i], st ? DECO[i](st.fc) : empty()));
+    const base = `FEMA: ${counts(snap.map((st) => st?.fc))} (snapshot ${snap.find(Boolean).fetched}, hazard zones only)`;
+    if (Date.now() < backoffUntil) { note(`${base} · FEMA was not answering, live check paused a few minutes`); return; }
+    note(`${base} · checking FEMA for newer data…`);
+  } else track("FEMA", live);
+  const res = await live; if (inflight !== live || !enabled) return;
+  const fcs = res.map((r) => (r.status === "fulfilled" ? r.value : null));
   const errs = res.filter((r) => r.status === "rejected").map((r) => r.reason?.message);
-  if (zr) { for (const f of zr.features) { const p = f.properties; const st = zoneStyle(p.FLD_ZONE, p.ZONE_SUBTY); p.color = st.color; p.opacity = st.opacity; p.minimal = st.label === "Minimal flood hazard" ? 1 : 0; p.popup = `<div class="popup-title">Zone ${escapeHtml(p.FLD_ZONE)}${p.ZONE_SUBTY ? " · " + escapeHtml(titleCase(p.ZONE_SUBTY)) : ""}</div><div class="popup-sub">${escapeHtml(st.label)}${p.STATIC_BFE > -9999 ? ` · static BFE ${p.STATIC_BFE} ft ${escapeHtml(p.V_DATUM || "")}` : ""}${p.DEPTH > -9999 ? ` · depth ${p.DEPTH} ft` : ""} · ${p.STUDY_TYP === "NP" ? "" : escapeHtml(p.STUDY_TYP || "")} FIRM ${escapeHtml(p.DFIRM_ID || "")}</div>`; } setOverlay("fema-zones", zr); }
-  if (xr) { for (const f of xr.features) { const p = f.properties; p.label = p.XS_LTR || ""; p.popup = `<div class="popup-title">Cross section ${escapeHtml(p.XS_LTR || "(unlettered)")} · ${escapeHtml(p.WTR_NM || "")}</div><div class="popup-sub">Regulatory WSEL ${fmt(p.WSEL_REG, 1)} ft ${escapeHtml(p.V_DATUM || "")} · station ${fmtNum(p.STREAM_STN)} ft · ${escapeHtml(p.XS_LN_TYP || "")}</div>`; } setOverlay("fema-xs", xr); }
-  if (br) { for (const f of br.features) { const p = f.properties; p.label = String(p.ELEV); p.popup = `<div class="popup-title">BFE ${p.ELEV} ft ${escapeHtml(p.V_DATUM || "")}</div>`; } setOverlay("fema-bfe", br); }
-  if (lr) { for (const f of lr.features) { const p = f.properties; p.popup = `<div class="popup-title">LOMR ${escapeHtml(p.CASE_NO || "")}</div><div class="popup-sub">${escapeHtml(p.STATUS || "")} · effective ${p.EFF_DATE ? new Date(p.EFF_DATE).toLocaleDateString() : "?"}</div>`; } setOverlay("fema-lomr", lr); }
-  const n = (zr?.features.length || 0) + (xr?.features.length || 0) + (br?.features.length || 0) + (lr?.features.length || 0);
-  note(`FEMA: ${zr?.features.length || 0} zones, ${xr?.features.length || 0} cross sections, ${br?.features.length || 0} BFEs, ${lr?.features.length || 0} LOMRs${[zr, xr, br, lr].some((r) => r?.properties?.exceededTransferLimit) ? " (limit hit, zoom in)" : ""}${errs.length ? " · failed: " + errs.join("; ") : ""}`);
+  if (fcs.every((f) => !f)) { if (haveSnap) { backoffUntil = Date.now() + 5 * 60 * 1000; note(`FEMA: ${counts(snap.map((st) => st?.fc))} (snapshot) · FEMA not answering, showing snapshot`); } else note(`FEMA: failed: ${errs.join("; ")} · toggle the layer to retry`); return; }
+  fcs.forEach((fc, i) => { if (fc) setOverlay(IDS[i], DECO[i](fc)); });
+  const at = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  note(`FEMA: ${counts(fcs)} (live from FEMA, ${at})${fcs.some((f) => f?.properties?.exceededTransferLimit) ? " (limit hit, zoom in)" : ""}${errs.length ? " · partly failed: " + errs.join("; ") : ""}`);
 }
 function titleCase(s) { return s.toLowerCase().replace(/\b([a-z])/g, (m) => m.toUpperCase()).replace(/\bPct\b/, "pct").replace(/\bBfe\b/, "BFE"); }
 
@@ -64,7 +88,7 @@ export function femaLegendHtml() {
     <div class="legend-row"><span class="swatch sq" style="background:#f59e0b;opacity:.45"></span>0.2% annual chance (X shaded)</div>
     <div class="legend-row"><span class="swatch sq" style="background:none;border:1.5px solid #0f172a"></span>Cross section (lettered) · <span style="color:#7c2d12">BFE line</span></div>
     <div class="legend-row"><span class="swatch sq" style="background:none;border:1.5px dashed #6d28d9"></span>LOMR area</div>
-    <div class="small">Effective NFHL from FEMA (hazards.fema.gov), loads at zoom ${MIN_ZOOM}+. Regulatory data for the effective FIRM; check the panel date and any LOMRs. <span id="fema-note"></span></div>`;
+    <div class="small">Effective NFHL from FEMA (hazards.fema.gov), hazard zones drawn region-wide when zoomed out, full detail from zoom ${MIN_ZOOM}+. Regulatory data for the effective FIRM; check the panel date and any LOMRs. <span id="fema-note"></span></div>`;
 }
 
 // ---- Point panel section ----
