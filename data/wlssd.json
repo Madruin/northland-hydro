@@ -1,7 +1,7 @@
 {
 "source": "http://extranet.wlssd.com/plantoverview/rain.aspx",
-"updated": "2026-09-18T19:20:00-05:00",
-"harvestedAt": "2026-09-19T00:20:20+00:00",
+"updated": "2026-09-19T00:50:00-05:00",
+"harvestedAt": "2026-09-19T05:51:29+00:00",
 "gauges": [
 {
 "name": "WLSSD Plant",
@@ -24,12 +24,12 @@
 "thisHour": 0.0,
 "lastHour": 0.0,
 "today": 0.0,
-"yesterday": 0.01,
+"yesterday": 0.0,
 "raw": {
 "thisHour": "0.00",
 "lastHour": "0.00",
 "today": "0.00",
-"yesterday": "0.01"
+"yesterday": "0.00"
 },
 "lon": -92.4268,
 "lat": 46.705,
@@ -56,12 +56,12 @@
 "thisHour": 0.0,
 "lastHour": 0.0,
 "today": 0.0,
-"yesterday": 0.01,
+"yesterday": 0.0,
 "raw": {
 "thisHour": "0.00",
 "lastHour": "0.00",
 "today": "0.00",
-"yesterday": "0.01"
+"yesterday": "0.00"
 },
 "lon": -92.201,
 "lat": 46.723,
@@ -136,11 +136,11 @@
 "thisHour": 0.0,
 "lastHour": 0.0,
 "today": 0.0,
-"yesterday": 0.01,
+"yesterday": 0.0,
 "raw": {
 "lastHour": "0.00",
 "today": "0.00",
-"yesterday": "0.01",
+"yesterday": "0.00",
 "thisHour": "0.00"
 },
 "lon": -92.238,
@@ -200,6 +200,16 @@
 "Hermantown": 0.01
 },
 "2026-09-18": {
+"WLSSD Plant": 0.0,
+"Scanlon": 0.0,
+"Endion": 0.0,
+"Munger Trail": 0.0,
+"Pike Lake": 0.0,
+"Rice Lake": 0.0,
+"Proctor": 0.0,
+"Hermantown": 0.0
+},
+"2026-09-19": {
 "WLSSD Plant": 0.0,
 "Scanlon": 0.0,
 "Endion": 0.0,
