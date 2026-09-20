@@ -1,7 +1,7 @@
 {
 "source": "http://extranet.wlssd.com/plantoverview/rain.aspx",
-"updated": "2026-09-19T20:05:00-05:00",
-"harvestedAt": "2026-09-20T01:06:42+00:00",
+"updated": "2026-09-20T01:10:00-05:00",
+"harvestedAt": "2026-09-20T06:14:55+00:00",
 "gauges": [
 {
 "name": "WLSSD Plant",
@@ -210,6 +210,16 @@
 "Hermantown": 0.0
 },
 "2026-09-19": {
+"WLSSD Plant": 0.0,
+"Scanlon": 0.0,
+"Endion": 0.0,
+"Munger Trail": 0.0,
+"Pike Lake": 0.0,
+"Rice Lake": 0.0,
+"Proctor": 0.0,
+"Hermantown": 0.0
+},
+"2026-09-20": {
 "WLSSD Plant": 0.0,
 "Scanlon": 0.0,
 "Endion": 0.0,
