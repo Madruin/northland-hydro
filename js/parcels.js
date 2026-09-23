@@ -46,7 +46,7 @@ export async function searchParcels(q, { limitPerCounty = 5, signal, onPartial }
     const d = await r.json(); if (d.error) throw new Error(`${s.name}: ${d.error.message}`);
     return (d.features || []).slice(0, limitPerCounty).map((ft) => {
       const a = ft.attributes || {}; const g = ft.geometry?.rings ? { type: "Polygon", coordinates: ft.geometry.rings } : null; const c = centerOf(g); if (!c) return null;
-      const owner = f.owners.map((o) => a[o]).filter(Boolean).join(" & ");
+      const owner = [...new Set(f.owners.map((o) => (a[o] || "").trim()).filter(Boolean))].join(" & "); // owner and taxpayer are often the same name
       return { kind: "parcel", label: owner || a[f.pin], sub: `Parcel · ${s.name} County · PIN ${a[f.pin] || "?"}${f.addr && a[f.addr] ? " · " + String(a[f.addr]).trim() : ""}`, lon: c[0], lat: c[1], zoom: 16, s: 5, pin: a[f.pin] };
     }).filter(Boolean);
   });
@@ -91,7 +91,7 @@ async function fetchStatic(fips, bbox) {
       const p = f.properties; if (seen.has(p.pin)) continue;
       const bb = bboxOf(f.geometry); if (bb[0] > bbox[2] || bb[2] < bbox[0] || bb[1] > bbox[3] || bb[3] < bbox[1]) continue;
       seen.add(p.pin);
-      const props = { kind: "parcel", county: s.name, fips, pin: p.pin || "", owner: p.owner || "", acres: p.acres ?? p.acresDeed ?? approxAcres(f.geometry), acresDeed: p.acresDeed ?? null, address: [p.address, p.city].filter(Boolean).join(", "), use: p.use || "", homestead: "" };
+      const props = { kind: "parcel", county: s.name, fips, pin: p.pin || "", owner: p.owner || "", acres: p.acres ?? p.acresDeed ?? approxAcres(f.geometry), acresDeed: p.acresDeed || null, address: [p.address, p.city].filter(Boolean).join(", "), use: p.use || "", homestead: "" };
       props.label = props.owner ? props.owner.slice(0, 28) : props.pin;
       props.popup = `<div class="popup-title">${escapeHtml(props.owner || "(no owner listed)")}</div><div class="popup-sub">PIN ${escapeHtml(props.pin)} · ${fmt(props.acres, 1)} ac${props.address ? " · " + escapeHtml(props.address) : ""}</div><div class="popup-sub">${escapeHtml(s.name)} County export</div>`;
       feats.push({ type: "Feature", geometry: f.geometry, properties: props });
@@ -124,7 +124,7 @@ async function fetchCounty(fips, bbox) {
   const feats = (d.features || []).map((f) => {
     const m = s.map(f.properties || {});
     const acres = m.acres ?? m.acresDeed ?? approxAcres(f.geometry);
-    const props = { kind: "parcel", county: s.name, fips, pin: m.pin || "", owner: m.owner || "", acres, acresDeed: m.acresDeed ?? null, address: [m.address, m.city].filter(Boolean).join(", "), use: m.use || "", homestead: m.homestead || "", emv: m.emv ?? null, year: m.year ?? null, legal: m.legal || "", lake: m.lake || "", district: m.district || "", extra: m.extra || "" };
+    const props = { kind: "parcel", county: s.name, fips, pin: m.pin || "", owner: m.owner || "", acres, acresDeed: m.acresDeed || null, address: [m.address, m.city].filter(Boolean).join(", "), use: m.use || "", homestead: m.homestead || "", emv: m.emv ?? null, year: m.year ?? null, legal: m.legal || "", lake: m.lake || "", district: m.district || "", extra: m.extra || "" };
     props.label = props.owner ? props.owner.slice(0, 28) : props.pin;
     props.popup = `<div class="popup-title">${escapeHtml(props.owner || "(no owner listed)")}</div><div class="popup-sub">PIN ${escapeHtml(props.pin)} · ${fmt(acres, 1)} ac${props.address ? " · " + escapeHtml(props.address) : ""}</div><div class="popup-sub">${escapeHtml(props.use)}${props.homestead ? " · " + escapeHtml(props.homestead) : ""}${props.emv ? " · EMV $" + fmtNum(props.emv) : ""} · ${s.name} County</div>`;
     return { type: "Feature", geometry: f.geometry, properties: props };

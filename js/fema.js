@@ -1,6 +1,6 @@
 // FEMA National Flood Hazard Layer (NFHL): flood zones (with floodway), BFE lines, cross sections, LOMRs;
 // viewport layer + point section geared to no-rise / CLOMR / LOMR planning. hazards.fema.gov is CORS-enabled.
-import { $, escapeHtml, fmt, fmtNum, debounce, haversineKm, emit } from "./util.js";
+import { $, escapeHtml, fmt, fmtNum, debounce, haversineKm, distToGeomM, emit } from "./util.js";
 import { map, setOverlay } from "./map.js";
 import { track } from "./loader.js";
 import { fetchStatic } from "./dnrlayers.js";
@@ -46,12 +46,13 @@ const LIVE = [
 ];
 const counts = (fcs) => `${fcs[0]?.features.length || 0} zones, ${fcs[1]?.features.length || 0} cross sections, ${fcs[2]?.features.length || 0} BFEs, ${fcs[3]?.features.length || 0} LOMRs`;
 let overview, backoffUntil = 0;
-// Snapshot first (data/layers/fema-*, hazard zones only), then FEMA live; region overview of the zones below MIN_ZOOM.
+// Snapshot first (data/layers/fema-*: SFHA and 0.2% zones, cross sections, BFEs, LOMRs), then FEMA live; region overview of the zones below MIN_ZOOM.
 async function refresh() {
   const z = map.getZoom(); const b = map.getBounds();
   if (z < MIN_ZOOM) {
+    inflight = null;
     if (lastKey === "overview") return;
-    if (overview === undefined) { overview = fetch("data/layers/fema-zones/overview.json").then(async (r) => (r.ok ? decoZones(await r.json()) : null)).catch(() => null); track("FEMA overview", overview); }
+    if (overview === undefined) { overview = fetch("data/layers/fema-zones/overview.json").then(async (r) => (r.ok ? decoZones(await r.json()) : null)).catch(() => { overview = undefined; return null; }); track("FEMA overview", overview); }
     const ov = await overview; if (!enabled || map.getZoom() >= MIN_ZOOM) return;
     setOverlay("fema-zones", ov || empty()); for (const id of IDS.slice(1)) setOverlay(id, empty());
     lastKey = ov ? "overview" : null; note(ov ? `FEMA: whole-region overview of hazard zones (simplified; zoom to ${MIN_ZOOM}+ for cross sections, BFEs, LOMRs and full detail)` : `FEMA: zoom in (${MIN_ZOOM}+) to load`); return;
@@ -67,7 +68,7 @@ async function refresh() {
   const haveSnap = snap.some(Boolean);
   if (haveSnap) {
     snap.forEach((st, i) => setOverlay(IDS[i], st ? DECO[i](st.fc) : empty()));
-    const base = `FEMA: ${counts(snap.map((st) => st?.fc))} (snapshot ${snap.find(Boolean).fetched}, hazard zones only)`;
+    const base = `FEMA: ${counts(snap.map((st) => st?.fc))} (snapshot ${snap.find(Boolean).fetched}; unshaded X loads live)`;
     if (Date.now() < backoffUntil) { note(`${base} · FEMA was not answering, live check paused a few minutes`); return; }
     note(`${base} · checking FEMA for newer data…`);
   } else track("FEMA", live);
@@ -113,8 +114,8 @@ export async function renderFemaAt(container, lon, lat) {
     const county = zf[0]?.properties?.DFIRM_ID?.slice(0, 5);
     if (!zf.length && !p) { container.innerHTML = `<h3>FEMA flood hazard at this point</h3><div class="notice">No effective NFHL data here (unmapped area or no digital FIRM). <a href="${mscUrl(lat, lon)}" target="_blank" rel="noopener">FEMA Map Service Center</a></div>`; return; }
     // nearest cross sections with distance
-    const xsRows = (xs?.features || []).map((f) => { const c = f.geometry?.coordinates || []; const pts = c.flat(Array.isArray(c[0]?.[0]) ? 1 : 0); let dmin = Infinity; for (const [x, y] of pts) { const d = haversineKm(lat, lon, y, x); if (d < dmin) dmin = d; } return { ...f.properties, m: dmin * 1000 }; }).sort((a, b) => a.m - b.m).slice(0, 6);
-    const bfeRows = (bfe?.features || []).map((f) => { const c = f.geometry?.coordinates || []; const pts = c.flat(Array.isArray(c[0]?.[0]) ? 1 : 0); let dmin = Infinity; for (const [x, y] of pts) { const d = haversineKm(lat, lon, y, x); if (d < dmin) dmin = d; } return { ...f.properties, m: dmin * 1000 }; }).sort((a, b) => a.m - b.m).slice(0, 4);
+    const xsRows = (xs?.features || []).map((f) => ({ ...f.properties, m: distToGeomM(lon, lat, f.geometry) })).sort((a, b) => a.m - b.m).slice(0, 6);
+    const bfeRows = (bfe?.features || []).map((f) => ({ ...f.properties, m: distToGeomM(lon, lat, f.geometry) })).sort((a, b) => a.m - b.m).slice(0, 4);
     const inFloodway = zf.some((f) => (f.properties.ZONE_SUBTY || "").toUpperCase().includes("FLOODWAY"));
     const inSfha = zf.some((f) => f.properties.SFHA_TF === "T");
     const primary = zf.find((f) => (f.properties.ZONE_SUBTY || "").toUpperCase().includes("FLOODWAY")) || zf.find((f) => f.properties.SFHA_TF === "T") || zf[0];

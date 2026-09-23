@@ -35,7 +35,7 @@ const countyName = (fips) => { const c = COUNTIES.find((x) => x.fips === String(
 const DUR24 = 9, DUR48 = 10, DUR72 = 11; // indexes into Atlas 14 duration list (24-hr, 2-day, 3-day)
 
 export function showTab(name) {
-  document.querySelectorAll(".tab").forEach((t) => { t.classList.toggle("on", t.dataset.tab === name); if (t.dataset.tab === name) t.disabled = false; });
+  document.querySelectorAll(".tab").forEach((t) => { t.classList.toggle("on", t.dataset.tab === name); t.setAttribute("aria-selected", String(t.dataset.tab === name)); if (t.dataset.tab === name) t.disabled = false; });
   document.querySelectorAll(".tab-pane").forEach((p) => p.classList.toggle("on", p.id === "tab-" + name));
   $("panel").classList.add("open");
   if (window.matchMedia("(max-width: 900px)").matches && ($("panel").dataset.sheet || "peek") === "peek") $("panel").dataset.sheet = "half";
@@ -46,7 +46,7 @@ export function renderRegion() {
   const c = $("tab-region");
   visit("region", "", "Region", () => { showTab("region"); renderRegion(); });
   const w = precipWindow;
-  if (!w.endDate) return; // precipitation window not set yet (first paint)
+  if (!w.endDate) { c.innerHTML = `<h2>Region overview</h2><div class="spinner">Loading station rainfall from RCC-ACIS. The first visit can take 20–30 s; after that it opens from this browser's cache. Click anywhere on the map meanwhile.</div>`; return; } // first paint
   const s = summarize(precipStations);
   const label = w.days === 1 ? `on ${fmtDate(w.endDate)}` : `${w.days} days ending ${fmtDate(w.endDate)}`;
   const hot = gauges.filter((g) => g.flowClass >= 5 && !g.stale).sort((a, b) => b.flowClass - a.flowClass);
@@ -271,6 +271,23 @@ function updatePointNav() {
   nav.querySelectorAll(".pt-chip.ready").forEach((b) => (b.onclick = () => $(b.dataset.t)?.scrollIntoView({ behavior: "smooth", block: "start" })));
   nav.querySelectorAll(".pt-chip.error").forEach((b) => (b.onclick = () => { const id = b.dataset.t; if (navRun[id]) { navDone[id] = false; $(id).innerHTML = `<div class="spinner">Retrying…</div>`; navTrack(id, navRun[id]()); } else if (ptCur) renderPoint(ptCur.lon, ptCur.lat); }));
 }
+// Nearest observers and gauges for a point, from the loaded station and gauge layers. Exported so the app can
+// refresh just this table when station rainfall arrives after the point panel is already open.
+export function renderNearby(lon, lat) {
+  if (!$("pt-nearby")) return;
+  const endDate = precipWindow.endDate, days = precipWindow.days;
+  const near = precipStations.map((s) => ({ ...s, km: haversineKm(lat, lon, s.lat, s.lon) })).sort((a, b) => a.km - b.km).slice(0, 8);
+  const nearG = gauges.map((g) => ({ ...g, km: haversineKm(lat, lon, g.lat, g.lon) })).sort((a, b) => a.km - b.km).slice(0, 5);
+  $("pt-nearby").innerHTML = `<h3>Nearest observers (${days === 1 ? fmtDate(endDate) : days + "-day totals"})</h3>
+    <table class="data"><thead><tr><th>Station</th><th class="num">mi</th><th class="num">in</th><th class="num">% nrm</th></tr></thead><tbody>
+    ${near.map((s) => `<tr class="clickable" data-sid="${escapeHtml(s.sid)}"><td>${escapeHtml(s.name)}</td><td class="num">${fmt(kmToMi(s.km), 1)}</td><td class="num">${s.missingAll ? "–" : fmt(s.total)}</td><td class="num">${days >= 7 && s.normal && s.total != null ? Math.round((100 * s.total) / s.normal) : "–"}</td></tr>`).join("")}</tbody></table>
+    <h3>Nearest gauges</h3>
+    <table class="data"><thead><tr><th>Gauge</th><th class="num">mi</th><th class="num">cfs</th><th>Class</th></tr></thead><tbody>
+    ${nearG.map((g) => `<tr class="clickable" data-gid="${escapeHtml(g.id)}"><td>${escapeHtml(g.name)}</td><td class="num">${fmt(kmToMi(g.km), 1)}</td><td class="num">${fmtNum(g.flow, g.flow < 10 ? 1 : 0)}</td><td><span class="pill class" style="background:${g.color}">${FLOW_CLASSES[g.flowClass].label.split(" (")[0]}</span></td></tr>`).join("")}</tbody></table>`;
+  $("pt-nearby").querySelectorAll("tr[data-sid]").forEach((tr) => tr.addEventListener("click", () => renderStation(tr.dataset.sid)));
+  $("pt-nearby").querySelectorAll("tr[data-gid]").forEach((tr) => tr.addEventListener("click", () => renderGauge(tr.dataset.gid)));
+
+}
 export async function renderPoint(lon, lat) {
   showTab("point");
   visit("point", `${lon.toFixed(4)},${lat.toFixed(4)}`, `Point ${lat.toFixed(3)}, ${lon.toFixed(3)}`, () => renderPoint(lon, lat));
@@ -336,17 +353,7 @@ export async function renderPoint(lon, lat) {
   navTrack("pt-easement", renderEasementsAt($("pt-easement"), lon, lat));
   $("pt-report").onclick = async () => { const m = $("pt-report-msg"); try { await openReport({ lon, lat, onStatus: (t) => (m.textContent = t) }); m.textContent = ""; } catch (e) { m.textContent = "Report failed: " + e.message; } };
 
-  // Nearby observers (from the already-loaded station layer)
-  const near = precipStations.map((s) => ({ ...s, km: haversineKm(lat, lon, s.lat, s.lon) })).sort((a, b) => a.km - b.km).slice(0, 8);
-  const nearG = gauges.map((g) => ({ ...g, km: haversineKm(lat, lon, g.lat, g.lon) })).sort((a, b) => a.km - b.km).slice(0, 5);
-  $("pt-nearby").innerHTML = `<h3>Nearest observers (${days === 1 ? fmtDate(endDate) : days + "-day totals"})</h3>
-    <table class="data"><thead><tr><th>Station</th><th class="num">mi</th><th class="num">in</th><th class="num">% nrm</th></tr></thead><tbody>
-    ${near.map((s) => `<tr class="clickable" data-sid="${escapeHtml(s.sid)}"><td>${escapeHtml(s.name)}</td><td class="num">${fmt(kmToMi(s.km), 1)}</td><td class="num">${s.missingAll ? "–" : fmt(s.total)}</td><td class="num">${days >= 7 && s.normal && s.total != null ? Math.round((100 * s.total) / s.normal) : "–"}</td></tr>`).join("")}</tbody></table>
-    <h3>Nearest gauges</h3>
-    <table class="data"><thead><tr><th>Gauge</th><th class="num">mi</th><th class="num">cfs</th><th>Class</th></tr></thead><tbody>
-    ${nearG.map((g) => `<tr class="clickable" data-gid="${escapeHtml(g.id)}"><td>${escapeHtml(g.name)}</td><td class="num">${fmt(kmToMi(g.km), 1)}</td><td class="num">${fmtNum(g.flow, g.flow < 10 ? 1 : 0)}</td><td><span class="pill class" style="background:${g.color}">${FLOW_CLASSES[g.flowClass].label.split(" (")[0]}</span></td></tr>`).join("")}</tbody></table>`;
-  $("pt-nearby").querySelectorAll("tr[data-sid]").forEach((tr) => tr.addEventListener("click", () => renderStation(tr.dataset.sid)));
-  $("pt-nearby").querySelectorAll("tr[data-gid]").forEach((tr) => tr.addEventListener("click", () => renderGauge(tr.dataset.gid)));
+  renderNearby(lon, lat);
 
   // PRISM daily series (365 d) → window totals from the last date PRISM has, plus nearest station normals
   (async () => {
@@ -428,6 +435,8 @@ export async function renderPoint(lon, lat) {
   })();
 
   // Atlas 14 table
+  (async () => { // the grid may still be loading when a shared point link opens at startup
+  await atlas.loadAtlas14(); if (!$("pt-a14")) return;
   const a14 = atlas.nearest(lat, lon);
   if (a14) {
     const durs = [4, 5, 6, 7, 8, 9, 10, 11, 13]; // 60-min … 7-day
@@ -440,4 +449,5 @@ export async function renderPoint(lon, lat) {
   } else {
     $("pt-a14").innerHTML = `<h3>Design storms</h3><div class="notice">No Atlas 14 grid node here (outside the precomputed region or over water). <a href="${atlas.pfdsUrl(lat, lon)}" target="_blank" rel="noopener">Query PFDS directly</a>.</div>`;
   }
+  })();
 }

@@ -9,7 +9,7 @@ import { loadAlerts } from "./alerts.js";
 import { loadLake } from "./lake.js";
 import { loadAtlas14 } from "./api/atlas14.js";
 import { readUrl, writeUrl } from "./url.js";
-import { renderRegion, renderStation, renderGauge, renderPoint, showTab } from "./panels.js";
+import { renderRegion, renderStation, renderGauge, renderPoint, showTab, renderNearby } from "./panels.js";
 import { initProjects, openProject } from "./projects.js";
 import { track } from "./loader.js";
 import { initExport } from "./export.js";
@@ -39,7 +39,7 @@ const state = {
 if (state.endDate > isoDate()) state.endDate = isoDate();
 if (!readUrl().endDate && new Date().getHours() < 9) state.endDate = addDays(isoDate(), -1);
 
-let firstLoadDone = false;
+let firstLoadDone = false, pointShown = false; // pointShown: boot already opened the linked point
 let normalStatus = "", zoomHint = null;
 function setStatus(msg, isError = false, hint = false) { if (!hint) { normalStatus = msg; zoomHint = null; } $("status-text").textContent = msg; $("status").classList.toggle("error", isError); }
 const whenMap = (fn) => (map ? fn() : on("map:ready", fn));
@@ -196,7 +196,7 @@ function buildControls() {
   document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => showTab(t.dataset.tab)));
   $("btn-alerts").addEventListener("click", () => { showTab("region"); $("region-alerts")?.scrollIntoView({ behavior: "smooth", block: "start" }); });
   document.addEventListener("keydown", (e) => {
-    if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+    if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "TEXTAREA" || e.target.closest?.(".maplibregl-map")) return; // arrows pan the map there
     if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
       const d = addDays(state.endDate, e.key === "ArrowLeft" ? -1 : 1);
       if (d <= isoDate()) { state.endDate = d; $("ctl-date").value = d; refreshPrecip(); }
@@ -267,7 +267,8 @@ function toggleLayer(name, force) {
   $(btn).classList.toggle("on", on);
   updateLayersButton();
   const row = $(btn); const mz = Number(row?.dataset?.minzoom);
-  if (on && mz && map?.getZoom?.() < mz - 0.01) { zoomHint = { name, mz }; setStatus(`${row.dataset.label} loads at zoom ${mz}+ (now ${map.getZoom().toFixed(0)}). Zoom in to see it.`, false, true); }
+  const hasOverview = ["pwi", "impaired", "easements", "trout", "karst", "crossings", "fema", "wetlands"].includes(name);
+  if (on && mz && map?.getZoom?.() < mz - 0.01) { zoomHint = { name, mz }; setStatus(hasOverview ? `${row.dataset.label}: showing a simplified whole-area overview; full detail at zoom ${mz}+ (now ${map.getZoom().toFixed(0)}).` : `${row.dataset.label} loads at zoom ${mz}+ (now ${map.getZoom().toFixed(0)}). Zoom in to see it.`, false, true); }
   else if (!on && zoomHint?.name === name) setStatus(normalStatus);
   renderLegend(); syncUrl();
 }
@@ -294,12 +295,14 @@ async function refreshPrecipNow() {
     const list = await track("stations", loadPrecip({ endDate: state.endDate, days: state.days }));
     const ld = precipLastDay; const today = state.endDate === isoDate();
     setStatus(`${list.filter((s) => !s.missingAll).length} stations reporting · ${state.days === 1 ? state.endDate : state.days + "-day window ending " + state.endDate} · ${ld.reported} of ${ld.total} have ${today ? "today's" : state.endDate + "'s"} observation${today && ld.reported < ld.total * 0.6 ? " so far (7 AM readings post through the day)" : ""} · fetched ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`);
-    if (!firstLoadDone) { firstLoadDone = true; try { if (localStorage.getItem("nh-visited") !== "1") { localStorage.setItem("nh-visited", "1"); $("help").hidden = false; } } catch {} showHintOnce(); }
+    if (!firstLoadDone) { firstLoadDone = true; showHintOnce(); }
     renderLegend();
     if (!state.selection || state.selection.type === "region") renderRegion();
     else if (state.selection.type === "station") renderStation(state.selection.id);
-    else if (state.selection.type === "point") { const [lon, lat] = state.selection.id.split(",").map(Number); renderPoint(lon, lat); }
+    else if (state.selection.type === "point") { const [lon, lat] = state.selection.id.split(",").map(Number); if (pointShown) renderNearby(lon, lat); else renderPoint(lon, lat); }
+    else if (state.selection.type === "gauge") { /* keep the gauge panel when the date changes */ }
     else renderRegion();
+    pointShown = false;
   } catch (e) { setStatus("Precipitation load failed: " + e.message, true); console.error(e); }
 }
 const refreshPrecip = debounce(refreshPrecipNow, 150);
@@ -337,15 +340,22 @@ async function boot() {
   track("alerts", loadAlerts()).catch((e) => { $("alerts-count").textContent = "n/a"; console.warn(e); });
   track("lake level", loadLake());
   const gaugesP = track("gauges", loadGauges()).catch((e) => { console.warn(e); return []; });
-  await refreshPrecipNow();
+  // First visit: show the welcome dialog now, not after the station query (ACIS can take 20-30 s cold).
+  try { if (localStorage.getItem("nh-visited") !== "1") { localStorage.setItem("nh-visited", "1"); $("help").hidden = false; } } catch {}
+  // A shared link to a point or gauge opens right away; station rainfall fills in when ACIS answers.
+  // refreshPrecipNow sets the date window synchronously, so the point's PRISM and forecast sections can start now.
+  const precipP = refreshPrecipNow();
+  if (state.selection?.type === "point") { const [lon, lat] = state.selection.id.split(",").map(Number); renderPoint(lon, lat); pointShown = true; }
+  else if (state.selection?.type === "gauge") renderGauge(state.selection.id);
+  else if (!state.selection || state.selection.type === "region") renderRegion();
+  await precipP;
   // Don't block the UI on gauges: USGS can take 30+ s on a bad day. Cached gauges already show; re-render when live ones land.
   gaugesP.then(() => { if (!state.selection || state.selection.type === "region") renderRegion(); });
-  if (!state.selection || state.selection.type === "region") renderRegion();
-  else if (state.selection.type === "gauge") renderGauge(state.selection.id);
-  else if (state.selection.type === "station") renderStation(state.selection.id);
-  else if (state.selection.type === "point") { const [lon, lat] = state.selection.id.split(",").map(Number); renderPoint(lon, lat); }
+  // Region, point and gauge were drawn above and refreshed by refreshPrecipNow; a station needs the loaded list.
+  if (state.selection?.type === "station") renderStation(state.selection.id);
 
-  track("projects", initProjects());
+  const projectsP = track("projects", initProjects());
+  if (state.selection?.type === "project") { const id = state.selection.id; projectsP.then(() => emit("select:project", { id })).catch(() => {}); }
   initExport();
   initSearch();
   initSoils();

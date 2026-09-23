@@ -1,6 +1,6 @@
 // MapLibre map, basemaps, county outlines, QPE raster overlay and point layers.
 import { BASEMAPS, COUNTIES, ENDPOINTS, HOME, QPE_LAYERS, REGION_BBOX } from "./config.js";
-import { getJSON, emit } from "./util.js";
+import { getJSON, emit, escapeHtml } from "./util.js";
 import { addTerrainLayers, setTerrainVisible as _stv, setTerrainOpacity as _sto } from "./terrain.js";
 import { streamGridTileUrl } from "./api/streamstats.js";
 
@@ -126,7 +126,7 @@ async function addOverlays() {
         paint: { "line-color": ["case", ["get", "tsa3"], "#f59e0b", "#94a3b8"], "line-width": ["case", ["get", "tsa3"], 1.8, 0.8], "line-opacity": ["case", ["get", "tsa3"], 0.9, 0.5] } }, firstSymbol);
       map.addLayer({ id: "counties-label", type: "symbol", source: "counties", minzoom: 6.5,
         layout: { "text-field": ["get", "name"], "text-size": 11, "text-transform": "uppercase", "text-letter-spacing": 0.1, "text-font": ["Noto Sans Regular"] },
-        paint: { "text-color": currentBasemap === "dark" || currentBasemap === "imagery" ? "#fde68a" : "#92400e", "text-halo-color": currentBasemap === "dark" || currentBasemap === "imagery" ? "#000" : "#fff", "text-halo-width": 1.2, "text-opacity": 0.85 } });
+        paint: { "text-color": (currentBasemap === "dark" || /^im/.test(currentBasemap)) ? "#fde68a" : "#92400e", "text-halo-color": (currentBasemap === "dark" || /^im/.test(currentBasemap)) ? "#000" : "#fff", "text-halo-width": 1.2, "text-opacity": 0.85 } });
     }
   } catch (e) { console.warn("counties failed", e); }
 
@@ -150,7 +150,7 @@ async function addOverlays() {
         "circle-stroke-color": ["case", ["get", "missing"], "#9e9e9e", "#111827"], "circle-stroke-width": ["case", ["get", "missing"], 1.5, 0.8], "circle-opacity": ["case", ["get", "missing"], 0.35, 0.95] } });
     map.addLayer({ id: "stations-label", type: "symbol", source: "stations", minzoom: 9.5, layout: { visibility: visibility.stations ? "visible" : "none",
         "text-field": ["get", "label"], "text-size": 10, "text-offset": [0, 1.1], "text-anchor": "top", "text-font": ["Noto Sans Regular"], "text-allow-overlap": false },
-      paint: { "text-color": currentBasemap === "dark" || currentBasemap === "imagery" ? "#fff" : "#111", "text-halo-color": currentBasemap === "dark" || currentBasemap === "imagery" ? "#000" : "#fff", "text-halo-width": 1 } });
+      paint: { "text-color": (currentBasemap === "dark" || /^im/.test(currentBasemap)) ? "#fff" : "#111", "text-halo-color": (currentBasemap === "dark" || /^im/.test(currentBasemap)) ? "#000" : "#fff", "text-halo-width": 1 } });
   }
   if (!map.getSource("basin")) {
     map.addSource("basin", { type: "geojson", data: basinGeo() });
@@ -303,7 +303,7 @@ function setupHover() {
     if (!feats.length) { popup.remove(); return; }
     // Fill overlays can stack (one TMDL allocation area per approved pollutant, overlapping easements): show them all
     const same = feats.filter((f) => f.layer.id === feats[0].layer.id);
-    const htmls = [...new Set(same.map((f) => f.properties.popup || f.properties.name))].filter(Boolean).slice(0, 6);
+    const htmls = [...new Set(same.map((f) => f.properties.popup || escapeHtml(f.properties.name || "")))].filter(Boolean).slice(0, 6);
     const foot = feats[0].layer.id === "ov-tmdl-areas" ? `<div class="popup-sub" style="margin-top:6px">${htmls.length > 1 ? `${htmls.length} allocation areas stacked here, ` : ""}one per approved TMDL pollutant. The reach\u2019s full impairment list is on its red line or in the Point panel.</div>` : "";
     popup.setLngLat(anchor).setHTML(htmls.join('<hr class="popup-sep">') + foot).addTo(map);
   });

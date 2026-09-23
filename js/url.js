@@ -8,7 +8,7 @@ export function readUrl() {
   if (h.get("c")) { const [lon, lat] = h.get("c").split(",").map(Number); if (isFinite(lon) && isFinite(lat)) st.center = [lon, lat]; }
   if (h.get("b")) st.basemap = h.get("b");
   if (h.get("l") != null) { const l = h.get("l").split(",").filter(Boolean); st.layers = { stations: l.includes("s"), gauges: l.includes("g"), qpe: l.includes("q"), streams: l.includes("r"), soils: l.includes("o"), parcels: l.includes("p"), trout: l.includes("t"), karst: l.includes("k"), wetlands: l.includes("w"), fema: l.includes("f"), crossings: l.includes("c"), wells: l.includes("b"), pwi: l.includes("v"), impaired: l.includes("i"), easements: l.includes("e") }; }
-  if (h.get("q")) st.qpeWindow = h.get("q");
+  if (h.get("q") && ["live", "1h", "3h", "6h", "12h", "24h", "since12z"].includes(h.get("q"))) st.qpeWindow = h.get("q"); // an unknown value broke startup
   if (h.get("t") != null) st.terrain = Object.fromEntries(h.get("t").split(",").filter(Boolean).map((k) => [k, true]));
   if (h.get("to")) st.terrainOpacity = Number(h.get("to")) / 100;
   if (h.get("sel")) { const [type, ...rest] = h.get("sel").split(":"); st.selection = { type, id: rest.join(":") }; }

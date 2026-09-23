@@ -425,3 +425,8 @@ hr.popup-sep { border: 0; border-top: 1px solid #334155; margin: 6px 0; }
 .fresh-ok { border-color: #14532d; color: #86efac; } .fresh-watch { border-color: #78350f; color: #fcd34d; }
 .fresh-stale, .fresh-newer { border-color: #7f1d1d; color: #fca5a5; } .fresh-error { color: #9ca3af; font-style: italic; }
 .fresh-flag { color: #fca5a5; }
+
+/* Touch targets: small icon buttons get a 32 px hit area without changing their look (audit 2026-09-23) */
+.mb-x, .copy { position: relative; }
+.mb-x::after, .copy::after { content: ""; position: absolute; inset: -8px; }
+@media (pointer: coarse) { .mb-x, .copy { min-width: 28px; min-height: 28px; } }

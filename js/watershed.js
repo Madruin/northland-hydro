@@ -35,6 +35,8 @@ export function renderWatershed(container, lon, lat) {
 
 async function run(container, lon, lat, key) {
   const body = $("ws-body");
+  // The panel is rebuilt when another point is picked; a ~15 s delineation must not paint into the new point's panel.
+  const gone = () => !body.isConnected;
   const state = ss.STATE_FOR(lon, lat);
   body.innerHTML = `<div class="spinner">Delineating (StreamStats ${state})…</div>`;
   try {
@@ -43,17 +45,17 @@ async function run(container, lon, lat, key) {
     if ($("ws-snap")?.checked) {
       body.innerHTML = `<div class="spinner">Snapping to the nearest mapped stream…</div>`;
       try {
-        const sn = await ss.snapToStreamGrid(state, lat, lon, 200);
+        const sn = await ss.snapToStreamGrid(state, lat, lon, 200); if (gone()) return;
         if (sn.snapped && sn.distM > 2) { snapNote = `Point snapped ${Math.round(sn.distM * 3.28084)} ft to the nearest mapped stream cell.`; lat = sn.lat; lon = sn.lon; setPin([lon, lat]); }
         else if (!sn.snapped) snapNote = "No mapped stream within 200 m of the click; delineating at the click itself.";
       } catch (e) { console.warn("snap failed", e); snapNote = "Stream-grid snap unavailable (service error); delineating at the click itself."; }
       body.innerHTML = `<div class="spinner">Delineating (StreamStats ${state})…</div>`;
     }
-    const [del] = await Promise.all([ss.delineate(state, lat, lon), loadCurves()]);
+    const [del] = await Promise.all([ss.delineate(state, lat, lon), loadCurves()]); if (gone()) return;
     if (!del.basin) throw new Error("No basin returned. The point may be off the stream network or in an exclusion area; try clicking on the blue line.");
     setBasin(del.basin, del.pourpoint);
     body.innerHTML = `<div class="spinner">Basin drawn. Computing basin characteristics (~8 s)…</div>`;
-    const [bc, regions, scn] = await Promise.all([ss.basinCharacteristics(state, lat, lon), ss.regressionRegionsAt(state, lat, lon).catch(() => []), ss.scenarios(state).catch(() => [])]);
+    const [bc, regions, scn] = await Promise.all([ss.basinCharacteristics(state, lat, lon), ss.regressionRegionsAt(state, lat, lon).catch(() => []), ss.scenarios(state).catch(() => [])]); if (gone()) return;
     const bcByCode = Object.fromEntries(bc.map((b) => [b.code, b.value]));
     const da = bcByCode.DRNAREA;
     let flows = null, missing = [], matched = [];
@@ -62,6 +64,7 @@ async function run(container, lon, lat, key) {
       if (matched.length) {
         body.innerHTML = `<div class="spinner">Estimating regression flows…</div>`;
         try { const est = await ss.estimate(state, matched, bcByCode); flows = est.result; missing = est.missing; } catch (e) { console.warn("NSS estimate failed", e); }
+        if (gone()) return;
       }
     }
     const warnings = [];
@@ -72,6 +75,7 @@ async function run(container, lon, lat, key) {
     $("ws-da").value = da != null ? da.toFixed(2) : "";
     renderLive(container, lon, lat, key);
   } catch (e) {
+    if (gone()) return;
     body.innerHTML = `<div class="notice">StreamStats failed: ${escapeHtml(e.message)}</div>`;
   }
 }
@@ -107,7 +111,7 @@ function renderResultsInto(body, st, lon, lat, { curveId, onChangeCurve, saveUI 
       <div class="stat"><div class="v">${fmt(bcByCode.LAKEAREA, 1)}%</div><div class="l">lakes & ponds</div><div class="s">storage NWI ${fmt(bcByCode.STORNWI, 1)}%</div></div>
     </div>
     <details><summary class="small" style="cursor:pointer">All basin characteristics (${(st.bc || []).length})</summary>
-      <table class="data"><tbody>${(st.bc || []).map((b) => `<tr><td title="${escapeHtml(b.description || "")}">${escapeHtml(b.name)} <span class="small">${b.code}</span></td><td class="num">${fmtNum(b.value, 3)}</td><td class="small">${escapeHtml(b.unit || "")}</td></tr>`).join("")}</tbody></table></details>
+      <table class="data"><tbody>${(st.bc || []).map((b) => `<tr><td title="${escapeHtml(b.description || "")}">${escapeHtml(b.name)} <span class="small">${escapeHtml(b.code)}</span></td><td class="num">${fmtNum(b.value, 3)}</td><td class="small">${escapeHtml(b.unit || "")}</td></tr>`).join("")}</tbody></table></details>
     ${flowsHtml(st)}`}
     ${st.basin && !st.manual ? `<div class="ws-basinsoils"></div><div class="ws-runoff"></div><div class="ws-bedrock"></div><div class="ws-impaired"></div>` : ""}
     <h3>Bankfull channel dimensions · TSA3 regional curves</h3>

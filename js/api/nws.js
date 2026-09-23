@@ -50,5 +50,5 @@ export async function activeAlerts({ point, area } = {}) {
   const a = await getJSON(url, { headers: H, ttl: 5 * 60_000 });
   return a.features.map((f) => ({ id: f.id, event: f.properties.event, severity: f.properties.severity, headline: f.properties.headline,
     sender: f.properties.senderName, areas: f.properties.areaDesc, onset: f.properties.onset, ends: f.properties.ends || f.properties.expires,
-    description: f.properties.description }));
+    description: f.properties.description, same: f.properties.geocode?.SAME || [] }));
 }

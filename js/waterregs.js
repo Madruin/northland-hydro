@@ -1,6 +1,6 @@
 // Point and basin sections for the regulatory water layers: DNR Public Waters Inventory, MPCA impaired waters and
 // TMDL allocation areas, and BWSR RIM / wetland-bank easements. Map layers themselves live in dnrlayers.js.
-import { escapeHtml, fmt, fmtNum, haversineKm } from "./util.js";
+import { escapeHtml, fmt, fmtNum, haversineKm, distToGeomM } from "./util.js";
 import { fetchStatic } from "./dnrlayers.js";
 
 const DNR = "https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_dnr";
@@ -23,10 +23,7 @@ async function q(url, params, fmtOut = "json") {
 }
 const near = (lon, lat, m) => { const d = m / 111320, dx = d / Math.cos((lat * Math.PI) / 180); return { geometry: `${(lon - dx).toFixed(6)},${(lat - d).toFixed(6)},${(lon + dx).toFixed(6)},${(lat + d).toFixed(6)}`, geometryType: "esriGeometryEnvelope", spatialRel: "esriSpatialRelIntersects" }; };
 const at = (lon, lat) => ({ geometry: `${lon.toFixed(6)},${lat.toFixed(6)}`, geometryType: "esriGeometryPoint", spatialRel: "esriSpatialRelIntersects", returnGeometry: "false" });
-function distToGeom(lon, lat, g) {
-  let dmin = Infinity; const walk = (c) => { if (typeof c[0] === "number") { const d = haversineKm(lat, lon, c[1], c[0]) * 1000; if (d < dmin) dmin = d; } else c.forEach(walk); };
-  if (g?.coordinates) walk(g.coordinates); return dmin;
-}
+const distToGeom = (lon, lat, g) => distToGeomM(lon, lat, g); // metres to the nearest segment
 const dateOf = (ms) => (ms ? new Date(ms).toLocaleDateString() : "");
 
 

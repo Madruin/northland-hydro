@@ -2,7 +2,7 @@
 import { plot } from "./loader.js";
 import { LAKE_STATION } from "./config.js";
 import { latestLevel, hourlyLevels, monthlyMeans } from "./api/coops.js";
-import { $, fmt, plotlyLayout } from "./util.js";
+import { $, fmt, plotlyLayout, escapeHtml } from "./util.js";
 
 export let latest = null;
 
@@ -42,6 +42,6 @@ export async function renderLakeSection(container) {
       { x: [mx[0], mx[mx.length - 1]], y: [LAKE_STATION.lta, LAKE_STATION.lta], mode: "lines", line: { color: "#f59e0b", dash: "dot", width: 1 }, name: "Long-term avg" }],
       plotlyLayout({ title: "Monthly means, last 4 years", yaxis: { title: "ft" } }), { displayModeBar: false, responsive: true });
   } catch (e) {
-    container.innerHTML = `<h3>Lake Superior at Duluth</h3><div class="notice">CO-OPS request failed: ${e.message}</div>`;
+    container.innerHTML = `<h3>Lake Superior at Duluth</h3><div class="notice">CO-OPS request failed: ${escapeHtml(e.message)}</div>`;
   }
 }

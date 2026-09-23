@@ -26,7 +26,7 @@ export function initSearch() {
     const seq = ++runSeq;
     const wantParcels = looksLikePin(q) || /[a-z]{3,}/i.test(q) && q.length >= 4;
     let places = [], parcels = [];
-    const show = (loading) => { if (seq !== runSeq) return; items = [...localMatches(q), ...parcels, ...places]; render(box, items, loading); };
+    const show = (loading) => { if (seq !== runSeq) return; const ql = q.trim().toLowerCase(); const town = places.filter((p) => p.label.toLowerCase().startsWith(ql) && /city|town|village|hamlet|municipality|administrative/.test(p.sub)); items = [...town, ...localMatches(q), ...parcels, ...places.filter((p) => !town.includes(p))]; render(box, items, loading); }; // a town whose name matches the query goes first
     await Promise.all([
       placeMatches(q).then((p) => { places = p; show(true); }).catch(() => {}),
       wantParcels ? searchParcels(q, { onPartial: (p) => { parcels = p; show(true); } }).then((p) => { parcels = p; }).catch(() => {}) : Promise.resolve(),

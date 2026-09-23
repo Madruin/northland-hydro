@@ -36,13 +36,13 @@
         <input type="search" id="ctl-search" placeholder="Search place, PIN, owner, gauge, station, or coordinates  ( / )" autocomplete="off" />
         <div id="search-results" class="menu" hidden></div>
       </div>
-      <label class="ctl">
+      <div class="ctl" role="group" aria-label="End date">
         <span>End date</span>
-        <button class="step" id="date-prev" title="Previous day (←)">‹</button>
-        <input type="date" id="ctl-date" />
-        <button class="step" id="date-next" title="Next day (→)">›</button>
+        <button class="step" id="date-prev" title="Previous day (←)" aria-label="Previous day">‹</button>
+        <input type="date" id="ctl-date" aria-label="End date" />
+        <button class="step" id="date-next" title="Next day (→)" aria-label="Next day">›</button>
         <button class="step" id="date-today" title="Jump to today">Today</button>
-      </label>
+      </div>
       <label class="ctl">
         <span>Window</span>
         <select id="ctl-window"></select>
@@ -51,15 +51,15 @@
         <span>Layers</span>
         <button class="toggle on" id="tg-precip" title="Observed precipitation at CoCoRaHS, COOP and ASOS stations (RCC-ACIS)">Stations</button>
         <button class="toggle on" id="tg-gauges" title="USGS + MN DNR/MPCA stream gauges">Gauges</button>
-        <button class="toggle" id="tg-qpe" title="NWS radar-derived precipitation estimate (RFC QPE)">Radar</button>
+        <button class="toggle" id="tg-qpe" title="NWS radar: live reflectivity, or rain totals estimated from radar and gauges">Radar</button>
         <select id="ctl-qpe" title="Live radar echoes, or rainfall totals estimated from radar and gauges">
           <optgroup label="Live radar"><option value="live">Now (reflectivity)</option></optgroup>
           <optgroup label="Rain totals (radar + gauges)"><option value="1h">Last 1 h</option><option value="3h">Last 3 h</option><option value="6h">Last 6 h</option>
-          <option value="12h">Last 12 h</option><option value="24h" selected>Last 24 h</option><option value="since12z">Since 7 AM (12Z)</option></optgroup>
+          <option value="12h">Last 12 h</option><option value="24h" selected>Last 24 h</option><option value="since12z">Since 12Z (7 AM CDT, 6 AM CST)</option></optgroup>
         </select>
         <div class="menu-wrap"><button class="toggle" id="btn-layers" title="Water, land, hazard and subsurface layers">Layers ▾</button>
           <div class="menu layers-menu" id="layers-menu" hidden>
-            <div class="menu-title">Map layers <span class="small">· each loads for the current view once you are zoomed in far enough</span></div>
+            <div class="menu-title">Map layers <span class="small">· zoomed out, regional layers show a simplified whole-area overview; full detail loads past the zoom on each row</span></div>
             <div class="layer-group"><div class="group-name">Water</div>
               <button class="layer-row" id="tg-streams" data-minzoom="13" data-label="Streams"><span class="lr-box"></span><span class="lr-text"><span class="lr-name">Streams</span><span class="lr-desc">StreamStats stream grid the delineation snaps to</span></span><span class="lr-zoom">zoom 13+</span></button>
               <button class="layer-row" id="tg-crossings" data-minzoom="10" data-label="Crossings"><span class="lr-box"></span><span class="lr-text"><span class="lr-name">Crossings</span><span class="lr-desc">DNR culvert surveys, NBI bridges and culverts</span></span><span class="lr-zoom">zoom 10+</span></button>
@@ -79,9 +79,9 @@
               <button class="layer-row" id="tg-wells" data-minzoom="12" data-label="Wells &amp; borings"><span class="lr-box"></span><span class="lr-text"><span class="lr-name">Wells &amp; borings</span><span class="lr-desc">County Well Index logs, depth to bedrock, drill holes</span></span><span class="lr-zoom">zoom 12+</span></button>
             </div>
           </div></div>
-        <div class="menu-wrap"><button class="toggle" id="tg-terrain" title="MnTOPO lidar hillshade, DEM and contours">Terrain ▾</button>
+        <div class="menu-wrap"><button class="toggle" id="tg-terrain" title="MnTOPO lidar hillshade, DEM and contours, plus USGS contours">Terrain ▾</button>
           <div class="menu" id="terrain-menu" hidden>
-            <div class="menu-title">MnTOPO lidar layers</div>
+            <div class="menu-title">Terrain <span class="small">· MnTOPO lidar, plus USGS contours for zoomed-out views</span></div>
             <div id="terrain-list"></div>
             <label class="menu-row"><span>Hillshade opacity</span><input type="range" id="terrain-opacity" min="10" max="100" value="60" /></label>
             <div class="small">1 m = 2008–12 statewide lidar (cached, fast). 0.5 m = 2021–24 3DEP lidar rendered live by MnGeo; zoom in past 12.</div>
@@ -118,12 +118,12 @@
       <div id="panel-resize" title="Drag to resize the panel"></div>
       <div class="panel-head">
         <div class="tabs" role="tablist">
-          <button class="tab on" data-tab="region">Region</button>
-          <button class="tab" data-tab="projects">Projects</button>
-          <button class="tab" data-tab="station" disabled>Station</button>
-          <button class="tab" data-tab="gauge" disabled>Gauge</button>
-          <button class="tab" data-tab="point" disabled>Point</button>
-          <button class="tab" data-tab="export" disabled>Export</button>
+          <button class="tab on" role="tab" aria-selected="true" data-tab="region">Region</button>
+          <button class="tab" role="tab" data-tab="projects">Projects</button>
+          <button class="tab" role="tab" data-tab="station" disabled>Station</button>
+          <button class="tab" role="tab" data-tab="gauge" disabled>Gauge</button>
+          <button class="tab" role="tab" data-tab="point" disabled>Point</button>
+          <button class="tab" role="tab" data-tab="export" disabled>Export</button>
         </div>
         <button id="panel-toggle" title="Collapse panel">›</button>
       </div>
@@ -138,7 +138,7 @@
     </aside>
   </main>
 
-  <div id="help" class="modal" hidden>
+  <div id="help" class="modal" role="dialog" aria-modal="true" aria-label="Help and sources" hidden>
     <div class="modal-box">
       <div class="modal-head"><b>Northland Eco</b><div class="modal-tabs"><button class="mtab on" data-pane="guide">How to use it</button><button class="mtab" data-pane="sources">Sources &amp; methods</button></div><button id="help-close" title="Close">✕</button></div>
       <div class="modal-body">
@@ -149,20 +149,21 @@
           <div class="qs"><span class="qn">3</span><b>Print</b><span>“Print site report” turns the panel into a letter-size briefing with sources.</span></div>
           <button class="btn primary" id="help-example" title="Jump to the Knife River at CR 102 with the Wells, FEMA and Crossings layers on">Try it on the Knife River →</button>
         </div>
-        <p>One map for rainfall, stream gauges, forecast, Lake Superior, watersheds and lidar across the TSA3 counties. Everything loads live from public agency APIs; nothing is stored except the team project list.</p>
+        <p>One map for rainfall, stream gauges, forecast, Lake Superior, watersheds and lidar across the TSA3 counties. Data comes from public agency services. Slow-changing regional layers (public waters, impaired waters, easements, trout, karst, culvert surveys, FEMA hazard zones) draw first from monthly snapshots kept in the site and then refresh live; each legend note says which you are seeing. The site stores nothing about you; only the team project list lives in a database.</p>
         <h4>Reading the map</h4>
         <ul>
           <li><b>Dots</b> are precipitation stations (CoCoRaHS, COOP, ASOS via RCC-ACIS), colored by the total for the window set at the top. Grey = no report. Hover for the value; click for the station's record.</li>
           <li><b>Triangles</b> are stream gauges (MN DNR/MPCA cooperative gaging merged with USGS), colored by today's flow relative to the site's record for this date. Click for hydrographs with percentile bands.</li>
           <li><b>Stars</b> are team projects (sign in on the Projects tab).</li>
-          <li><b>Click anywhere else</b> for a point: gridded rainfall and percent of normal, forecast and QPF, soil moisture, Atlas 14 design storms, and the watershed tools.</li>
+          <li><b>Click anywhere else</b> for a point: ground elevation, public waters, impaired waters, FEMA flood zone, easements, wetland, parcel, soils, nearby wells, gridded rainfall and percent of normal, forecast, soil moisture, Atlas 14 design storms, and the watershed tools. The chips at the top of the panel jump to each section.</li>
         </ul>
         <h4>Controls</h4>
         <ul>
           <li><b>End date / Window</b>: the station colors and all totals follow these. ← → step the date; the ‹ › buttons do the same.</li>
-          <li><b>Map tools</b> (left edge): zoom, <b>locate me</b> (centers on your GPS position and follows until you drag the map; if the button reports that location is blocked, allow it for this site from the lock icon in the address bar), <b>measure</b> distance or area (click points, double-click or Enter to finish, Esc clears; the distance tool's <b>Profile</b> button charts the lidar ground profile along the line), and <b>compare imagery</b> (a swipe divider between the current basemap and any imagery year). The search box also finds <b>tax parcels</b> by PIN (any county, dashes optional) or by <b>owner name</b> (4+ letters), and takes coordinates: <code>46.9476, -91.7849</code>, or UTM 15N as metres <code>592123, 5200456</code> or US survey feet <code>1943000, 17062000</code>. Every Point panel shows the spot in lat/lon and UTM 15N metres and US feet with copy buttons.</li>
-          <li><b>Layers</b> (Stations, Gauges and Radar are on the bar; everything else is under <b>Layers ▾</b>, grouped Water / Land / Hazards &amp; subsurface, each with its minimum zoom): Stations, radar QPE (NWS estimate for the last 1–24 h), Gauges, Streams (StreamStats grid), Soils (hydrologic soil group), Parcels, Wetlands (MN NWI update with Cowardin and Circular 39 codes), FEMA (effective flood zones and floodways, BFE lines, lettered cross sections, LOMRs), Crossings (DNR culvert surveys with span-vs-bankfull and passage, plus NBI bridges and large culverts with condition ratings), Wells (County Well Index wells and borings colored by depth to bedrock, with driller logs; DNR drill holes), Trout (DNR designated trout streams), Karst (karst-prone bedrock, sinkholes, springs), and Terrain (MnTOPO lidar hillshade, DEM and contours).</li>
-          <li><b>Search</b> ( / ): gauge, station, project or place name.</li>
+          <li><b>Map tools</b> (left edge): zoom, <b>locate me</b> (centers on your GPS position and follows until you drag the map; if the button reports that location is blocked, allow it for this site from the lock icon in the address bar), <b>measure</b> distance or area (click or tap points, then Finish; on a keyboard, double-click or Enter finishes and Esc clears; the distance tool's <b>Profile</b> button charts the lidar ground profile along the line), and <b>compare imagery</b> (a swipe divider between the current basemap and any imagery year). The search box also finds <b>tax parcels</b> by PIN (any county, dashes optional) or by <b>owner name</b> (4+ letters), and takes coordinates: <code>46.9476, -91.7849</code>, or UTM 15N as metres <code>592123, 5200456</code> or US survey feet <code>1943000, 17062000</code>. Every Point panel shows the spot in lat/lon and UTM 15N metres and US feet with copy buttons.</li>
+          <li><b>Radar</b>: <i>Now (reflectivity)</i> is the live NWS radar mosaic, the same picture as radar.weather.gov. The <i>Last 1 h … 24 h</i> choices are rain <i>totals</i> estimated from radar and gauges, issued hourly and 1–2 h behind. The legend states which one is on and its valid time.</li>
+          <li><b>Layers ▾</b> (grouped Water / Land / Hazards &amp; subsurface): Public waters (PWI), Impaired waters &amp; TMDLs, Conservation easements (RIM, wetland bank), Wetlands (MN NWI update), Trout streams, Streams (StreamStats grid), Soils (hydrologic soil group or water-table depth), Parcels, FEMA (flood zones and floodways, BFE lines, lettered cross sections, LOMRs), Crossings (DNR culvert surveys plus NBI bridges), Wells (County Well Index, DNR drill holes, observation wells), and Karst. Zoomed out, the regional layers, FEMA hazard zones and wetlands of 20 acres and more draw as a simplified whole-region overview; full detail appears past the zoom shown on each row. Parcels, soils and wells need you to zoom in. <b>Terrain ▾</b> adds MnTOPO lidar hillshade, elevation color, 2 ft and 10 ft contours, and USGS contours that work at any zoom.</li>
+          <li><b>Search</b> ( / ): place, gauge, station, project, parcel PIN, owner name or coordinates.</li>
           <li><b>Watershed</b> (Point tab): delineates with USGS StreamStats, returns basin characteristics and regression flows, and runs the TSA3 regional curves for bankfull dimensions. Save results to a project.</li>
           <li><b>CAD export</b>: draw a rectangle and download imagery, lidar DEM and contours in UTM 15N US feet, with Civil 3D steps.</li>
           <li><b>Print site report</b> (Point tab or a project): a one-document hydrology summary with sources.</li>
@@ -173,7 +174,8 @@
           <li>Station values are the 24 h ending the morning of the date shown; today's reports arrive through the morning.</li>
           <li>Percent of normal is only shown for 7-day and longer windows.</li>
           <li>PRISM grids lag 1–2 days. USGS and DNR values are provisional. Return periods use the nearest Atlas 14 grid node; use the official PFDS query for submittals.</li>
-          <li>Regression flows take the region at the pour point, without area weighting or gage adjustment. Regional-curve dimensions are planning-level; verify with a bankfull survey.</li>
+          <li>Regression flows take the region at the pour point, without area weighting or gage adjustment. Regional-curve dimensions are planning-level; verify with a bankfull survey. TR-55 design-storm peaks in the watershed section are screening values until the Minnesota unit-peak coefficients are added.</li>
+          <li>Wetland, FEMA, parcel and easement boundaries are inventory or GIS versions. Jurisdictional wetland lines need a delineation, and the effective FIRM, recorded easement and deed govern.</li>
         </ul>
         <p class="small">Full list under <b>Sources &amp; methods</b> above. RCC-ACIS · USGS NWIS · MN DNR/MPCA CSG · NWS API & RFC QPE · Open-Meteo · NOAA CO-OPS · NOAA Atlas 14 · USGS StreamStats · MnGeo/MnTOPO · TSA3 regional curve workbooks. Built by the MN SWCD Technical Service Area 3 engineering office. Open source under the MIT license: <a href="https://github.com/Madruin/northland-hydro" target="_blank" rel="noopener">github.com/Madruin/northland-hydro</a>.</p>
         </div>
@@ -190,7 +192,7 @@
     <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> ·
     <a href="https://tidesandcurrents.noaa.gov/stationhome.html?id=9099064" target="_blank" rel="noopener">NOAA CO-OPS</a> ·
     <a href="https://hdsc.nws.noaa.gov/pfds/" target="_blank" rel="noopener">NOAA Atlas 14</a>.
-    Provisional data, subject to revision. No server, no accounts: everything loads from public APIs in your browser.
+    Provisional data, subject to revision. Public agency data, with monthly snapshots of slow-changing layers kept in the site; no tracking, and sign-in is only for the team project list.
   </footer>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/5.6.0/maplibre-gl.js"></script>

@@ -8,14 +8,16 @@ const cache = new Map();
 export async function pointElevation(lon, lat) {
   const key = `${lon.toFixed(5)},${lat.toFixed(5)}`; if (cache.has(key)) return cache.get(key);
   const g = JSON.stringify({ x: lon, y: lat, spatialReference: { wkid: 4326 } });
+  let failed = false;
   for (const [base, src] of [[DEM2, "0.5 m lidar 2021–24"], [DEM1, "1 m lidar 2008–12"]]) {
     try {
       const r = await fetch(`${base}/identify?${new URLSearchParams({ geometry: g, geometryType: "esriGeometryPoint", returnGeometry: "false", returnCatalogItems: "false", f: "json" })}`);
       const d = await r.json(); const v = Number(d.value);
       if (isFinite(v) && d.value !== "NoData") { const out = { m: v, ft: v * FT, src }; cache.set(key, out); return out; }
-    } catch (e) { console.warn("elevation", src, e); }
+    } catch (e) { console.warn("elevation", src, e); failed = true; }
   }
-  cache.set(key, null); return null;
+  if (!failed) cache.set(key, null); // cache "no data here", but not a network failure
+  return null;
 }
 
 // Elevation samples along a lon/lat polyline. Returns [{d: metres along, ft: elevation ft, lon, lat}], evenly spaced.

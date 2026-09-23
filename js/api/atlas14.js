@@ -7,17 +7,21 @@ let grid = null;
 export async function loadAtlas14() {
   if (grid) return grid;
   try { grid = await getJSON(ENDPOINTS.atlas14Grid, { ttl: 86400e3 }); }
-  catch (e) { console.warn("Atlas 14 grid unavailable", e); grid = { grid: {} }; }
+  catch (e) { console.warn("Atlas 14 grid unavailable", e); return { grid: {} }; } // not cached: retry on the next point
   return grid;
 }
 // Nearest grid node's depth table: { lat, lon, durations[], aris[], q[dur][ari], step } or null
 export function nearest(lat, lon) {
   if (!grid || !grid.lats) return null;
-  const snap = (v, arr) => arr.reduce((b, a) => (Math.abs(a - v) < Math.abs(b - v) ? a : b));
-  const la = snap(lat, grid.lats), lo = snap(lon, grid.lons);
-  const q = grid.grid[`${la.toFixed(3)},${lo.toFixed(3)}`];
-  if (!q) return null;
-  return { lat: la, lon: lo, durations: grid.durations, aris: grid.aris, q, step: grid.step };
+  // Nearest node that exists: shoreline points can snap to a node over Lake Superior, which the grid omits
+  // (Silver Bay and Beaver Bay did), so take the closest populated node within 1.5 grid steps.
+  const kx = Math.cos((lat * Math.PI) / 180); let best = null, bd = Infinity;
+  for (const la of grid.lats) { if (Math.abs(la - lat) > grid.step * 1.5) continue;
+    for (const lo of grid.lons) { if (Math.abs(lo - lon) > grid.step * 1.5) continue;
+      const q = grid.grid[`${la.toFixed(3)},${lo.toFixed(3)}`]; if (!q) continue;
+      const d = (la - lat) ** 2 + ((lo - lon) * kx) ** 2; if (d < bd) { bd = d; best = { la, lo, q }; } } }
+  if (!best) return null;
+  return { lat: best.la, lon: best.lo, durations: grid.durations, aris: grid.aris, q: best.q, step: grid.step };
 }
 // Interpolate return period (years) for a depth at a duration index. Log-linear in ARI.
 export function returnPeriod(table, durIdx, depth) {

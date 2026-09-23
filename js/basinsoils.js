@@ -61,7 +61,7 @@ export async function renderBasinSoils(container, geometry, daSqMi) {
     const bar = r.groups.map((g) => `<span title="${escapeHtml((g.hsg || "Not rated") + (g.hsg ? ": " + (HSG_NOTE[g.hsg] || "") : ""))}" style="display:inline-block;height:100%;width:${(100 * g.frac).toFixed(2)}%;background:${HSG_COLORS[g.hsg] || "#9e9e9e"}"></span>`).join("");
     container.innerHTML = `<h3>Basin soils · hydrologic soil groups (SSURGO)</h3>
       <div style="height:16px;border-radius:4px;overflow:hidden;background:#333;white-space:nowrap;font-size:0">${bar}</div>
-      <table class="data"><thead><tr><th>HSG</th><th class="num">% of basin</th><th class="num">mi²</th><th class="num">map units</th><th>Runoff character</th></tr></thead><tbody>
+      <table class="data"><thead><tr><th>HSG</th><th class="num">% of basin</th><th class="num">mi²</th><th class="num">soil polygons</th><th>Runoff character</th></tr></thead><tbody>
         ${r.groups.map((g) => `<tr><td><b style="color:${HSG_COLORS[g.hsg] || "#9e9e9e"}">${escapeHtml(g.hsg || "Not rated")}</b></td><td class="num">${fmt(100 * g.frac, 1)}</td><td class="num">${daSqMi ? fmt(daSqMi * g.frac, 2) : "–"}</td><td class="num">${g.n}</td><td class="small">${escapeHtml(g.hsg ? HSG_NOTE[g.hsg] || "" : "water, pits, urban land or unmapped")}</td></tr>`).join("")}
       </tbody></table>
       <div class="stat-row">

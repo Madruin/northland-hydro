@@ -102,6 +102,19 @@ export function jsonp(url, callbackName, timeoutMs = 30000) {
 }
 
 // ---- geometry ----
+// Shortest distance in metres from a point to any line segment (or vertex, for points) of a GeoJSON geometry,
+// in a local equirectangular frame (exact enough within a few km). Vertex-only distance overstated it for FEMA
+// BFE and cross-section lines that have 2-5 vertices.
+export function distToGeomM(lon, lat, g) {
+  if (!g?.coordinates) return Infinity;
+  const kx = 111320 * Math.cos((lat * Math.PI) / 180), ky = 110574;
+  const P = (c) => [(c[0] - lon) * kx, (c[1] - lat) * ky];
+  let dmin = Infinity;
+  const seg = (a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy; const t = L ? Math.max(0, Math.min(1, -(a[0] * dx + a[1] * dy) / L)) : 0; const x = a[0] + t * dx, y = a[1] + t * dy; const d = Math.hypot(x, y); if (d < dmin) dmin = d; };
+  const line = (cs) => { if (cs.length === 1) { const p = P(cs[0]); dmin = Math.min(dmin, Math.hypot(p[0], p[1])); } for (let i = 1; i < cs.length; i++) seg(P(cs[i - 1]), P(cs[i])); };
+  const walk = (c) => { if (typeof c[0] === "number") { const p = P(c); dmin = Math.min(dmin, Math.hypot(p[0], p[1])); } else if (typeof c[0][0] === "number") line(c); else c.forEach(walk); };
+  walk(g.coordinates); return dmin;
+}
 export function haversineKm(lat1, lon1, lat2, lon2) {
   const R = 6371, toR = Math.PI / 180;
   const dLat = (lat2 - lat1) * toR, dLon = (lon2 - lon1) * toR;

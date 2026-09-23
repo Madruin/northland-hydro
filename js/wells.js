@@ -56,7 +56,7 @@ function lith(code) { if (!code) return ""; return codes?.lith?.[code.trim()] ||
 
 function decorateWell(p) {
   p.color = bdrkColor(p.depth2bdrk);
-  p.popup = `<div class="popup-title">Well ${escapeHtml(String(p.unique_no || p.relateid || "").replace(/^0+/, ""))} · ${escapeHtml(useDesc(p.use_c))}${p.status_c && p.status_c !== "A" ? ` (${STATUS[p.status_c] || p.status_c})` : ""}</div><div class="popup-sub">depth ${fmt(p.depth_drll, 0)} ft · bedrock ${p.depth2bdrk != null ? `at ${fmt(p.depth2bdrk, 0)} ft` : "not interpreted"}${p.first_bdrk ? " · " + escapeHtml(unit(p.first_bdrk)) : ""}${p.aquifer ? " · aquifer " + escapeHtml(unit(p.aquifer)) : ""}</div><div class="popup-sub">drilled ${ymd(p.date_drll) || "?"}${p.elevation ? ` · surface ${fmt(p.elevation, 0)} ft` : ""} · CWI</div>`;
+  p.popup = `<div class="popup-title">Well ${escapeHtml(String(p.unique_no || p.relateid || "").replace(/^0+/, ""))} · ${escapeHtml(useDesc(p.use_c))}${p.status_c && p.status_c !== "A" ? ` (${escapeHtml(STATUS[p.status_c] || p.status_c)})` : ""}</div><div class="popup-sub">depth ${fmt(p.depth_drll, 0)} ft · bedrock ${p.depth2bdrk != null ? `at ${fmt(p.depth2bdrk, 0)} ft` : "not interpreted"}${p.first_bdrk ? " · " + escapeHtml(unit(p.first_bdrk)) : ""}${p.aquifer ? " · aquifer " + escapeHtml(unit(p.aquifer)) : ""}</div><div class="popup-sub">drilled ${ymd(p.date_drll) || "?"}${p.elevation ? ` · surface ${fmt(p.elevation, 0)} ft` : ""} · CWI</div>`;
 }
 function decorateHole(p) {
   const purp = (p.drlpurpose || "").toLowerCase();

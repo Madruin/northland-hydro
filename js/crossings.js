@@ -12,8 +12,8 @@ const M2FT = 3.28084;
 const NBI_KIND = { 1: "Concrete", 2: "Concrete continuous", 3: "Steel", 4: "Steel continuous", 5: "Prestressed concrete", 6: "Prestressed concrete continuous", 7: "Timber", 8: "Masonry", 9: "Aluminum / iron", 0: "Other" };
 const NBI_TYPE = { "01": "Slab", "02": "Stringer / girder", "03": "Girder-floorbeam", "04": "Tee beam", "05": "Box beam (multiple)", "06": "Box beam (single)", "07": "Frame", "08": "Orthotropic", "09": "Deck truss", "10": "Through truss", "11": "Deck arch", "12": "Through arch", "13": "Suspension", "14": "Stayed girder", "15": "Lift", "16": "Bascule", "17": "Swing", "18": "Tunnel", "19": "Culvert", "20": "Mixed", "21": "Segmental box girder", "22": "Channel beam", "00": "Other" };
 const NBI_OWNER = { "01": "MnDOT", "02": "County", "03": "Township", "04": "City", "11": "State park", "21": "Other state agency", "25": "Other local agency", "26": "Private", "27": "Railroad", "60": "Federal", "62": "BIA", "64": "USFS", "66": "NPS", "70": "USACE", "80": "Unknown" };
-const COND = (c) => ({ 9: "Excellent", 8: "Very good", 7: "Good", 6: "Satisfactory", 5: "Fair", 4: "Poor", 3: "Serious", 2: "Critical", 1: "Imminent failure", 0: "Failed", N: "n/a" }[c] ?? c);
-const SCOUR = (c) => ({ 3: "Scour critical", 4: "Stable, action needed", 5: "Stable, within footing limits", 6: "Not evaluated (no calculation)", 7: "Countermeasures installed", 8: "Stable, above footing", 9: "Dry land / foundation on rock", U: "Unknown foundation", T: "Tidal", N: "Not over waterway" }[c] ?? c);
+const COND = (c) => ({ 9: "Excellent", 8: "Very good", 7: "Good", 6: "Satisfactory", 5: "Fair", 4: "Poor", 3: "Serious", 2: "Critical", 1: "Imminent failure", 0: "Failed", N: "n/a" }[c] ?? escapeHtml(String(c ?? "")));
+const SCOUR = (c) => ({ 3: "Scour critical", 4: "Stable, action needed", 5: "Stable, within footing limits", 6: "Not evaluated (no calculation)", 7: "Countermeasures installed", 8: "Stable, above footing", 9: "Dry land / foundation on rock", U: "Unknown foundation", T: "Tidal", N: "Not over waterway" }[c] ?? escapeHtml(String(c ?? "")));
 const BC = { G: "Good", F: "Fair", P: "Poor" };
 
 let enabled = false, lastKey = null, inflight = null;
@@ -22,9 +22,9 @@ export function setCrossingsEnabled(on) { enabled = on; if (on) refresh(); else 
 const empty = () => ({ type: "FeatureCollection", features: [] });
 function note(t) { const el = $("crossings-note"); if (el) el.textContent = t; emit("layer:status", { name: "crossings", text: t }); }
 
-async function qgeo(base, params) {
+async function qgeo(base, params, signal) {
   const u = new URLSearchParams({ inSR: "4326", outSR: "4326", geometryPrecision: "6", f: "geojson", ...params });
-  const r = await fetch(`${base}/query?${u}`, { signal: AbortSignal.timeout(90000) }); if (!r.ok) throw new Error(`${r.status}`);
+  const r = await fetch(`${base}/query?${u}`, { signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(90000)]) : AbortSignal.timeout(90000) }); if (!r.ok) throw new Error(`${r.status}`);
   const d = await r.json(); if (d.error) throw new Error(d.error.message); return d;
 }
 const DNR_FIELDS = "crossing_id,crossing_type,stream_name,stream_kittle,road_path_or_railway_name,own_type,maint_name,county,year_built,crossing_condition,condition_issues,total_span,bankfull_width_ft,bankfull_estimate_confidence,fish_barrier_at_some_flows,fish_barrier_at_all_flows,primary_limiting_factor_for_pas,scour_pool,scour_pool_depth_ft,upstream_pool,upstream_deposition,bank_erosion_caused_by_crossing,crossing_properly_aligned,stream_stability_impact,priority,recommended_corrective_actions,field_date,survey_purpose,quantity,channel_gradient,floodprone_width_ft,inlet_bed_elevation,outlet_bed_elevation,headwater_surface_elevation,tailwater_surface_elevation,road_width_ft,notes_and_comments";
@@ -44,7 +44,7 @@ function decorateNbi(p) {
 }
 let xIdx, xCells = {}, xOverview;
 async function staticDnr(bbox) {
-  if (xIdx === undefined) { try { const r = await fetch("data/layers/xing-dnr/index.json"); xIdx = r.ok ? await r.json() : null; } catch { xIdx = null; } }
+  if (xIdx === undefined) { try { const r = await fetch("data/layers/xing-dnr/index.json"); xIdx = r.ok ? await r.json() : null; } catch { xIdx = undefined; return null; } }
   if (!xIdx) return null;
   const cells = xIdx.cells.filter((c) => c.bbox[0] <= bbox[2] && c.bbox[2] >= bbox[0] && c.bbox[1] <= bbox[3] && c.bbox[3] >= bbox[1]);
   const fcs = await Promise.all(cells.map(async (c) => { if (!xCells[c.f]) { const r = await fetch(`data/layers/xing-dnr/${c.f}`); xCells[c.f] = r.ok ? await r.json() : { features: [] }; } return xCells[c.f]; }));
@@ -55,8 +55,9 @@ async function staticDnr(bbox) {
 async function refresh() {
   const z = map.getZoom(); const b = map.getBounds();
   if (z < MIN_ZOOM) {
+    inflight = null; dnrCtl?.abort();
     if (lastKey === "overview") return;
-    if (xOverview === undefined) { xOverview = fetch("data/layers/xing-dnr/overview.json").then(async (r) => { if (!r.ok) return null; const fc = await r.json(); for (const f of fc.features) decorateDnr(f.properties); return fc; }).catch(() => null); track("Crossings overview", xOverview); }
+    if (xOverview === undefined) { xOverview = fetch("data/layers/xing-dnr/overview.json").then(async (r) => { if (!r.ok) return null; const fc = await r.json(); for (const f of fc.features) decorateDnr(f.properties); return fc; }).catch(() => { xOverview = undefined; return null; }); track("Crossings overview", xOverview); }
     const ov = await xOverview; if (!enabled || map.getZoom() >= MIN_ZOOM) return;
     setOverlay("xing-dnr", ov || empty()); setOverlay("xing-nbi", empty()); lastKey = ov ? "overview" : null;
     note(ov ? `Crossings: ${ov.features.length} DNR-surveyed crossings region-wide (overview; NBI bridges load at zoom ${MIN_ZOOM}+)` : `Crossings: zoom in (${MIN_ZOOM}+) to load`); return;
@@ -77,11 +78,12 @@ async function refresh() {
   if (dr.value?.fetched) revalidateDnr(bbox, key, env, base, nn);
 }
 // Snapshot first, then the live DNR inventory swaps in when MnGeo answers (see dnrlayers.js revalidate).
-let dnrBackoffUntil = 0;
+let dnrBackoffUntil = 0, dnrCtl = null;
 async function revalidateDnr(bbox, key, env, base, nn) {
   if (Date.now() < dnrBackoffUntil) { note(`${base} · MnGeo was not answering, live check paused a few minutes`); return; }
   note(`${base} · checking MnGeo for newer data…`);
-  const p = qgeo(`${DNR}/0`, { ...env, outFields: DNR_FIELDS });
+  dnrCtl?.abort(); const ctl = (dnrCtl = new AbortController());
+  const p = qgeo(`${DNR}/0`, { ...env, outFields: DNR_FIELDS }, ctl.signal);
   track("Crossings live check", p.catch(() => {}));
   const at = () => new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   try {
@@ -95,7 +97,7 @@ export function crossingsLegendHtml() {
   return `<h4>Stream crossings</h4>
     <div class="legend-row"><span class="swatch" style="background:#16a34a"></span>DNR culvert survey (green ok · <span style="color:#f59e0b">amber</span> medium priority or span &lt; ½ bankfull · <span style="color:#dc2626">red</span> high priority)</div>
     <div class="legend-row"><span class="swatch sq" style="background:#2563eb;transform:rotate(45deg);width:10px;height:10px"></span>NBI bridge / large culvert (blue good · amber fair · red poor)</div>
-    <div class="small">MN DNR Culvert Inventory Suite (stream-crossing surveys with bankfull comparison, passage, scour) and FHWA National Bridge Inventory (MnDOT, county, township structures over 20 ft). Loads at zoom ${MIN_ZOOM}+. <span id="crossings-note"></span></div>`;
+    <div class="small">MN DNR Culvert Inventory Suite (stream-crossing surveys with bankfull comparison, passage, scour) and FHWA National Bridge Inventory (MnDOT, county, township structures over 20 ft). Zoomed out, the DNR surveys show region-wide; NBI bridges and full detail load at zoom ${MIN_ZOOM}+. <span id="crossings-note"></span></div>`;
 }
 
 // ---- Point panel section: nearest DNR crossing (within 80 m) with openings + bridge assessment, and nearest NBI structure (within 80 m) ----
@@ -134,7 +136,7 @@ export async function renderCrossingAt(container, lon, lat) {
         <table class="data"><tbody>
           <tr><td class="small">Structure</td><td>${escapeHtml(NBI_KIND[p.STRUCTURE_KIND_043A] || "")} ${escapeHtml(NBI_TYPE[p.STRUCTURE_TYPE_043B] || "")}, ${p.MAIN_UNIT_SPANS_045 || "?"} span(s), built ${p.YEAR_BUILT_027 || "?"}${p.YEAR_RECONSTRUCTED_106 ? `, reconstructed ${p.YEAR_RECONSTRUCTED_106}` : ""}</td></tr>
           <tr><td class="small">Dimensions</td><td>length ${fmt(p.STRUCTURE_LEN_MT_049 * M2FT, 1)} ft · max span ${fmt(p.MAX_SPAN_LEN_MT_048 * M2FT, 1)} ft · deck width ${fmt(p.DECK_WIDTH_MT_052 * M2FT, 1)} ft</td></tr>
-          <tr><td class="small">Condition</td><td>overall <b>${BC[p.BRIDGE_CONDITION] || p.BRIDGE_CONDITION || "?"}</b> (lowest rating ${p.LOWEST_RATING ?? "?"}) · deck ${COND(p.DECK_COND_058)} · superstructure ${COND(p.SUPERSTRUCTURE_COND_059)} · substructure ${COND(p.SUBSTRUCTURE_COND_060)}${isCulvert ? ` · culvert ${COND(p.CULVERT_COND_062)}` : ""}</td></tr>
+          <tr><td class="small">Condition</td><td>overall <b>${BC[p.BRIDGE_CONDITION] || escapeHtml(p.BRIDGE_CONDITION || "?")}</b> (lowest rating ${escapeHtml(String(p.LOWEST_RATING ?? "?"))}) · deck ${COND(p.DECK_COND_058)} · superstructure ${COND(p.SUPERSTRUCTURE_COND_059)} · substructure ${COND(p.SUBSTRUCTURE_COND_060)}${isCulvert ? ` · culvert ${COND(p.CULVERT_COND_062)}` : ""}</td></tr>
           <tr><td class="small">Waterway</td><td>channel ${COND(p.CHANNEL_COND_061)} · scour: ${escapeHtml(SCOUR(p.SCOUR_CRITICAL_113))} · waterway adequacy ${p.WATERWAY_EVAL_071 ?? "?"}</td></tr>
           <tr><td class="small">Owner / maint.</td><td>${escapeHtml(NBI_OWNER[p.OWNER_022] || p.OWNER_022 || "?")} / ${escapeHtml(NBI_OWNER[p.MAINTENANCE_021] || p.MAINTENANCE_021 || "?")}${p.OPERATING_RATING_064 ? ` · operating rating ${p.OPERATING_RATING_064} t, inventory ${p.INVENTORY_RATING_066} t` : ""}${p.POSTING_EVAL_070 != null ? ` · posting ${p.POSTING_EVAL_070}` : ""}</td></tr>
         </tbody></table>

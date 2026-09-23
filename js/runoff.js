@@ -36,6 +36,11 @@ export async function renderRunoff(container, { geometry, daSqMi, lat, lon, bc =
           <div class="stat"><div class="v">${tc ? fmt(tc, 2) : "–"}</div><div class="l">Tc, hours (SCS lag)</div><div class="s">${lengthMi ? `longest flow path ${fmt(lengthMi, 2)} mi, slope ${fmt(slopePct, 1)}%` : "needs basin characteristics"}</div></div>
           <div class="stat"><div class="v">${fmt(fp, 2)}</div><div class="l">pond/swamp factor Fp</div><div class="s">${fmt(lakePct, 1)}% lakes and ponds</div></div>
         </div>
+        ${(() => { const w = []; // TR-55 chapter 4 limits: say so instead of clamping silently
+          if (tc != null && (tc < 0.1 || tc > 10)) w.push(`Tc of ${fmt(tc, 2)} h is outside the graphical method's 0.1–10 h range; the peak uses ${tc < 0.1 ? "0.1" : "10"} h and is not reliable.`);
+          if (lakePct > 5) w.push(`Lakes and ponds cover ${fmt(lakePct, 1)}% of the basin; TR-55's pond factor only applies up to 5% (the table uses 0.72), so route storage explicitly instead.`);
+          if (cn < 40) w.push(`CN ${fmt(cn, 0)} is below the method's lower limit of 40.`);
+          return w.length ? `<div class="notice">${w.map(escapeHtml).join(" ")}</div>` : ""; })()}
         <table class="data"><thead><tr><th>Storm</th><th class="num">P 24-hr, in</th><th class="num">Runoff Q, in</th><th class="num">Volume, ac-ft</th><th class="num">Ia/P</th><th class="num">Peak qp, cfs</th></tr></thead><tbody>
           ${rows.map((r) => `<tr class="${r.yr === 100 ? "band" : ""}"><td>${r.yr}-yr</td><td class="num">${fmt(r.P)}</td><td class="num">${fmt(r.Q)}</td><td class="num">${fmtNum(r.vol, r.vol < 10 ? 1 : 0)}</td><td class="num">${fmt(r.iaP)}${r.iaP < 0.1 || r.iaP > 0.5 ? "*" : ""}</td><td class="num">${r.qp != null ? fmtNum(r.qp) : "–"}</td></tr>`).join("")}</tbody></table>
         <div class="small">Runoff depth from the NRCS curve-number equation with Ia = 0.2S, 24-hour Atlas 14 depths at the point; volume = Q × area. Peak from the TR-55 graphical method with <b>Type II</b> unit-peak curves; NRCS Minnesota uses the MSE3 distribution here (EFH-2, WinTR-55), so treat the peaks as screening values and rerun in the design tool with a field-verified CN and Tc. * Ia/P outside 0.1–0.5 is clamped. Compare with the regression peaks above: they are gauge-based and independent of CN.</div>`;

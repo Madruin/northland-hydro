@@ -23,7 +23,7 @@ export const LAYERS = {
     legend: `<div class="legend-row"><span class="swatch sq" style="background:#38bdf8;opacity:.5"></span>Public water basin</div><div class="legend-row"><span class="swatch sq" style="background:#a3e635;opacity:.5"></span>Public water wetland</div><div class="legend-row"><span class="swatch sq" style="background:#0284c7"></span>Public watercourse</div>`,
   },
   impaired: {
-    label: "Impaired waters & TMDLs", minZoom: 10, note: "MPCA 2024 impaired waters list (303(d)): stream reaches and lakes with their impairments, and approved TMDL allocation areas. Hover for the impairments; click a point for TMDL status and affected uses.",
+    label: "Impaired waters & TMDLs", agency: "MPCA", minZoom: 10, note: "MPCA 2024 impaired waters list (303(d)): stream reaches and lakes with their impairments, and approved TMDL allocation areas. Hover for the impairments; click a point for TMDL status and affected uses.",
     sources: [
       { id: "tmdl-areas", url: `${PCA}/env_tmdl_allocation_areas/FeatureServer/3`, fields: "waterbody_name,tmdl_pollutant,epa_approval,source,area_sq_mi", kind: "fill" },
       { id: "imp-lakes", url: `${PCA}/env_impaired_water_2024/FeatureServer/13`, fields: "auid,name,reach_desc,affected_u,imp_param,approved,needs_pln,area_acres", kind: "fill", where: "area_acres < 200000" },
@@ -32,7 +32,7 @@ export const LAYERS = {
     legend: `<div class="legend-row"><span class="swatch sq" style="background:#dc2626"></span>Impaired stream reach</div><div class="legend-row"><span class="swatch sq" style="background:#f97316;opacity:.6"></span>Impaired lake</div><div class="legend-row"><span class="swatch sq" style="background:#a855f7;opacity:.35"></span>TMDL allocation area</div>`,
   },
   easements: {
-    label: "Conservation easements", minZoom: 10, note: "BWSR Reinvest in Minnesota (RIM) conservation easements and wetland banking easements. Use restrictions apply inside the boundary; the recorded legal description governs.",
+    label: "Conservation easements", agency: "BWSR", minZoom: 10, note: "BWSR Reinvest in Minnesota (RIM) conservation easements and wetland banking easements. Use restrictions apply inside the boundary; the recorded legal description governs.",
     sources: [
       { id: "rim", url: `${BWSR}/bdry_bwsr_rim_cons_easements/FeatureServer/0`, fields: "ease_num,ease_type,ease_cat,ease_acres,ease_year,exp_status,swcd_name", kind: "fill" },
       { id: "wetbank", url: `${BWSR}/bdry_wetland_banking_easements/FeatureServer/0`, fields: "county,siteid,easement_number,acres,instrument_type,recording_date", kind: "fill" },
@@ -50,7 +50,7 @@ export const LAYERS = {
     legend: `<div class="legend-row"><span class="swatch sq" style="background:#1d4ed8"></span>Designated trout stream</div><div class="legend-row"><span class="swatch sq" style="background:#60a5fa"></span>Designated tributary reach</div>`,
   },
   karst: {
-    label: "Karst", minZoom: 9, note: "MGS/DNR surface karst: bedrock units with karst development (in TSA3, the Hinckley Sandstone in Pine County), karst feature inventory points (sinkholes, stream sinks, springs) and the springs inventory.",
+    label: "Karst", agency: "MGS / MN DNR", minZoom: 9, note: "MGS/DNR surface karst: bedrock units with karst development (in TSA3, the Hinckley Sandstone in Pine County), karst feature inventory points (sinkholes, stream sinks, springs) and the springs inventory.",
     sources: [
       { id: "karst-poly", url: `${B}/geos_surface_karst_feature_devel/FeatureServer/1`, fields: "maplabel,descriptn,map", kind: "fill" },
       { id: "karst-pts", url: `${B}/geos_karst_feature_inventory_pts/FeatureServer/0`, fields: "feature,name,feat_label,status,depth2bdrk,first_bdrk,elevation,vert_datum,field_check_date", kind: "point" },
@@ -71,7 +71,7 @@ const staticIdx = {}, staticCells = {};
 function bboxOfGeom(g) { if (g.__bb) return g.__bb; let w = 180, s = 90, e = -180, n = -90; const walk = (c) => { if (typeof c[0] === "number") { if (c[0] < w) w = c[0]; if (c[0] > e) e = c[0]; if (c[1] < s) s = c[1]; if (c[1] > n) n = c[1]; } else c.forEach(walk); }; walk(g.coordinates); return (g.__bb = [w, s, e, n]); }
 export async function fetchStatic(s, bbox) {
   const base = `data/layers/${s.id}`;
-  if (staticIdx[s.id] === undefined) { try { const r = await fetch(`${base}/index.json`); staticIdx[s.id] = r.ok ? await r.json() : null; } catch { staticIdx[s.id] = null; } }
+  if (staticIdx[s.id] === undefined) { try { const r = await fetch(`${base}/index.json`); staticIdx[s.id] = r.ok ? await r.json() : null; } catch { staticIdx[s.id] = undefined; return null; } } // network error: retry next time
   const idx = staticIdx[s.id]; if (!idx) return null;
   if (idx.single) { const k = s.id + "/" + idx.single; if (!staticCells[k]) { const r = await fetch(`${base}/${idx.single}`); staticCells[k] = r.ok ? await r.json() : { features: [] }; for (const f of staticCells[k].features) decorate(s.id, f.properties); } const feats = staticCells[k].features.filter((f) => { const bb = bboxOfGeom(f.geometry); return bb[0] <= bbox[2] && bb[2] >= bbox[0] && bb[1] <= bbox[3] && bb[3] >= bbox[1]; }); return { fc: { type: "FeatureCollection", features: feats }, exceeded: false, fetched: idx.fetched }; }
   const cells = idx.cells.filter((c) => c.bbox[0] <= bbox[2] && c.bbox[2] >= bbox[0] && c.bbox[1] <= bbox[3] && c.bbox[3] >= bbox[1]);
@@ -114,13 +114,14 @@ function decorate(id, p) {
 const overviewCache = {};
 async function loadOverview(id) {
   if (overviewCache[id] === undefined) {
-    overviewCache[id] = fetch(`data/layers/${id}/overview.json`).then(async (r) => { if (!r.ok) return null; const fc = await r.json(); for (const f of fc.features) decorate(id, f.properties); return fc; }).catch(() => null);
+    overviewCache[id] = fetch(`data/layers/${id}/overview.json`).then(async (r) => { if (!r.ok) return null; const fc = await r.json(); for (const f of fc.features) decorate(id, f.properties); return fc; }).catch(() => { delete overviewCache[id]; return null; });
   }
   return overviewCache[id];
 }
 async function refresh(k) {
   const L = LAYERS[k]; const z = map.getZoom(); const b = map.getBounds();
   if (z < L.minZoom) {
+    inflight[k] = null; liveCtl[k]?.abort(); // a detail load still in flight must not overwrite the overview
     if (lastKey[k] === "overview") return;
     const p = Promise.all(L.sources.map((s) => (s.overview === false ? null : loadOverview(s.id))));
     track(L.label.replace(/ \(.*\)| &.*$/, "") + " overview", p);
@@ -184,4 +185,4 @@ export async function renderWetlandAt(container, lon, lat) {
       <div class="small">Inventory-level mapping from 2009–2014 imagery; a WCA jurisdictional boundary needs a field delineation. <a href="https://arcgis.dnr.state.mn.us/ewr/wetlandfinder/" target="_blank" rel="noopener">MN Wetland Finder</a> · <a href="https://fwsprimary.wim.usgs.gov/wetlands/apps/wetlands-mapper/?lat=${lat.toFixed(5)}&lon=${lon.toFixed(5)}&zoom=15" target="_blank" rel="noopener">USFWS Wetlands Mapper here</a> · <a href="https://www.dnr.state.mn.us/eco/wetlands/nwi_proj.html" target="_blank" rel="noopener">About the MN NWI update</a></div>`;
   } catch (e) { console.warn("wetlands lookup failed", e); }
 }
-export function dnrLegendHtml(k) { const L = LAYERS[k]; return `<h4>${L.label} (MN DNR)</h4>${L.legend}<div class="small">${L.note} <span id="${k}-note"></span></div>`; }
+export function dnrLegendHtml(k) { const L = LAYERS[k]; return `<h4>${L.label} (${L.agency || "MN DNR"})</h4>${L.legend}<div class="small">${L.note} <span id="${k}-note"></span></div>`; }

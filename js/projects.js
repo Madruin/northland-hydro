@@ -235,7 +235,7 @@ function openEditor(p) {
       readForm(); openEditor(editing); $("f-pick-msg").textContent = "Location set. Re-check stations/gauges below.";
     });
   };
-  $("f-cancel").onclick = () => { editing = null; setPickMode(null); editing?.id ? openProject(editing.id) : renderList(); };
+  $("f-cancel").onclick = () => { const id = editing?.id; editing = null; setPickMode(null); id ? openProject(id) : renderList(); };
   $("f-save").onclick = async () => {
     readForm();
     if (!editing.name) { $("f-msg").textContent = "Name is required."; return; }

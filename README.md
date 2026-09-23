@@ -203,7 +203,7 @@ Keyboard: ← / → step the end date one day (also the ‹ › Today buttons); 
 - **Railway** (if a backend ever becomes necessary): a static-site service pointed at this folder works, but there is nothing here that needs a server yet, so GitHub Pages is the default.
 - Anything else that serves static files (an SWCD web host, S3) also works.
 
-The only file that is not live is `data/atlas14_grid.json`. NOAA's Atlas 14 server has no CORS header, so `tools/build_atlas14_grid.py` samples it on a 0.2° grid over the region once (≈15 min, polite 0.4 s spacing). Atlas 14 Volume 8 is static, so this never needs to re-run unless the region or spacing changes. Nodes over Lake Superior and Ontario are intentionally absent.
+Besides the monthly layer snapshots, the hourly WLSSD harvest and the Pine County parcel export described above, the one precomputed file is `data/atlas14_grid.json`. NOAA's Atlas 14 server has no CORS header, so `tools/build_atlas14_grid.py` samples it on a 0.2° grid over the region once (≈15 min, polite 0.4 s spacing). Atlas 14 Volume 8 is static, so this never needs to re-run unless the region or spacing changes. Nodes over Lake Superior and Ontario are intentionally absent.
 
 ## Layout
 

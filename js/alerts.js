@@ -4,7 +4,8 @@ import { activeAlerts } from "./api/nws.js";
 import { $, escapeHtml, fmtDateTime } from "./util.js";
 
 export let alerts = [];
-const countyNames = COUNTIES.map((c) => c.name.replace(/ \(WI\)/, ""));
+// Match counties by FIPS (NWS SAME codes are "0" + 5-digit FIPS); matching names caught Lake County IL and Cook County IL.
+const countyFips = new Set(COUNTIES.map((c) => "0" + c.fips));
 
 export async function loadAlerts() {
   const res = await Promise.allSettled([activeAlerts({ area: "MN" }), activeAlerts({ area: "WI" })]);
@@ -13,7 +14,7 @@ export async function loadAlerts() {
   alerts = all.filter((a) => {
     if (seen.has(a.id)) return false; seen.add(a.id);
     const dlh = /Duluth/i.test(a.sender || "");
-    const county = countyNames.some((n) => new RegExp(`\\b${n}\\b`, "i").test(a.areas || ""));
+    const county = (a.same || []).some((c) => countyFips.has(c));
     return dlh || county;
   }).sort((a, b) => sevRank(b.severity) - sevRank(a.severity));
   const btn = $("btn-alerts");
