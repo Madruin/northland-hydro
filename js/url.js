@@ -7,7 +7,7 @@ export function readUrl() {
   if (h.get("z")) st.zoom = Number(h.get("z"));
   if (h.get("c")) { const [lon, lat] = h.get("c").split(",").map(Number); if (isFinite(lon) && isFinite(lat)) st.center = [lon, lat]; }
   if (h.get("b")) st.basemap = h.get("b");
-  if (h.get("l") != null) { const l = h.get("l").split(",").filter(Boolean); st.layers = { stations: l.includes("s"), gauges: l.includes("g"), qpe: l.includes("q"), streams: l.includes("r"), soils: l.includes("o"), parcels: l.includes("p"), trout: l.includes("t"), karst: l.includes("k"), wetlands: l.includes("w"), fema: l.includes("f"), crossings: l.includes("c"), wells: l.includes("b"), pwi: l.includes("v"), impaired: l.includes("i"), easements: l.includes("e"), landcover: l.includes("n"), huc: l.includes("h") }; }
+  if (h.get("l") != null) { const l = h.get("l").split(",").filter(Boolean); st.layers = { stations: l.includes("s"), gauges: l.includes("g"), qpe: l.includes("q"), streams: l.includes("r"), soils: l.includes("o"), parcels: l.includes("p"), trout: l.includes("t"), karst: l.includes("k"), wetlands: l.includes("w"), fema: l.includes("f"), crossings: l.includes("c"), wells: l.includes("b"), pwi: l.includes("v"), impaired: l.includes("i"), easements: l.includes("e"), landcover: l.includes("n"), huc: l.includes("h"), crithab: l.includes("x") }; }
   if (h.get("q") && ["live", "1h", "3h", "6h", "12h", "24h", "since12z"].includes(h.get("q"))) st.qpeWindow = h.get("q"); // an unknown value broke startup
   if (h.get("t") != null) st.terrain = Object.fromEntries(h.get("t").split(",").filter(Boolean).map((k) => [k, true]));
   if (h.get("to")) st.terrainOpacity = Number(h.get("to")) / 100;
@@ -19,7 +19,7 @@ export function writeUrl(st) {
   h.set("d", st.endDate); h.set("w", String(st.days));
   h.set("z", st.zoom.toFixed(2)); h.set("c", `${st.center[0].toFixed(4)},${st.center[1].toFixed(4)}`);
   h.set("b", st.basemap);
-  h.set("l", [st.layers.stations && "s", st.layers.gauges && "g", st.layers.qpe && "q", st.layers.streams && "r", st.layers.soils && "o", st.layers.parcels && "p", st.layers.trout && "t", st.layers.karst && "k", st.layers.wetlands && "w", st.layers.fema && "f", st.layers.crossings && "c", st.layers.wells && "b", st.layers.pwi && "v", st.layers.impaired && "i", st.layers.easements && "e", st.layers.landcover && "n", st.layers.huc && "h"].filter(Boolean).join(","));
+  h.set("l", [st.layers.stations && "s", st.layers.gauges && "g", st.layers.qpe && "q", st.layers.streams && "r", st.layers.soils && "o", st.layers.parcels && "p", st.layers.trout && "t", st.layers.karst && "k", st.layers.wetlands && "w", st.layers.fema && "f", st.layers.crossings && "c", st.layers.wells && "b", st.layers.pwi && "v", st.layers.impaired && "i", st.layers.easements && "e", st.layers.landcover && "n", st.layers.huc && "h", st.layers.crithab && "x"].filter(Boolean).join(","));
   h.set("q", st.qpeWindow);
   const t = Object.keys(st.terrain || {}).filter((k) => st.terrain[k]);
   if (t.length) { h.set("t", t.join(",")); h.set("to", String(Math.round((st.terrainOpacity ?? 0.6) * 100))); }

@@ -13,18 +13,19 @@ export async function renderLakeAt(container, lon, lat) {
   const dow = p.dowlknum;
   const name = p.pw_basin_name || p.pw_parent_name || "Unnamed basin";
   setLake({ type: "Feature", geometry: lake.geometry, properties: { name } });
-  container.innerHTML = `<h3>Lake · MN DNR LakeFinder</h3>
-    <div><b>${escapeHtml(name)}</b> <span class="small">· DOW ${escapeHtml(dow)} · ${escapeHtml(p.cty_name || "")} County · ${escapeHtml(p.wb_class || "")}${p.pwi_class ? " · PWI " + escapeHtml(p.pwi_class) : ""}</span></div>
+  container.innerHTML = `<h3>${/riverine/i.test(p.wb_class || "") ? "River reach · MN DNR hydrography" : "Lake · MN DNR LakeFinder"}</h3>
+    <div><b>${escapeHtml(name)}</b> <span class="small">${dow ? `· DOW ${escapeHtml(dow)} ` : ""}${p.cty_name ? `· ${escapeHtml(p.cty_name)} County ` : ""}· ${escapeHtml(p.wb_class || "")}${p.pwi_class ? " · PWI " + escapeHtml(p.pwi_class) : ""}</span></div>
     <div class="small">${fmtNum(p.acres, 0)} ac · ${fmt(p.shore_mi, 1)} mi shoreline${p.in_lakefinder !== "Y" ? " · not in LakeFinder" : ""}</div>
     <div id="lk-levels"><div class="spinner">Water levels…</div></div>
     <div id="lk-outlet"><div class="spinner">Outlet / control structures…</div></div>
     <div id="lk-morph"></div>
-    <div class="actions"><a class="btn" href="${dnr.lakefinderUrl(dow)}" target="_blank" rel="noopener">LakeFinder</a><a class="btn" href="${dnr.levelsPageUrl(dow)}" target="_blank" rel="noopener">Water levels page</a><a class="btn" href="${dnr.levelsCsvUrl(dow)}" target="_blank" rel="noopener">Levels CSV</a></div>`;
+    ${dow ? `<div class="actions"><a class="btn" href="${dnr.lakefinderUrl(dow)}" target="_blank" rel="noopener">LakeFinder</a><a class="btn" href="${dnr.levelsPageUrl(dow)}" target="_blank" rel="noopener">Water levels page</a><a class="btn" href="${dnr.levelsCsvUrl(dow)}" target="_blank" rel="noopener">Levels CSV</a></div>` : ""}`;
 
   // Water levels: summary from the page (OHW, datum, extremes) + readings CSV → chart
   (async () => {
     const box = $("lk-levels");
     if (!box) return;
+    if (!dow) { box.innerHTML = `<div class="small">No DOW number for this water (a river reach or unnumbered basin), so there is no DNR water-level record.</div>`; return; }
     try {
       const [sum, rows] = await Promise.all([dnr.levelSummary(dow).catch(() => null), dnr.waterLevels(dow).catch(() => [])]);
       if (!box.isConnected) return;

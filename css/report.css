@@ -55,3 +55,8 @@ ol.sources li { margin: 2px 0; }
 .sec .swatch { width: 10px; height: 10px; border-radius: 50%; border: 1px solid #999; display: inline-block; }
 .sec table { font-size: 9pt; }
 .sec .stat.bad .v { color: #b91c1c; } .sec .stat.warn .v { color: #b45309; }
+
+/* land-cover swatches and freshness tags carried over from the Point panel */
+.sec .swatch { display: inline-block; width: 9px; height: 9px; margin-right: 4px; border-radius: 2px; vertical-align: -1px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.sec .asof { font-size: 8pt; color: var(--muted); font-style: italic; margin-top: 2px; }
+.sec details > summary { font-weight: 600; font-size: 9.5pt; list-style: none; }

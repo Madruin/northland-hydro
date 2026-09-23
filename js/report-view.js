@@ -26,7 +26,10 @@ function render(d) {
   root.innerHTML = `
     <h1>Site hydrology summary${d.project ? `: ${esc(d.project.name)}` : ""}</h1>
     <div class="meta">${d.project ? `${esc(kindLabel(d.project.kind))} · ${esc(d.project.status)}${d.project.county ? ` · ${esc(d.project.county)} County` : ""}${d.project.swcd ? ` · ${esc(d.project.swcd)}` : ""}<br>` : ""}
-      Location ${f(d.point.lat, 5)}, ${f(d.point.lon, 5)}${d.project?.location_note ? ` (${esc(d.project.location_note)})` : ""} · Generated ${dt(d.generatedAt)}${d.generatedBy ? ` by ${esc(d.generatedBy)}` : ""} · ${esc(d.app)}<br>
+      Location ${f(d.point.lat, 5)}, ${f(d.point.lon, 5)}${d.project?.location_note ? ` (${esc(d.project.location_note)})` : ""}${d.point.utmM ? ` · UTM 15N NAD83 ${n(d.point.utmM[0])} E, ${n(d.point.utmM[1])} N m (${n(d.point.utmFt[0])} E, ${n(d.point.utmFt[1])} N US ft)` : ""}${d.point.elevFt != null ? ` · ground ${f(d.point.elevFt, 1)} ft NAVD88 (${esc(d.point.elevSrc || "")})` : ""}<br>
+      ${d.point.hucs?.length ? `Watershed: ${d.point.hucs.slice().reverse().map((h) => `${esc(h.name)} (${esc(h.level)} ${esc(h.code)})`).join(" · ")}<br>` : ""}
+      ${d.point.cover ? `Land cover at the point: ${esc(d.point.cover.name)} (NLCD ${d.point.cover.year} class ${d.point.cover.code})<br>` : ""}
+      Generated ${dt(d.generatedAt)}${d.generatedBy ? ` by ${esc(d.generatedBy)}` : ""} · ${esc(d.app)}<br>
       Reproduce: <a href="${esc(d.permalink)}">${esc(d.permalink.length > 110 ? d.permalink.slice(0, 110) + "…" : d.permalink)}</a></div>
     ${d.mapImage ? `<img class="map" src="${d.mapImage}" alt="Map" />` : ""}
     ${d.project?.notes ? `<p class="note">${esc(d.project.notes)}</p>` : ""}
@@ -80,7 +83,8 @@ function render(d) {
     </div>
     <h3>Basin characteristics</h3>
     <table><thead><tr><th>Characteristic</th><th>Code</th><th class="num">Value</th><th>Unit</th></tr></thead><tbody>${d.watershed.bc.map((b) => `<tr><td>${esc(b.name)}</td><td>${esc(b.code)}</td><td class="num">${n(b.value, 3)}</td><td>${esc(b.unit || "")}</td></tr>`).join("")}</tbody></table>
-    ${flows(d.watershed)}`}` : ""}
+    ${flows(d.watershed)}`}
+    ${d.watershedExtras?.length ? d.watershedExtras.map((s) => `<section class="sec">${s.html}</section>`).join("") : ""}` : ""}
 
     ${d.regional ? `<h2>6. Bankfull channel dimensions (TSA3 regional curves)</h2>
     <p class="note">${esc(d.regional.chosen.curveName)} · ${esc(d.regional.chosen.region)}. ${esc(d.regional.chosen.method)}</p>
@@ -103,7 +107,8 @@ function render(d) {
       ${d.sources.streamstats ? `<li>${esc(d.sources.streamstats.note)}: ${esc(d.sources.streamstats.url)}. Peak flows: Minnesota regional regression equations, USGS SIR 2023-5079. Low-flow and flow-duration statistics: USGS SIR 2015-5170.</li>` : ""}
       ${d.sources.regional ? `<li>TSA3 regional curves: ${d.sources.regional.map((r) => `${esc(r.file)} (${r.modified})`).join("; ")}. Equations reproduced from each workbook's Prediction Equations sheet.</li>` : ""}
       <li>${esc(d.sources.coops.note)}: ${esc(d.sources.coops.url)}.</li>
-      ${d.sections?.length ? `<li>Site conditions: MN DNR LakeFinder and dams inventory; MN DNR Culvert Inventory Suite and FHWA National Bridge Inventory; FEMA National Flood Hazard Layer (effective data only); MN DNR National Wetlands Inventory update; county parcel services; NRCS SSURGO via Soil Data Access; MN County Well Index (Minnesota Geological Survey / MDH) and DNR Drill Core Library. Retrieved ${dt(d.generatedAt)}.</li>` : ""}
+      ${d.sections?.length ? `<li>Site conditions: MN DNR LakeFinder and dams inventory; MN DNR Culvert Inventory Suite and FHWA National Bridge Inventory; MN DNR Public Waters Inventory; MPCA 2024 impaired waters list and TMDL allocation areas; BWSR RIM and wetland-bank easements; USFWS IPaC listed species and critical habitat (screening; request the official list in IPaC); FEMA National Flood Hazard Layer (effective data only); MN DNR National Wetlands Inventory update; county parcel services; NRCS SSURGO via Soil Data Access; MN County Well Index (Minnesota Geological Survey / MDH) and DNR Drill Core Library. Retrieved ${dt(d.generatedAt)}.</li>` : ""}
+      <li>Regional layers (MN DNR Public Waters Inventory, MPCA 2024 impaired waters and TMDL areas, BWSR easements, FEMA hazard zones, USGS Watershed Boundary Dataset) are read from monthly snapshots kept in the site and refreshed live when the agency server answers; each section above states which (snapshot date or "live from MnGeo" with time).${d.watershedExtras?.some((s) => s.id === "ws-runoff") ? ` Runoff curve numbers: NRCS SSURGO hydrologic soil groups crossed with USGS/MRLC NLCD 2021 land cover (TR-55 cover analogs), NRCS TR-55 graphical peak method (Type II), screening only.` : ""}${d.point.cover ? " Land cover at the point: MRLC NLCD 2021." : ""}</li>
       <li>Map basemap © OpenFreeMap, OpenMapTiles, OpenStreetMap contributors; county boundaries US Census TIGER via us-atlas.</li>
     </ol>
     <p class="small">Generated by ${esc(d.app)}. All upstream data are provisional and subject to revision by the issuing agency. This summary supports screening and design-basis documentation; it does not replace agency reports or field measurements.</p>`;

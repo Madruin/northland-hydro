@@ -13,6 +13,10 @@ import { getLiveState, analysisToState } from "./watershed.js";
 import { snapshot } from "./map.js";
 import { authState } from "./projects.js";
 import { APP, ENDPOINTS } from "./config.js";
+import { toUtm, utmFeet } from "./coords.js";
+import { pointElevation } from "./elevation.js";
+import { hucsAt } from "./huc.js";
+import { landCoverAt, NLCD_YEAR } from "./landcover.js";
 
 function maxRun(rows, n) {
   let best = null;
@@ -66,13 +70,19 @@ export async function buildReport({ lon, lat, project = null, analysis = null, o
     const strip = (r) => r && { curveId: r.curve.id, curveName: r.curve.name, region: r.curve.region, reliability: r.curve.reliability, method: r.curve.method, sourceFile: r.curve.source_file, sourceModified: r.curve.source_modified, rows: r.rows, warnings: r.warnings };
     regional = { chosen: strip(compute(curveId, ws.da)), others: curves().filter((c) => c.id !== curveId).map((c) => strip(compute(c.id, ws.da))).filter(Boolean) };
   }
+  onStatus("Site location details…");
+  const [elev, hucs, cover] = await Promise.all([pointElevation(lon, lat).catch(() => null), hucsAt(lon, lat).catch(() => []), landCoverAt(lon, lat).catch(() => null)]);
+  const [ue, un] = toUtm(lon, lat); const uf = utmFeet(lon, lat);
   onStatus("Capturing map…");
   const mapImage = await snapshot();
   const sections = captureSections(lon, lat);
   const doc = {
     app: `${APP.name} ${APP.version}`, generatedAt: now.toISOString(), generatedBy: auth.user?.email || null,
     permalink: location.href,
-    point: { lat, lon },
+    point: { lat, lon, utmM: [ue, un], utmFt: [uf.e, uf.n], elevFt: elev?.ft ?? null, elevSrc: elev?.src || null,
+      hucs: hucs.map((h) => ({ level: h.level.label, code: h.code, name: h.name, sqmi: h.sqmi })),
+      cover: cover ? { code: cover.code, name: cover.name, tr55: cover.tr55, year: NLCD_YEAR } : null },
+    watershedExtras: captureWatershedExtras(lon, lat),
     project: project ? { id: project.id, name: project.name, kind: project.kind, status: project.status, county: project.county, swcd: project.swcd, notes: project.notes, location_note: project.location_note } : null,
     window: { endDate, days, startDate: addDays(endDate, -(days - 1)) },
     stations: near.map((s) => ({ name: s.name, network: s.network, id: s.ids?.["10"] ? "CoCoRaHS " + s.ids["10"] : s.sid, mi: kmToMi(s.km), total: s.total, flag: s.totalFlag, missing: s.missing, normal: s.normal, max1: s.max1, max1Date: s.max1Date, lat: s.lat, lon: s.lon })),
@@ -99,8 +109,24 @@ export async function buildReport({ lon, lat, project = null, analysis = null, o
   return doc;
 }
 
+// The watershed section's soil, runoff (land-cover CN), bedrock and basin-impairment cards, as rendered.
+function captureWatershedExtras(lon, lat) {
+  const c = document.getElementById("tab-point");
+  if (!c || c.dataset.pt !== `${lon.toFixed(5)},${lat.toFixed(5)}`) return [];
+  const out = [];
+  for (const cls of ["ws-basinsoils", "ws-runoff", "ws-bedrock", "ws-impaired"]) {
+    const el = c.querySelector("." + cls);
+    if (!el || !el.textContent.trim() || el.querySelector(".spinner")) continue;
+    const n = el.cloneNode(true);
+    n.querySelectorAll(".js-plotly-plot, .chart, button, input, select, .actions, .spinner").forEach((x) => x.remove());
+    n.querySelectorAll("details").forEach((d) => d.setAttribute("open", ""));
+    n.querySelectorAll("[id]").forEach((x) => x.removeAttribute("id"));
+    if (n.textContent.trim()) out.push({ id: cls, html: n.innerHTML });
+  }
+  return out;
+}
 // The Point panel's site-condition sections, as rendered (charts, buttons and spinners stripped), for the printed report.
-const REPORT_SECTIONS = ["pt-lake", "pt-crossing", "pt-pwi", "pt-impaired", "pt-fema", "pt-easement", "pt-wetland", "pt-parcel", "pt-soils", "pt-wells"];
+const REPORT_SECTIONS = ["pt-lake", "pt-crossing", "pt-pwi", "pt-impaired", "pt-fema", "pt-easement", "pt-species", "pt-wetland", "pt-parcel", "pt-soils", "pt-wells"];
 function captureSections(lon, lat) {
   const c = document.getElementById("tab-point");
   if (!c || c.dataset.pt !== `${lon.toFixed(5)},${lat.toFixed(5)}`) return [];

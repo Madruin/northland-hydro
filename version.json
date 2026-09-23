@@ -1,5 +1,5 @@
 {
- "build": "20260923-1530-5476b38",
+ "build": "20260923-1545-f8ae635",
  "files": [
   "css/app.css",
   "css/report.css",
@@ -49,6 +49,7 @@
   "js/search.js",
   "js/soils.js",
   "js/sources.js",
+  "js/species.js",
   "js/terrain.js",
   "js/url.js",
   "js/util.js",
