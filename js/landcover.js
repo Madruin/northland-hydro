@@ -39,6 +39,23 @@ function loadScript(src, globalName) {
   if (window[globalName]) return Promise.resolve();
   return new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => rej(new Error("failed to load " + src)); document.head.appendChild(s); });
 }
+// NLCD class at one point (WMS GetFeatureInfo returns the class code as PALETTE_INDEX, ~0.2 s). Cached per ~10 m.
+const pointCache = new Map(); let pointCtl = null;
+export async function landCoverAt(lon, lat, { hover = false } = {}) {
+  const key = `${lon.toFixed(4)},${lat.toFixed(4)}`; if (pointCache.has(key)) return pointCache.get(key);
+  let ctl = new AbortController(); if (hover) { pointCtl?.abort(); pointCtl = ctl; } // a new hover cancels the last hover only
+  const d = 0.00005, bbox = [lat - d, lon - d, lat + d, lon + d].map((v) => v.toFixed(6)).join(",");
+  const url = `https://www.mrlc.gov/geoserver/mrlc_display/NLCD_${NLCD_YEAR}_Land_Cover_L48/ows?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS=NLCD_${NLCD_YEAR}_Land_Cover_L48&QUERY_LAYERS=NLCD_${NLCD_YEAR}_Land_Cover_L48&STYLES=&CRS=EPSG:4326&BBOX=${bbox}&WIDTH=3&HEIGHT=3&I=1&J=1&INFO_FORMAT=application/json`;
+  const r = await fetch(url, { signal: AbortSignal.any([ctl.signal, AbortSignal.timeout(15000)]) });
+  if (!r.ok) throw new Error(`MRLC ${r.status}`);
+  const code = (await r.json()).features?.[0]?.properties?.PALETTE_INDEX;
+  const out = NLCD[code] ? { code, ...NLCD[code] } : null;
+  pointCache.set(key, out); if (pointCache.size > 500) pointCache.delete(pointCache.keys().next().value);
+  return out;
+}
+export function landCoverPopupHtml(c) {
+  return `<div class="popup-title"><span class="swatch sq" style="display:inline-block;width:10px;height:10px;background:${c.color};margin-right:5px"></span>${escapeHtml(c.name)}</div><div class="popup-sub">NLCD ${NLCD_YEAR} class ${c.code} · TR-55 ${escapeHtml(c.tr55)} · CN A/B/C/D ${c.cn.A}/${c.cn.B}/${c.cn.C}/${c.cn.D}</div>`;
+}
 const cache = new Map();
 // Fractions of each NLCD class inside the basin: { frac: {code: 0..1}, cells, cellM, year }
 export async function basinLandCover(geometry) {

@@ -29,6 +29,7 @@ import { renderWlssdSection } from "./wlssd.js";
 import { renderWellsAt } from "./wells.js";
 import { renderPwiAt, renderImpairedAt, renderEasementsAt } from "./waterregs.js";
 import { hucsAt, hucLineHtml } from "./huc.js";
+import { landCoverAt, NLCD_YEAR } from "./landcover.js";
 import { visit } from "./nav.js";
 import { openReport } from "./report.js";
 const countyName = (fips) => { const c = COUNTIES.find((x) => x.fips === String(fips)); return c ? c.name.replace(" (WI)", "") + " County" : fips ? "FIPS " + fips : ""; };
@@ -332,7 +333,8 @@ export async function renderPoint(lon, lat) {
     <div id="pt-a14"></div>`;
 
   addRecent({ lon, lat });
-  hucsAt(lon, lat).then((h) => { const el = $("pt-huc"); if (el) el.innerHTML = hucLineHtml(h); }).catch(() => {});
+  Promise.all([hucsAt(lon, lat).catch(() => []), landCoverAt(lon, lat).catch(() => null)]).then(([h, c]) => { const el = $("pt-huc"); if (!el) return;
+    el.innerHTML = [hucLineHtml(h), c ? `Land cover: <span class="swatch sq" style="display:inline-block;width:9px;height:9px;background:${c.color}"></span> <b>${escapeHtml(c.name)}</b> <span class="small">(NLCD ${NLCD_YEAR} class ${c.code}; TR-55 ${escapeHtml(c.tr55)})</span>` : ""].filter(Boolean).join("<br>"); });
   pointElevation(lon, lat).then((e) => { const el = $("pt-elev"); if (el) el.innerHTML = e ? `Elev <b>${fmt(e.ft, 1)} ft</b> NAVD88 <span class="small">(${e.src})</span>` : "elev n/a"; });
   ptCur = { lon, lat };
   navRun = {

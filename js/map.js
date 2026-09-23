@@ -1,7 +1,7 @@
 // MapLibre map, basemaps, county outlines, QPE raster overlay and point layers.
 import { BASEMAPS, COUNTIES, ENDPOINTS, HOME, QPE_LAYERS, REGION_BBOX } from "./config.js";
 import { getJSON, emit, escapeHtml } from "./util.js";
-import { WMS_TILES as LC_TILES } from "./landcover.js";
+import { WMS_TILES as LC_TILES, landCoverAt, landCoverPopupHtml } from "./landcover.js";
 import { addTerrainLayers, setTerrainVisible as _stv, setTerrainOpacity as _sto } from "./terrain.js";
 import { streamGridTileUrl } from "./api/streamstats.js";
 
@@ -305,6 +305,7 @@ export function getBbox() {
 }
 
 // Hover popups
+let lcTimer = null;
 function setupHover() {
   const popup = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 10, maxWidth: "280px" });
   map.on("mousemove", (e) => {
@@ -315,12 +316,18 @@ function setupHover() {
     if (!feats.length) { const ov = ["ov-wlssd", "ov-wells", "ov-drillholes", "ov-obwells", "ov-imp-streams", "ov-pwi-lines", "ov-rim", "ov-wetbank", "ov-imp-lakes", "ov-pwi-basins", "ov-tmdl-areas", "ov-xing-dnr", "ov-xing-nbi", "ov-karst-pts", "ov-springs", "ov-fema-xs", "ov-fema-bfe", "ov-trout", "ov-fema-lomr", "ov-karst-poly", "ov-wetlands", "ov-fema-zones", "ov-huc12", "ov-huc10", "ov-huc8"].filter((l) => map.getLayer(l) && map.getLayoutProperty(l, "visibility") === "visible"); if (ov.length) { feats = map.queryRenderedFeatures(e.point, { layers: ov }); anchor = e.lngLat; } }
     if (!feats.length && map.getLayer("parcels-fill") && map.getLayoutProperty("parcels-fill", "visibility") === "visible") { feats = map.queryRenderedFeatures(e.point, { layers: ["parcels-fill"] }); anchor = e.lngLat; }
     if (!feats.length && map.getLayer("soils-fill") && map.getLayoutProperty("soils-fill", "visibility") === "visible") { feats = map.queryRenderedFeatures(e.point, { layers: ["soils-fill"] }); anchor = e.lngLat; }
-    if (!feats.length) { popup.remove(); return; }
+    if (!feats.length) {
+      popup.remove(); clearTimeout(lcTimer);
+      // Land cover is a raster: ask MRLC for the class under the cursor once the mouse rests for a moment
+      if (visibility.landcover) { const ll = e.lngLat; lcTimer = setTimeout(() => landCoverAt(ll.lng, ll.lat, { hover: true }).then((c) => { if (c && lcTimer && map.getCanvas().matches(":hover")) popup.setLngLat(ll).setHTML(landCoverPopupHtml(c)).addTo(map); }).catch(() => {}), 250); }
+      return;
+    }
+    clearTimeout(lcTimer); lcTimer = null;
     // Fill overlays can stack (one TMDL allocation area per approved pollutant, overlapping easements): show them all
     const same = feats.filter((f) => f.layer.id === feats[0].layer.id);
     const htmls = [...new Set(same.map((f) => f.properties.popup || escapeHtml(f.properties.name || "")))].filter(Boolean).slice(0, 6);
     const foot = feats[0].layer.id === "ov-tmdl-areas" ? `<div class="popup-sub" style="margin-top:6px">${htmls.length > 1 ? `${htmls.length} allocation areas stacked here, ` : ""}one per approved TMDL pollutant. The reach\u2019s full impairment list is on its red line or in the Point panel.</div>` : "";
     popup.setLngLat(anchor).setHTML(htmls.join('<hr class="popup-sep">') + foot).addTo(map);
   });
-  map.on("mouseout", () => popup.remove());
+  map.on("mouseout", () => { popup.remove(); clearTimeout(lcTimer); lcTimer = null; });
 }

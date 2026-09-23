@@ -1,7 +1,7 @@
 // Wiring: state, controls, data loads, URL sync.
-import { APP, BASEMAPS, COUNTIES, HOME, WINDOWS } from "./config.js";
+import { APP, BASEMAPS, HOME, WINDOWS } from "./config.js";
 import { $, isoDate, addDays, on, debounce, emit } from "./util.js";
-import { initMap, map, setBasemap, setLayerVisible, setQpeWindow, flyToCounty, setTerrainVisible, setTerrainOpacity } from "./map.js";
+import { initMap, map, setBasemap, setLayerVisible, setQpeWindow, setTerrainVisible, setTerrainOpacity } from "./map.js";
 import { TERRAIN, terrainLegendHtml } from "./terrain.js";
 import { loadPrecip, renderPrecipLegend, lastDay as precipLastDay } from "./precip.js";
 import { loadGauges, renderGaugeLegend } from "./gauges.js";
@@ -52,8 +52,6 @@ function buildControls() {
   WINDOWS.forEach((w) => win.append(new Option(w.label, w.days)));
   win.value = String(state.days);
   $("ctl-date").value = state.endDate; $("ctl-date").max = isoDate();
-  const cty = $("ctl-county");
-  COUNTIES.filter((c) => c.tsa3).forEach((c) => cty.append(new Option(c.name + " County", c.fips)));
   const bm = $("ctl-basemap");
   const groups = new Map();
   Object.entries(BASEMAPS).forEach(([id, b]) => { if (!b.group) { bm.append(new Option(b.label, id)); return; } if (!groups.has(b.group)) { const g = document.createElement("optgroup"); g.label = b.group; bm.append(g); groups.set(b.group, g); } groups.get(b.group).append(new Option(b.label, id)); });
@@ -91,7 +89,6 @@ function buildControls() {
   try { if (localStorage.getItem("nh-hide-unclassified") === "1") { setHideUnclassified(true); on("map:ready", () => setGaugeFilter(true)); } } catch {}
   $("ctl-date").addEventListener("change", (e) => { if (e.target.value && e.target.value <= isoDate()) { state.endDate = e.target.value; refreshPrecip(); } });
   win.addEventListener("change", (e) => { state.days = Number(e.target.value); refreshPrecip(); });
-  cty.addEventListener("change", (e) => { flyToCounty(e.target.value); e.target.value = ""; });
   bm.addEventListener("change", (e) => { state.basemap = e.target.value; setBasemap(state.basemap); syncUrl(); });
   $("ctl-qpe").addEventListener("change", (e) => { state.qpeWindow = e.target.value; setQpeWindow(state.qpeWindow); if (!state.layers.qpe) toggleLayer("qpe", true); else renderLegend(); syncUrl(); });
   $("tg-precip").addEventListener("click", () => toggleLayer("stations"));
