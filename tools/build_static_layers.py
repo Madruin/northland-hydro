@@ -22,7 +22,8 @@ OPTS = {"tmdl-areas": {"offset": 0.0004, "single": True}, "pwi-basins": {"offset
         "fema-zones": {"offset": 0.0001, "oid": "OBJECTID"}, "fema-xs": {"oid": "OBJECTID"}, "fema-bfe": {"oid": "OBJECTID"}, "fema-lomr": {"oid": "OBJECTID"},
         "huc8": {"offset": 0.0015, "prec": 4, "single": True, "no_overview": True}, "huc10": {"offset": 0.001, "prec": 4, "single": True, "no_overview": True},
         "huc12": {"offset": 0.0006, "prec": 4, "single": True, "no_overview": True},
-        "crithab": {"offset": 0.0008, "prec": 4, "single": True, "no_overview": True, "oid": "OBJECTID"}}
+        "crithab": {"offset": 0.0008, "prec": 4, "single": True, "no_overview": True, "oid": "OBJECTID"},
+        "xing-dnr": {"single": True, "no_overview": True}, "xing-nbi": {"single": True, "no_overview": True, "oid": "OBJECTID"}}
 WBD = "https://hydro.nationalmap.gov/arcgis/rest/services/wbd/MapServer"
 FEMA = "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer"
 LAYERS = {
@@ -48,7 +49,9 @@ LAYERS = {
     "huc8":        (f"{WBD}/4", "huc8,name,areasqkm,states", None),
     "huc10":       (f"{WBD}/5", "huc10,name,areasqkm,states,hutype", None),
     "huc12":       (f"{WBD}/6", "huc12,name,areasqkm,states,hutype,tohuc", None),
-    "xing-dnr":    (f"{B}/us_mn_state_dnr/struc_culvert_inventory_pub/FeatureServer/0", "crossing_id,crossing_type,stream_name,stream_kittle,road_path_or_railway_name,total_span,bankfull_width_ft,crossing_condition,priority,fish_barrier_at_some_flows,fish_barrier_at_all_flows,recommended_corrective_actions", None),
+    # Stream crossings, drawn region-wide at every zoom (field lists match js/crossings.js so popups are the same zoomed in or out)
+    "xing-dnr":    (f"{B}/us_mn_state_dnr/struc_culvert_inventory_pub/FeatureServer/0", "crossing_id,crossing_type,stream_name,stream_kittle,road_path_or_railway_name,own_type,maint_name,county,year_built,crossing_condition,condition_issues,total_span,bankfull_width_ft,bankfull_estimate_confidence,fish_barrier_at_some_flows,fish_barrier_at_all_flows,primary_limiting_factor_for_pas,scour_pool,scour_pool_depth_ft,upstream_pool,upstream_deposition,bank_erosion_caused_by_crossing,crossing_properly_aligned,stream_stability_impact,priority,recommended_corrective_actions,field_date,survey_purpose,quantity,channel_gradient,floodprone_width_ft,inlet_bed_elevation,outlet_bed_elevation,headwater_surface_elevation,tailwater_surface_elevation,road_width_ft,notes_and_comments", None),
+    "xing-nbi":    ("https://services.arcgis.com/xOi1kZaI0eWDREZv/arcgis/rest/services/NTAD_National_Bridge_Inventory/FeatureServer/0", "STRUCTURE_NUMBER_008,FACILITY_CARRIED_007,FEATURES_DESC_006A,YEAR_BUILT_027,YEAR_RECONSTRUCTED_106,STRUCTURE_KIND_043A,STRUCTURE_TYPE_043B,MAIN_UNIT_SPANS_045,STRUCTURE_LEN_MT_049,MAX_SPAN_LEN_MT_048,DECK_WIDTH_MT_052,DECK_COND_058,SUPERSTRUCTURE_COND_059,SUBSTRUCTURE_COND_060,CHANNEL_COND_061,CULVERT_COND_062,SCOUR_CRITICAL_113,WATERWAY_EVAL_071,OWNER_022,MAINTENANCE_021,BRIDGE_CONDITION,LOWEST_RATING,OPERATING_RATING_064,INVENTORY_RATING_066,POSTING_EVAL_070", None),
 }
 
 def fetch(url, params, tries=4):

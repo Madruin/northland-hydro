@@ -18,7 +18,7 @@ const BC = { G: "Good", F: "Fair", P: "Poor" };
 
 let enabled = false, lastKey = null, inflight = null;
 export function initCrossings() { map.on("moveend", debounce(() => { if (enabled) refresh(); }, 350)); }
-export function setCrossingsEnabled(on) { enabled = on; if (on) refresh(); else { setOverlay("xing-dnr", empty()); setOverlay("xing-nbi", empty()); lastKey = null; note(""); } }
+export function setCrossingsEnabled(on) { enabled = on; if (on) refresh(); else { dnrCtl?.abort(); liveDnr = null; setOverlay("xing-dnr", empty()); setOverlay("xing-nbi", empty()); lastKey = null; note(""); } }
 const empty = () => ({ type: "FeatureCollection", features: [] });
 function note(t) { const el = $("crossings-note"); if (el) el.textContent = t; emit("layer:status", { name: "crossings", text: t }); }
 
@@ -42,62 +42,83 @@ function decorateNbi(p) {
   p.color = p.BRIDGE_CONDITION === "P" ? "#dc2626" : p.BRIDGE_CONDITION === "F" ? "#f59e0b" : "#2563eb";
   p.popup = `<div class="popup-title">${isCulvert ? "Culvert" : "Bridge"} ${escapeHtml(p.STRUCTURE_NUMBER_008 || "")} · ${escapeHtml(p.FACILITY_CARRIED_007 || "")}</div><div class="popup-sub">over ${escapeHtml(p.FEATURES_DESC_006A || "")} · ${escapeHtml(NBI_KIND[p.STRUCTURE_KIND_043A] || "")} ${escapeHtml(NBI_TYPE[p.STRUCTURE_TYPE_043B] || "")} · built ${p.YEAR_BUILT_027 || "?"}${p.YEAR_RECONSTRUCTED_106 ? ", recon. " + p.YEAR_RECONSTRUCTED_106 : ""}</div><div class="popup-sub">length ${fmt(p.STRUCTURE_LEN_MT_049 * M2FT, 0)} ft · condition ${BC[p.BRIDGE_CONDITION] || p.BRIDGE_CONDITION || "?"} (lowest ${p.LOWEST_RATING ?? "?"}) · scour ${escapeHtml(SCOUR(p.SCOUR_CRITICAL_113))} · ${escapeHtml(NBI_OWNER[p.OWNER_022] || p.OWNER_022 || "")}</div>`;
 }
-let xIdx, xCells = {}, xOverview;
-async function staticDnr(bbox) {
-  if (xIdx === undefined) { try { const r = await fetch("data/layers/xing-dnr/index.json"); xIdx = r.ok ? await r.json() : null; } catch { xIdx = undefined; return null; } }
-  if (!xIdx) return null;
-  const cells = xIdx.cells.filter((c) => c.bbox[0] <= bbox[2] && c.bbox[2] >= bbox[0] && c.bbox[1] <= bbox[3] && c.bbox[3] >= bbox[1]);
-  const fcs = await Promise.all(cells.map(async (c) => { if (!xCells[c.f]) { const r = await fetch(`data/layers/xing-dnr/${c.f}`); xCells[c.f] = r.ok ? await r.json() : { features: [] }; } return xCells[c.f]; }));
-  const seen = new Set(); const features = [];
-  for (const fc of fcs) for (const f of fc.features) { const [x, y] = f.geometry.coordinates; if (x < bbox[0] || x > bbox[2] || y < bbox[1] || y > bbox[3] || seen.has(f.properties.__id)) continue; seen.add(f.properties.__id); features.push(f); }
-  return { type: "FeatureCollection", features, fetched: xIdx.fetched };
+// Both inventories are kept in the site as region-wide files (data/layers/xing-dnr|xing-nbi/all.json, rebuilt
+// monthly by tools/build_static_layers.py with the same field lists as below), so every zoom shows every crossing
+// with the same popup. From MIN_ZOOM the DNR surveys in view are also re-read live from MnGeo and merged in.
+let allP = null;
+function loadAll() {
+  if (!allP) {
+    const get = (id) => Promise.all([fetch(`data/layers/${id}/all.json`).then((r) => (r.ok ? r.json() : null)), fetch(`data/layers/${id}/index.json`).then((r) => (r.ok ? r.json() : null))])
+      .then(([fc, idx]) => (fc ? { fc, fetched: idx?.fetched } : null)).catch(() => null);
+    allP = Promise.all([get("xing-dnr"), get("xing-nbi")]).then(([d, n]) => {
+      if (d) for (const f of d.fc.features) decorateDnr(f.properties);
+      if (n) for (const f of n.fc.features) decorateNbi(f.properties);
+      if (!d && !n) allP = null; // network trouble: try again on the next move
+      return { d, n };
+    });
+  }
+  return allP;
 }
+const inBox = (f, b) => { const [x, y] = f.geometry.coordinates; return x >= b[0] && x <= b[2] && y >= b[1] && y <= b[3]; };
 async function refresh() {
   const z = map.getZoom(); const b = map.getBounds();
+  const p = loadAll(); if (!lastKey) track("Crossings", p);
+  const snap = await p; if (!enabled) return;
+  if (!snap.d && !snap.n) return refreshLive(z, b); // snapshot unavailable: the old live-only behaviour
+  const base = `Crossings: ${snap.d ? snap.d.fc.features.length : 0} DNR-surveyed and ${snap.n ? snap.n.fc.features.length : 0} NBI structures region-wide (snapshot ${snap.d?.fetched || snap.n?.fetched})`;
   if (z < MIN_ZOOM) {
-    inflight = null; dnrCtl?.abort();
-    if (lastKey === "overview") return;
-    if (xOverview === undefined) { xOverview = fetch("data/layers/xing-dnr/overview.json").then(async (r) => { if (!r.ok) return null; const fc = await r.json(); for (const f of fc.features) decorateDnr(f.properties); return fc; }).catch(() => { xOverview = undefined; return null; }); track("Crossings overview", xOverview); }
-    const ov = await xOverview; if (!enabled || map.getZoom() >= MIN_ZOOM) return;
-    setOverlay("xing-dnr", ov || empty()); setOverlay("xing-nbi", empty()); lastKey = ov ? "overview" : null;
-    note(ov ? `Crossings: ${ov.features.length} DNR-surveyed crossings region-wide (overview; NBI bridges load at zoom ${MIN_ZOOM}+)` : `Crossings: zoom in (${MIN_ZOOM}+) to load`); return;
+    dnrCtl?.abort();
+    if (lastKey === "all") return;
+    liveDnr = null; setOverlay("xing-dnr", snap.d?.fc || empty()); setOverlay("xing-nbi", snap.n?.fc || empty()); lastKey = "all";
+    note(`${base}; zoom to ${MIN_ZOOM}+ to refresh the DNR surveys in view from MnGeo`); return;
   }
   const pad = 0.15;
   const bbox = [b.getWest() - (b.getEast() - b.getWest()) * pad, b.getSouth() - (b.getNorth() - b.getSouth()) * pad, b.getEast() + (b.getEast() - b.getWest()) * pad, b.getNorth() + (b.getNorth() - b.getSouth()) * pad];
   const key = bbox.map((v) => v.toFixed(3)).join(","); if (key === lastKey) return; lastKey = key;
-  note("Crossings: loading…");
-  const env = { geometry: bbox.map((v) => v.toFixed(5)).join(","), geometryType: "esriGeometryEnvelope", spatialRel: "esriSpatialRelIntersects", resultRecordCount: "2000" };
-  const mine = (inflight = Promise.allSettled([staticDnr(bbox).then((s) => s || qgeo(`${DNR}/0`, { ...env, outFields: DNR_FIELDS })), qgeo(NBI, { ...env, outFields: NBI_FIELDS })]));
-  track("Crossings", mine);
-  const [dr, nr] = await mine; if (inflight !== mine || !enabled) return;
-  let nd = 0, nn = 0; const errs = [];
-  if (dr.status === "fulfilled") { for (const f of dr.value.features) decorateDnr(f.properties); setOverlay("xing-dnr", dr.value); nd = dr.value.features.length; } else errs.push("DNR " + dr.reason?.message);
-  if (nr.status === "fulfilled") { for (const f of nr.value.features) decorateNbi(f.properties); setOverlay("xing-nbi", nr.value); nn = nr.value.features.length; } else errs.push("NBI " + nr.reason?.message);
-  const base = `Crossings: ${nd} DNR-surveyed${dr.value?.fetched ? ` (snapshot ${dr.value.fetched})` : ""}, ${nn} NBI structures${errs.length ? " · failed: " + errs.join("; ") : ""}`;
-  note(base);
-  if (dr.value?.fetched) revalidateDnr(bbox, key, env, base, nn);
+  if (!liveDnr) setOverlay("xing-dnr", snap.d?.fc || empty());
+  setOverlay("xing-nbi", snap.n?.fc || empty());
+  if (snap.d) revalidateDnr(bbox, key, snap.d.fc, base);
+  else note(base);
 }
-// Snapshot first, then the live DNR inventory swaps in when MnGeo answers (see dnrlayers.js revalidate).
-let dnrBackoffUntil = 0, dnrCtl = null;
-async function revalidateDnr(bbox, key, env, base, nn) {
+// Snapshot everywhere; the DNR surveys inside the view are swapped for MnGeo's live copy when it answers.
+let dnrBackoffUntil = 0, dnrCtl = null, liveDnr = null;
+async function revalidateDnr(bbox, key, snapFc, base) {
   if (Date.now() < dnrBackoffUntil) { note(`${base} · MnGeo was not answering, live check paused a few minutes`); return; }
-  note(`${base} · checking MnGeo for newer data…`);
+  note(`${base} · checking MnGeo for newer DNR surveys in view…`);
   dnrCtl?.abort(); const ctl = (dnrCtl = new AbortController());
+  const env = { geometry: bbox.map((v) => v.toFixed(5)).join(","), geometryType: "esriGeometryEnvelope", spatialRel: "esriSpatialRelIntersects", resultRecordCount: "2000" };
   const p = qgeo(`${DNR}/0`, { ...env, outFields: DNR_FIELDS }, ctl.signal);
   track("Crossings live check", p.catch(() => {}));
   const at = () => new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   try {
     const d = await p; if (lastKey !== key || !enabled) return;
-    for (const f of d.features) decorateDnr(f.properties); setOverlay("xing-dnr", d);
-    note(`Crossings: ${d.features.length} DNR-surveyed (live from MnGeo, ${at()}), ${nn} NBI structures`);
+    for (const f of d.features) decorateDnr(f.properties);
+    liveDnr = { type: "FeatureCollection", features: [...snapFc.features.filter((f) => !inBox(f, bbox)), ...d.features] };
+    setOverlay("xing-dnr", liveDnr);
+    note(`${base}; ${d.features.length} DNR surveys in view live from MnGeo, ${at()}`);
   } catch { if (lastKey !== key || !enabled) return; dnrBackoffUntil = Date.now() + 5 * 60 * 1000; note(`${base} · MnGeo not answering (${at()}), showing snapshot`); }
+}
+// Fallback when the site's copies cannot be read: live queries for the view from zoom MIN_ZOOM, as before.
+async function refreshLive(z, b) {
+  if (z < MIN_ZOOM) { setOverlay("xing-dnr", empty()); setOverlay("xing-nbi", empty()); lastKey = null; note(`Crossings: zoom in (${MIN_ZOOM}+) to load`); return; }
+  const bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
+  const key = "live:" + bbox.map((v) => v.toFixed(3)).join(","); if (key === lastKey) return; lastKey = key;
+  note("Crossings: loading…");
+  const env = { geometry: bbox.map((v) => v.toFixed(5)).join(","), geometryType: "esriGeometryEnvelope", spatialRel: "esriSpatialRelIntersects", resultRecordCount: "2000" };
+  const mine = (inflight = Promise.allSettled([qgeo(`${DNR}/0`, { ...env, outFields: DNR_FIELDS }), qgeo(NBI, { ...env, outFields: NBI_FIELDS })]));
+  track("Crossings", mine);
+  const [dr, nr] = await mine; if (inflight !== mine || !enabled) return;
+  const errs = [];
+  if (dr.status === "fulfilled") { for (const f of dr.value.features) decorateDnr(f.properties); setOverlay("xing-dnr", dr.value); } else errs.push("DNR " + dr.reason?.message);
+  if (nr.status === "fulfilled") { for (const f of nr.value.features) decorateNbi(f.properties); setOverlay("xing-nbi", nr.value); } else errs.push("NBI " + nr.reason?.message);
+  note(`Crossings: ${dr.value?.features.length || 0} DNR-surveyed, ${nr.value?.features.length || 0} NBI structures (live)${errs.length ? " · failed: " + errs.join("; ") : ""}`);
 }
 
 export function crossingsLegendHtml() {
   return `<h4>Stream crossings</h4>
     <div class="legend-row"><span class="swatch" style="background:#16a34a"></span>DNR culvert survey (green ok · <span style="color:#f59e0b">amber</span> medium priority or span &lt; ½ bankfull · <span style="color:#dc2626">red</span> high priority)</div>
     <div class="legend-row"><span class="swatch sq" style="background:#2563eb;transform:rotate(45deg);width:10px;height:10px"></span>NBI bridge / large culvert (blue good · amber fair · red poor)</div>
-    <div class="small">MN DNR Culvert Inventory Suite (stream-crossing surveys with bankfull comparison, passage, scour) and FHWA National Bridge Inventory (MnDOT, county, township structures over 20 ft). Zoomed out, the DNR surveys show region-wide; NBI bridges and full detail load at zoom ${MIN_ZOOM}+. <span id="crossings-note"></span></div>`;
+    <div class="small">MN DNR Culvert Inventory Suite (stream-crossing surveys with bankfull comparison, passage, scour) and FHWA National Bridge Inventory (MnDOT, county, township structures over 20 ft). Both inventories draw region-wide at every zoom from copies kept in the site (refreshed monthly); from zoom ${MIN_ZOOM} the DNR surveys in view are also re-read live from MnGeo. <span id="crossings-note"></span></div>`;
 }
 
 // ---- Point panel section: nearest DNR crossing (within 80 m) with openings + bridge assessment, and nearest NBI structure (within 80 m) ----
