@@ -23,13 +23,6 @@
 </head>
 <body>
   <header id="topbar">
-    <div class="brand">
-      <img class="logo" src="assets/icon.svg" alt="" width="30" height="30" />
-      <div>
-        <div class="title">Northland Eco</div>
-        <div class="subtitle">Rain, rivers, soils &amp; terrain for site work in NE Minnesota</div>
-      </div>
-    </div>
 
     <div class="controls">
       <div class="ctl search-wrap">
@@ -173,7 +166,7 @@
           <li>Station values are the 24 h ending the morning of the date shown; today's reports arrive through the morning.</li>
           <li>Percent of normal is only shown for 7-day and longer windows.</li>
           <li>PRISM grids lag 1–2 days. USGS and DNR values are provisional. Return periods use the nearest Atlas 14 grid node; use the official PFDS query for submittals.</li>
-          <li>Regression flows take the region at the pour point, without area weighting or gage adjustment. Regional-curve dimensions are planning-level; verify with a bankfull survey. TR-55 design-storm peaks in the watershed section are screening values until the Minnesota unit-peak coefficients are added.</li>
+          <li>Regression flows take the region at the pour point, without area weighting or gage adjustment. Regional-curve dimensions are planning-level; verify with a bankfull survey. Design-storm peaks in the watershed section use the NRCS unit-hydrograph method with the MSE3 distribution for one lumped, unrouted basin: planning values, checked against MnDOT's HydroCAD example; model subareas and storage for design.</li>
           <li>Wetland, FEMA, parcel and easement boundaries are inventory or GIS versions. Jurisdictional wetland lines need a delineation, and the effective FIRM, recorded easement and deed govern.</li>
         </ul>
         <p class="small">Full list under <b>Sources &amp; methods</b> above. RCC-ACIS · USGS NWIS · MN DNR/MPCA CSG · NWS API & RFC QPE · Open-Meteo · NOAA CO-OPS · NOAA Atlas 14 · USGS StreamStats · MnGeo/MnTOPO · TSA3 regional curve workbooks. Built by the MN SWCD Technical Service Area 3 engineering office. Open source under the MIT license: <a href="https://github.com/Madruin/northland-hydro" target="_blank" rel="noopener">github.com/Madruin/northland-hydro</a>.</p>
@@ -183,6 +176,7 @@
     </div>
   </div>
   <footer id="attrib">
+    <span class="foot-brand"><img src="assets/icon.svg" alt="" width="13" height="13" /> <b>Northland Eco</b></span> ·
     <a href="#" id="attrib-sources" title="All data sources, methods and software">Sources</a> · Data: <a href="https://www.rcc-acis.org/" target="_blank" rel="noopener">RCC-ACIS</a> (CoCoRaHS · COOP · ASOS) ·
     <a href="https://waterdata.usgs.gov/" target="_blank" rel="noopener">USGS NWIS</a> ·
     <a href="https://www.dnr.state.mn.us/waters/csg/index.html" target="_blank" rel="noopener">MN DNR/MPCA CSG</a> ·
@@ -191,7 +185,7 @@
     <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> ·
     <a href="https://tidesandcurrents.noaa.gov/stationhome.html?id=9099064" target="_blank" rel="noopener">NOAA CO-OPS</a> ·
     <a href="https://hdsc.nws.noaa.gov/pfds/" target="_blank" rel="noopener">NOAA Atlas 14</a>.
-    Provisional data, subject to revision. Public agency data, with monthly snapshots of slow-changing layers kept in the site; no tracking, and sign-in is only for the team project list.
+    Provisional data, subject to revision. Public agency data, with monthly snapshots of slow-changing layers kept in the site.
   </footer>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/5.6.0/maplibre-gl.js"></script>

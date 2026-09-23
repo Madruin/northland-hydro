@@ -435,3 +435,9 @@ hr.popup-sep { border: 0; border-top: 1px solid #334155; margin: 6px 0; }
 .huc-line { margin: 2px 0 6px; line-height: 1.5; }
 .lc-table summary { cursor: pointer; margin: 6px 0; font-size: 12px; }
 .lc-table .swatch { display: inline-block; width: 10px; height: 10px; margin-right: 5px; vertical-align: -1px; border-radius: 2px; }
+
+/* Site name lives in the footer; the header is controls only (2026-09-23) */
+.foot-brand { white-space: nowrap; color: var(--fg1, inherit); }
+.foot-brand img { vertical-align: -2px; }
+/* keep the desktop header to two rows: the basemap list has long option names */
+@media (min-width: 901px) { #ctl-basemap { max-width: 190px; } #topbar { gap: 12px; } }

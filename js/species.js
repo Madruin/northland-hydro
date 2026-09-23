@@ -6,7 +6,7 @@ import { escapeHtml } from "./util.js";
 
 const IPAC = "https://ipac.ecosphere.fws.gov/location/api/resources";
 // IPaC asks callers to identify themselves; FWS will soon also require a From header with a contact email (set here).
-const CONTACT_EMAIL = "";
+const CONTACT_EMAIL = "matiasvalero@tsa3.org"; // TSA3 contact given by Matías for IPaC identification
 const HEADERS = { "Content-Type": "application/json", "X-Organization": "MN SWCD Technical Service Area 3", "X-Project": "Northland Eco (northland.eco)", ...(CONTACT_EMAIL ? { From: CONTACT_EMAIL } : {}) };
 const RANK = { E: 0, T: 1, PE: 2, PT: 3, C: 4, SAT: 5, EXPN: 6 };
 const cache = new Map();

@@ -1,5 +1,5 @@
 {
- "build": "20260923-1545-f8ae635",
+ "build": "20260923-1604-60e26db",
  "files": [
   "css/app.css",
   "css/report.css",
@@ -51,6 +51,7 @@
   "js/sources.js",
   "js/species.js",
   "js/terrain.js",
+  "js/uhpeak.js",
   "js/url.js",
   "js/util.js",
   "js/waterregs.js",
