@@ -430,3 +430,8 @@ hr.popup-sep { border: 0; border-top: 1px solid #334155; margin: 6px 0; }
 .mb-x, .copy { position: relative; }
 .mb-x::after, .copy::after { content: ""; position: absolute; inset: -8px; }
 @media (pointer: coarse) { .mb-x, .copy { min-width: 28px; min-height: 28px; } }
+
+/* HUC line in the Point header, land-cover table in the runoff card */
+.huc-line { margin: 2px 0 6px; line-height: 1.5; }
+.lc-table summary { cursor: pointer; margin: 6px 0; font-size: 12px; }
+.lc-table .swatch { display: inline-block; width: 10px; height: 10px; margin-right: 5px; vertical-align: -1px; border-radius: 2px; }

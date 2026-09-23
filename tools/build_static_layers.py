@@ -20,7 +20,9 @@ OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
 # ov_where = extra filter for the overview pass; overview_only = no detail cells (source too big to snapshot); oid = order field
 OPTS = {"tmdl-areas": {"offset": 0.0004, "single": True}, "pwi-basins": {"offset": 0.00006}, "pwi-lines": {"offset": 0.00006}, "imp-lakes": {"offset": 0.00006},
         "fema-zones": {"offset": 0.0001, "oid": "OBJECTID"}, "fema-xs": {"oid": "OBJECTID"}, "fema-bfe": {"oid": "OBJECTID"}, "fema-lomr": {"oid": "OBJECTID"},
-        "wetlands": {"overview_only": True, "ov_where": "acres >= 20"}}
+        "huc8": {"offset": 0.0015, "prec": 4, "single": True, "no_overview": True}, "huc10": {"offset": 0.001, "prec": 4, "single": True, "no_overview": True},
+        "huc12": {"offset": 0.0006, "prec": 4, "single": True, "no_overview": True}}
+WBD = "https://hydro.nationalmap.gov/arcgis/rest/services/wbd/MapServer"
 FEMA = "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer"
 LAYERS = {
     "trout":       (f"{B}/us_mn_state_dnr/env_trout_stream_designations/FeatureServer/0", "kittle_nbr,kittle_name,trout_flag,length_mi", None),
@@ -39,8 +41,10 @@ LAYERS = {
     "fema-xs":     (f"{FEMA}/14", "XS_LTR,WSEL_REG,STREAM_STN,WTR_NM,XS_LN_TYP,V_DATUM", None),
     "fema-bfe":    (f"{FEMA}/16", "ELEV,V_DATUM", None),
     "fema-lomr":   (f"{FEMA}/1", "CASE_NO,EFF_DATE,STATUS", None),
-    # NWI: overview only (812k polygons region-wide, ~500 MB); the map draws wetlands >= 20 ac below zoom 11, live detail above
-    "wetlands":    (f"{B}/us_mn_state_dnr/water_nat_wetlands_inv_2009_2014/FeatureServer/0", "attribute,wetland_type,acres,circ39_class,hgm_desc,spcc_desc", None),
+    # USGS Watershed Boundary Dataset (drawn at every zoom; wetlands zoomed out come from the FWS 100 m raster instead)
+    "huc8":        (f"{WBD}/4", "huc8,name,areasqkm,states", None),
+    "huc10":       (f"{WBD}/5", "huc10,name,areasqkm,states,hutype", None),
+    "huc12":       (f"{WBD}/6", "huc12,name,areasqkm,states,hutype,tohuc", None),
     "xing-dnr":    (f"{B}/us_mn_state_dnr/struc_culvert_inventory_pub/FeatureServer/0", "crossing_id,crossing_type,stream_name,stream_kittle,road_path_or_railway_name,total_span,bankfull_width_ft,crossing_condition,priority,fish_barrier_at_some_flows,fish_barrier_at_all_flows,recommended_corrective_actions", None),
 }
 
@@ -60,7 +64,7 @@ def page(lid, offset=None, where=None):
     url, fields, where0 = LAYERS[lid]
     where = " AND ".join(f"({w})" for w in (where0, where) if w) or "1=1"
     base = {"geometry": ",".join(map(str, BBOX)), "geometryType": "esriGeometryEnvelope", "inSR": "4326", "spatialRel": "esriSpatialRelIntersects",
-            "outFields": fields, "outSR": "4326", "geometryPrecision": "4" if offset else "5", "maxAllowableOffset": str(offset or OPTS.get(lid, {}).get("offset", 0.00004)), "where": where, "f": "geojson", "orderByFields": OPTS.get(lid, {}).get("oid", "objectid"), "resultRecordCount": "2000"}
+            "outFields": fields, "outSR": "4326", "geometryPrecision": "4" if offset else str(OPTS.get(lid, {}).get("prec", 5)), "maxAllowableOffset": str(offset or OPTS.get(lid, {}).get("offset", 0.00004)), "where": where, "f": "geojson", "orderByFields": OPTS.get(lid, {}).get("oid", "objectid"), "resultRecordCount": "2000"}
     feats, offset = [], 0
     while True:
         d = fetch(url, {**base, "resultOffset": str(offset)})
@@ -128,7 +132,9 @@ def build(lid):
             os.makedirs(os.path.join(OUT, lid), exist_ok=True); write_overview(lid, [])
             with open(os.path.join(OUT, lid, "index.json"), "w", encoding="utf-8") as fh: json.dump({"cell": CELL, "bbox": BBOX, "source": LAYERS[lid][0], "fetched": time.strftime("%Y-%m-%d"), "n": 0, "cells": [], "overview_only": True}, fh, separators=(",", ":"))
             return f"{lid} overview ok in {time.time()-t:.0f}s"
-        feats = page(lid); write(lid, feats, LAYERS[lid][0]); write_overview(lid, feats); return f"{lid} ok in {time.time()-t:.0f}s"
+        feats = page(lid); write(lid, feats, LAYERS[lid][0])
+        if not OPTS.get(lid, {}).get("no_overview"): write_overview(lid, feats)
+        return f"{lid} ok in {time.time()-t:.0f}s"
     except Exception as e: return f"{lid} FAILED: {e}"
 
 if __name__ == "__main__":

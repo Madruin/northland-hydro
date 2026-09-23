@@ -18,6 +18,8 @@ import { initSoils, setSoilsEnabled, soilsLegendHtml, setSoilsTheme } from "./so
 import { initParcels, setParcelsEnabled, parcelsLegendHtml } from "./parcels.js";
 import { initNav, watchTooltips } from "./nav.js";
 import { renderQpeLegend } from "./qpelegend.js";
+import { initHuc, setHucEnabled, hucLegendHtml } from "./huc.js";
+import { landcoverLegendHtml } from "./landcover.js";
 import { initDnrLayers, setDnrLayerEnabled, dnrLegendHtml } from "./dnrlayers.js";
 import { initFema, setFemaEnabled, femaLegendHtml } from "./fema.js";
 import { initCrossings, setCrossingsEnabled, crossingsLegendHtml } from "./crossings.js";
@@ -32,7 +34,7 @@ import { setGaugeFilter } from "./map.js";
 
 const state = {
   endDate: isoDate(), days: 1, zoom: HOME.zoom, center: HOME.center, basemap: "light",
-  layers: { stations: true, gauges: true, qpe: false, streams: false, soils: false, parcels: false, trout: false, karst: false, wetlands: false, fema: false, crossings: false, wells: false, pwi: false, impaired: false, easements: false }, qpeWindow: "24h", selection: null, terrain: {}, terrainOpacity: 0.6,
+  layers: { huc: false, landcover: false, stations: true, gauges: true, qpe: false, streams: false, soils: false, parcels: false, trout: false, karst: false, wetlands: false, fema: false, crossings: false, wells: false, pwi: false, impaired: false, easements: false }, qpeWindow: "24h", selection: null, terrain: {}, terrainOpacity: 0.6,
   ...readUrl(),
 };
 // Never allow a future end date; default to yesterday before ~9 AM (today's CoCoRaHS reports are still arriving)
@@ -66,7 +68,7 @@ function buildControls() {
   $("tg-soils").addEventListener("click", () => toggleLayer("soils"));
   $("tg-parcels").classList.toggle("on", !!state.layers.parcels);
   $("tg-parcels").addEventListener("click", () => toggleLayer("parcels"));
-  for (const k of ["wetlands", "trout", "karst", "fema", "crossings", "wells", "pwi", "impaired", "easements"]) { $("tg-" + k).classList.toggle("on", !!state.layers[k]); $("tg-" + k).addEventListener("click", () => toggleLayer(k)); }
+  for (const k of ["huc", "landcover", "wetlands", "trout", "karst", "fema", "crossings", "wells", "pwi", "impaired", "easements"]) { $("tg-" + k).classList.toggle("on", !!state.layers[k]); $("tg-" + k).addEventListener("click", () => toggleLayer(k)); }
 
   const stepDate = (n) => { const d = n === 0 ? isoDate() : addDays(state.endDate, n); if (d <= isoDate()) { state.endDate = d; $("ctl-date").value = d; refreshPrecip(); } };
   $("date-prev").addEventListener("click", () => stepDate(-1));
@@ -203,7 +205,7 @@ function buildControls() {
     }
   });
 }
-const MENU_LAYERS = ["streams", "crossings", "trout", "soils", "parcels", "wetlands", "fema", "karst", "wells", "pwi", "impaired", "easements"];
+const MENU_LAYERS = ["huc", "landcover", "streams", "crossings", "trout", "soils", "parcels", "wetlands", "fema", "karst", "wells", "pwi", "impaired", "easements"];
 function closeMenus() { document.querySelectorAll(".menu-wrap .menu").forEach((m) => { m.hidden = true; }); }
 function updateLayersButton() {
   const n = MENU_LAYERS.filter((k) => state.layers[k]).length;
@@ -223,7 +225,7 @@ function showHintOnce() {
 function dismissHint() { $("map-hint").hidden = true; try { localStorage.setItem("nh-hint", "1"); } catch {} }
 // Raster tile sources (basemap imagery, terrain, radar, stream grid) report through the loader too, and tile errors
 // show in the status pill, so a slow MnGeo imagery or lidar server is visible instead of a silent blank map.
-const TILE_LABEL = (id) => ({ mn: "Imagery tiles", usgs: "Imagery tiles", qpe: "Radar tiles", streams: "Streams grid" }[id] || (id.startsWith("terrain-") ? "Terrain tiles" : null));
+const TILE_LABEL = (id) => ({ mn: "Imagery tiles", usgs: "Imagery tiles", qpe: "Radar tiles", streams: "Streams grid", landcover: "Land cover tiles", "fws-wetlands": "Wetland tiles" }[id] || (id.startsWith("terrain-") ? "Terrain tiles" : null));
 let tilesPending = null, tileErrAt = 0;
 whenMap(() => {
   map.on("sourcedataloading", (e) => { const lbl = TILE_LABEL(e.sourceId || ""); if (!lbl || tilesPending) return; tilesPending = new Promise((res) => map.once("idle", res)).then(() => { tilesPending = null; }); track(lbl, tilesPending); });
@@ -235,7 +237,7 @@ on("layer:status", ({ name, text }) => {
   layerStatus[name] = text; const row = $("tg-" + name); if (!row) return; const z = row.querySelector(".lr-zoom"); if (!z) return;
   const loading = /loading|querying/i.test(text) && !/failed/i.test(text), failed = /failed|did not answer|unavailable/i.test(text);
   row.classList.toggle("loading", loading); row.classList.toggle("error", failed);
-  z.textContent = loading ? "loading…" : failed ? "failed · toggle to retry" : /overview/.test(text || "") ? `overview · detail at zoom ${row.dataset.minzoom}+` : `zoom ${row.dataset.minzoom}+`;
+  z.textContent = loading ? "loading…" : failed ? "failed · toggle to retry" : /overview/.test(text || "") ? `overview · detail at zoom ${row.dataset.minzoom}+` : (Number(row.dataset.minzoom) ? `zoom ${row.dataset.minzoom}+` : "any zoom");
   row.title = text || "";
   clearTimeout(slowTimers[name]);
   if (loading) slowTimers[name] = setTimeout(() => { if (row.classList.contains("loading")) z.textContent = "still loading… server is slow (up to 90 s)"; }, 12000);
@@ -257,18 +259,19 @@ function toggleLayer(name, force) {
   const on = force ?? !state.layers[name];
   state.layers[name] = on;
   setLayerVisible(name, on);
-  const btn = { stations: "tg-precip", gauges: "tg-gauges", qpe: "tg-qpe", streams: "tg-streams", soils: "tg-soils", parcels: "tg-parcels", trout: "tg-trout", karst: "tg-karst", wetlands: "tg-wetlands", fema: "tg-fema", crossings: "tg-crossings", wells: "tg-wells", pwi: "tg-pwi", impaired: "tg-impaired", easements: "tg-easements" }[name];
+  const btn = { huc: "tg-huc", landcover: "tg-landcover", stations: "tg-precip", gauges: "tg-gauges", qpe: "tg-qpe", streams: "tg-streams", soils: "tg-soils", parcels: "tg-parcels", trout: "tg-trout", karst: "tg-karst", wetlands: "tg-wetlands", fema: "tg-fema", crossings: "tg-crossings", wells: "tg-wells", pwi: "tg-pwi", impaired: "tg-impaired", easements: "tg-easements" }[name];
   if (name === "crossings") setCrossingsEnabled(on);
   if (name === "wells") setWellsEnabled(on);
   if (["trout", "karst", "wetlands", "pwi", "impaired", "easements"].includes(name)) setDnrLayerEnabled(name, on);
   if (name === "fema") setFemaEnabled(on);
+  if (name === "huc") setHucEnabled(on);
   if (name === "soils") setSoilsEnabled(on);
   if (name === "parcels") setParcelsEnabled(on);
   $(btn).classList.toggle("on", on);
   updateLayersButton();
   const row = $(btn); const mz = Number(row?.dataset?.minzoom);
-  const hasOverview = ["pwi", "impaired", "easements", "trout", "karst", "crossings", "fema", "wetlands"].includes(name);
-  if (on && mz && map?.getZoom?.() < mz - 0.01) { zoomHint = { name, mz }; setStatus(hasOverview ? `${row.dataset.label}: showing a simplified whole-area overview; full detail at zoom ${mz}+ (now ${map.getZoom().toFixed(0)}).` : `${row.dataset.label} loads at zoom ${mz}+ (now ${map.getZoom().toFixed(0)}). Zoom in to see it.`, false, true); }
+  const hasOverview = ["pwi", "impaired", "easements", "trout", "karst", "crossings", "fema"].includes(name);
+  if (on && mz && map?.getZoom?.() < mz - 0.01) { zoomHint = { name, mz }; setStatus(name === "wetlands" ? `Wetlands: FWS 100 m wetland raster at this zoom; DNR polygons with Cowardin and Circular 39 codes from zoom ${mz}.` : hasOverview ? `${row.dataset.label}: showing a simplified whole-area overview; full detail at zoom ${mz}+ (now ${map.getZoom().toFixed(0)}).` : `${row.dataset.label} loads at zoom ${mz}+ (now ${map.getZoom().toFixed(0)}). Zoom in to see it.`, false, true); }
   else if (!on && zoomHint?.name === name) setStatus(normalStatus);
   renderLegend(); syncUrl();
 }
@@ -277,6 +280,8 @@ function renderLegend() {
   lg.innerHTML = "";
   if (state.layers.stations) renderPrecipLegend(lg, { days: state.days });
   if (state.layers.gauges) renderGaugeLegend(lg);
+  if (state.layers.huc) lg.insertAdjacentHTML("beforeend", hucLegendHtml());
+  if (state.layers.landcover) lg.insertAdjacentHTML("beforeend", landcoverLegendHtml());
   if (state.layers.parcels) lg.insertAdjacentHTML("beforeend", parcelsLegendHtml());
   if (state.layers.fema) lg.insertAdjacentHTML("beforeend", femaLegendHtml());
   if (state.layers.crossings) lg.insertAdjacentHTML("beforeend", crossingsLegendHtml());
@@ -330,7 +335,7 @@ async function boot() {
   map.addControl(new CompareControl(), "top-left");
   // Cached stations are drawn immediately by loadPrecip; render the Region panel from them too, then replace when fresh data lands.
   on("precip:loaded", ({ stale }) => { if (!stale) return; setStatus("Showing the last cached observations while fresh data loads…", false, true); renderLegend(); if (!state.selection || state.selection.type === "region") renderRegion(); });
-  setLayerVisible("stations", state.layers.stations); setLayerVisible("gauges", state.layers.gauges); setLayerVisible("qpe", state.layers.qpe); setLayerVisible("streams", !!state.layers.streams); setLayerVisible("soils", !!state.layers.soils); setLayerVisible("parcels", !!state.layers.parcels); setLayerVisible("trout", !!state.layers.trout); setLayerVisible("karst", !!state.layers.karst); setLayerVisible("wetlands", !!state.layers.wetlands); setLayerVisible("fema", !!state.layers.fema); setLayerVisible("crossings", !!state.layers.crossings); setLayerVisible("wells", !!state.layers.wells); for (const k of ["pwi", "impaired", "easements"]) setLayerVisible(k, !!state.layers[k]);
+  setLayerVisible("huc", !!state.layers.huc); setLayerVisible("landcover", !!state.layers.landcover); if (state.layers.huc) whenMap(() => setHucEnabled(true)); setLayerVisible("stations", state.layers.stations); setLayerVisible("gauges", state.layers.gauges); setLayerVisible("qpe", state.layers.qpe); setLayerVisible("streams", !!state.layers.streams); setLayerVisible("soils", !!state.layers.soils); setLayerVisible("parcels", !!state.layers.parcels); setLayerVisible("trout", !!state.layers.trout); setLayerVisible("karst", !!state.layers.karst); setLayerVisible("wetlands", !!state.layers.wetlands); setLayerVisible("fema", !!state.layers.fema); setLayerVisible("crossings", !!state.layers.crossings); setLayerVisible("wells", !!state.layers.wells); for (const k of ["pwi", "impaired", "easements"]) setLayerVisible(k, !!state.layers[k]);
   setQpeWindow(state.qpeWindow);
   for (const [id, on] of Object.entries(state.terrain)) setTerrainVisible(id, on);
   setTerrainOpacity(state.terrainOpacity);
@@ -362,6 +367,7 @@ async function boot() {
   initParcels();
   initDnrLayers();
   initFema();
+  initHuc();
   initCrossings();
   initWells();
   whenMap(() => initWlssd());

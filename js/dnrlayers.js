@@ -40,9 +40,9 @@ export const LAYERS = {
     legend: `<div class="legend-row"><span class="swatch sq" style="background:#16a34a;opacity:.6"></span>RIM easement</div><div class="legend-row"><span class="swatch sq" style="background:#0d9488;opacity:.6"></span>Wetland bank easement</div>`,
   },
   wetlands: {
-    label: "Wetlands (NWI)", minZoom: 11, overviewNote: "wetlands of 20 acres and more, simplified", note: "Minnesota National Wetlands Inventory update (DNR, 2009–2014 imagery): Cowardin code, wetland type, Circular 39 type and hydrogeomorphic class. Inventory-level mapping; jurisdictional boundaries require a delineation.",
-    sources: [{ id: "wetlands", url: `${B}/water_nat_wetlands_inv_2009_2014/FeatureServer/0`, fields: "attribute,wetland_type,acres,circ39_class,hgm_desc,spcc_desc", kind: "fill", static: false }],
-    legend: Object.entries(WETLAND_COLORS).filter(([k]) => !/Estuarine/.test(k)).map(([k, c]) => `<div class="legend-row"><span class="swatch sq" style="background:${c};opacity:.75"></span>${k.replace("Freshwater ", "")}</div>`).join(""),
+    label: "Wetlands (NWI)", minZoom: 11, lowZoomNote: "Wetlands: FWS national wetlands raster (100 m cells) at this zoom; DNR polygons with codes load from zoom 11", note: "Minnesota National Wetlands Inventory update (DNR, 2009–2014 imagery): Cowardin code, wetland type, Circular 39 type and hydrogeomorphic class. Inventory-level mapping; jurisdictional boundaries require a delineation.",
+    sources: [{ id: "wetlands", url: `${B}/water_nat_wetlands_inv_2009_2014/FeatureServer/0`, fields: "attribute,wetland_type,acres,circ39_class,hgm_desc,spcc_desc", kind: "fill", static: false, overview: false }],
+    legend: Object.entries(WETLAND_COLORS).filter(([k]) => !/Estuarine/.test(k)).map(([k, c]) => `<div class="legend-row"><span class="swatch sq" style="background:${c};opacity:.75"></span>${k.replace("Freshwater ", "")}</div>`).join("") + `<div class="small" style="margin-top:4px">Zoomed out (below 11), the FWS national wetlands raster: ${[["#008837", "forested/shrub"], ["#7fc31c", "emergent"], ["#688cc0", "pond"], ["#13007c", "lake"], ["#0190bf", "riverine"]].map(([c, n]) => `<span class="swatch sq" style="background:${c}"></span>${n}`).join(" ")}. Same 2009 NE Minnesota mapping, 100 m cells.</div>`,
   },
   trout: {
     label: "Trout streams", minZoom: 9, note: "DNR designated trout streams (MN Rules 6264.0050). Blue = designated; light blue = tributary reaches carrying the designation. Special regulations, sanctuaries and posted boundaries are on the DNR special-regs layer (not shown).",
@@ -130,7 +130,7 @@ async function refresh(k) {
       L.sources.forEach((s, i) => setOverlay(s.id, ov[i] || { type: "FeatureCollection", features: [] }));
       lastKey[k] = "overview"; note(k, `${L.label}: whole-region overview (${L.overviewNote || "simplified geometry"}; zoom to ${L.minZoom}+ for full detail)`); return;
     }
-    for (const s of L.sources) setOverlay(s.id, { type: "FeatureCollection", features: [] }); lastKey[k] = null; note(k, `${L.label}: zoom in (${L.minZoom}+) to load`); return;
+    for (const s of L.sources) setOverlay(s.id, { type: "FeatureCollection", features: [] }); lastKey[k] = null; note(k, L.lowZoomNote || `${L.label}: zoom in (${L.minZoom}+) to load`); return;
   }
   const pad = 0.15;
   const bbox = [b.getWest() - (b.getEast() - b.getWest()) * pad, b.getSouth() - (b.getNorth() - b.getSouth()) * pad, b.getEast() + (b.getEast() - b.getWest()) * pad, b.getNorth() + (b.getNorth() - b.getSouth()) * pad];

@@ -1,5 +1,5 @@
 {
- "build": "20260923-1322-b1e4254",
+ "build": "20260923-1402-e0a9ae2",
  "files": [
   "css/app.css",
   "css/report.css",
@@ -27,8 +27,10 @@
   "js/export.js",
   "js/fema.js",
   "js/gauges.js",
+  "js/huc.js",
   "js/lake.js",
   "js/lakes.js",
+  "js/landcover.js",
   "js/loader.js",
   "js/locate.js",
   "js/map.js",

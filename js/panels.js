@@ -28,6 +28,7 @@ import { renderCrossingAt } from "./crossings.js";
 import { renderWlssdSection } from "./wlssd.js";
 import { renderWellsAt } from "./wells.js";
 import { renderPwiAt, renderImpairedAt, renderEasementsAt } from "./waterregs.js";
+import { hucsAt, hucLineHtml } from "./huc.js";
 import { visit } from "./nav.js";
 import { openReport } from "./report.js";
 const countyName = (fips) => { const c = COUNTIES.find((x) => x.fips === String(fips)); return c ? c.name.replace(" (WI)", "") + " County" : fips ? "FIPS " + fips : ""; };
@@ -303,6 +304,7 @@ export async function renderPoint(lon, lat) {
       <span id="pt-elev" title="Ground elevation from MnTOPO 0.5 m lidar (2021–24), NAVD88">elev …</span>
       <span title="UTM zone 15N, NAD83, US survey feet (E, N) — the TSA3 CAD coordinate system">${Math.round(uf.e).toLocaleString()} E, ${Math.round(uf.n).toLocaleString()} N US ft</span><button class="copy" data-copy="${uf.e.toFixed(2)},${uf.n.toFixed(2)}" title="Copy E,N in US survey feet (paste as X,Y in AutoCAD)">⧉</button>
     </div>
+    <div id="pt-huc" class="small huc-line"></div>
     <div class="actions"><button class="btn" id="pt-report">🖨 Print site report</button><span id="pt-report-msg" class="small"></span></div>
     <div class="open-row"><span>Open here in:</span>
       <a href="https://casoilresource.lawr.ucdavis.edu/gmap/?loc=${lat.toFixed(5)},${lon.toFixed(5)}" target="_blank" rel="noopener" title="SoilWeb (UC Davis): SSURGO map units and profiles">SoilWeb</a>
@@ -330,6 +332,7 @@ export async function renderPoint(lon, lat) {
     <div id="pt-a14"></div>`;
 
   addRecent({ lon, lat });
+  hucsAt(lon, lat).then((h) => { const el = $("pt-huc"); if (el) el.innerHTML = hucLineHtml(h); }).catch(() => {});
   pointElevation(lon, lat).then((e) => { const el = $("pt-elev"); if (el) el.innerHTML = e ? `Elev <b>${fmt(e.ft, 1)} ft</b> NAVD88 <span class="small">(${e.src})</span>` : "elev n/a"; });
   ptCur = { lon, lat };
   navRun = {

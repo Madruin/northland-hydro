@@ -8,3 +8,4 @@ wf.html
 /*.json
 !/version.json
 /*.geojson
+_test/
