@@ -30,6 +30,8 @@ import { renderWellsAt } from "./wells.js";
 import { renderPwiAt, renderImpairedAt, renderEasementsAt } from "./waterregs.js";
 import { hucsAt, hucLineHtml } from "./huc.js";
 import { renderSpeciesAt } from "./species.js";
+import { fetchStatic, trailUses } from "./dnrlayers.js";
+import { distToGeomM } from "./util.js";
 import { landCoverAt, NLCD_YEAR } from "./landcover.js";
 import { visit } from "./nav.js";
 import { openReport } from "./report.js";
@@ -336,8 +338,9 @@ export async function renderPoint(lon, lat) {
     <div id="pt-a14"></div>`;
 
   addRecent({ lon, lat });
-  Promise.all([hucsAt(lon, lat).catch(() => []), landCoverAt(lon, lat).catch(() => null)]).then(([h, c]) => { const el = $("pt-huc"); if (!el) return;
-    el.innerHTML = [hucLineHtml(h), c ? `Land cover: <span class="swatch sq" style="display:inline-block;width:9px;height:9px;background:${c.color}"></span> <b>${escapeHtml(c.name)}</b> <span class="small">(NLCD ${NLCD_YEAR} class ${c.code}; TR-55 ${escapeHtml(c.tr55)})</span>` : ""].filter(Boolean).join("<br>"); });
+  const trailsNear = async () => { const d = 35 / 111320, dx = d / Math.cos((lat * Math.PI) / 180); const st = await fetchStatic({ id: "trails" }, [lon - dx, lat - d, lon + dx, lat + d]); if (!st) return []; const seen = new Set(); return st.fc.features.map((f) => ({ p: f.properties, m: distToGeomM(lon, lat, f.geometry) })).filter((t) => t.m <= 30).sort((a, b) => a.m - b.m).filter((t) => { const k = (t.p.name || t.p.routes || "unnamed") + t.p.src; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 4); };
+  Promise.all([hucsAt(lon, lat).catch(() => []), landCoverAt(lon, lat).catch(() => null), trailsNear().catch(() => [])]).then(([h, c, tr]) => { const el = $("pt-huc"); if (!el) return;
+    el.innerHTML = [hucLineHtml(h), c ? `Land cover: <span class="swatch sq" style="display:inline-block;width:9px;height:9px;background:${c.color}"></span> <b>${escapeHtml(c.name)}</b> <span class="small">(NLCD ${NLCD_YEAR} class ${c.code}; TR-55 ${escapeHtml(c.tr55)})</span>` : "", tr.length ? `Trails within 100 ft: ${tr.map((t) => `<b>${escapeHtml(t.p.name || t.p.routes || "unnamed trail")}</b> <span class="small">(${escapeHtml(trailUses(t.p.uses) || "")}; ${escapeHtml(t.p.src.replace(" (community)", ""))}${t.p.mgr ? ", " + escapeHtml(t.p.mgr) : ""}; ${Math.round(t.m * 3.281)} ft)</span>`).join(" · ")}` : ""].filter(Boolean).join("<br>"); });
   pointElevation(lon, lat).then((e) => { const el = $("pt-elev"); if (el) el.innerHTML = e ? `Elev <b>${fmt(e.ft, 1)} ft</b> NAVD88 <span class="small">(${e.src})</span>` : "elev n/a"; });
   ptCur = { lon, lat };
   navRun = {
