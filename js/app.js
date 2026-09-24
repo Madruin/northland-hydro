@@ -202,7 +202,7 @@ function buildControls() {
     }
   });
 }
-const MENU_LAYERS = ["contam", "trails", "huc", "landcover", "streams", "crossings", "trout", "soils", "parcels", "wetlands", "fema", "karst", "wells", "pwi", "impaired", "easements"];
+const MENU_LAYERS = ["stations", "gauges", "qpe", "contam", "trails", "huc", "landcover", "streams", "crossings", "trout", "soils", "parcels", "wetlands", "fema", "karst", "wells", "pwi", "impaired", "easements"];
 function closeMenus() { document.querySelectorAll(".menu-wrap .menu").forEach((m) => { m.hidden = true; }); }
 function updateLayersButton() {
   const n = MENU_LAYERS.filter((k) => state.layers[k]).length;

@@ -41,18 +41,19 @@
         <select id="ctl-window"></select>
       </label>
       <div class="ctl toggles" role="group" aria-label="Layers">
-        <span>Layers</span>
-        <button class="toggle on" id="tg-precip" title="Observed precipitation at CoCoRaHS, COOP and ASOS stations (RCC-ACIS)">Stations</button>
-        <button class="toggle on" id="tg-gauges" title="USGS + MN DNR/MPCA stream gauges">Gauges</button>
-        <button class="toggle" id="tg-qpe" title="NWS radar: live reflectivity, or rain totals estimated from radar and gauges">Radar</button>
-        <select id="ctl-qpe" title="Live radar echoes, or rainfall totals estimated from radar and gauges">
+        <div class="menu-wrap"><button class="toggle" id="btn-layers" title="Rain, rivers, water, land, hazard and subsurface layers">Layers ▾</button>
+          <div class="menu layers-menu" id="layers-menu" hidden>
+            <div class="menu-title">Map layers <span class="small">· zoomed out, regional layers show a simplified whole-area overview; full detail loads past the zoom on each row</span></div>
+            <div class="layer-group"><div class="group-name">Rain and rivers</div>
+              <button class="layer-row on" id="tg-precip" data-minzoom="0" data-label="Rain stations"><span class="lr-box"></span><span class="lr-text"><span class="lr-name">Rain stations</span><span class="lr-desc">CoCoRaHS, COOP and ASOS totals for the date window above</span></span><span class="lr-zoom">any zoom</span></button>
+              <button class="layer-row on" id="tg-gauges" data-minzoom="0" data-label="Stream gauges"><span class="lr-box"></span><span class="lr-text"><span class="lr-name">Stream gauges</span><span class="lr-desc">USGS and DNR/MPCA flow compared with the record for today</span></span><span class="lr-zoom">any zoom</span></button>
+              <div class="lr-with-select"><button class="layer-row" id="tg-qpe" data-minzoom="0" data-label="Radar"><span class="lr-box"></span><span class="lr-text"><span class="lr-name">Radar</span><span class="lr-desc">Live echoes, or rain totals from radar and gauges</span></span></button>
+                <select id="ctl-qpe" class="lr-select" aria-label="Radar product" title="Live radar echoes, or rainfall totals estimated from radar and gauges">
           <optgroup label="Live radar"><option value="live">Now (reflectivity)</option></optgroup>
           <optgroup label="Rain totals (radar + gauges)"><option value="1h">Last 1 h</option><option value="3h">Last 3 h</option><option value="6h">Last 6 h</option>
           <option value="12h">Last 12 h</option><option value="24h" selected>Last 24 h</option><option value="since12z">Since 12Z (7 AM CDT, 6 AM CST)</option></optgroup>
-        </select>
-        <div class="menu-wrap"><button class="toggle" id="btn-layers" title="Water, land, hazard and subsurface layers">Layers ▾</button>
-          <div class="menu layers-menu" id="layers-menu" hidden>
-            <div class="menu-title">Map layers <span class="small">· zoomed out, regional layers show a simplified whole-area overview; full detail loads past the zoom on each row</span></div>
+        </select></div>
+            </div>
             <div class="layer-group"><div class="group-name">Water</div>
               <button class="layer-row" id="tg-huc" data-minzoom="0" data-label="Watersheds"><span class="lr-box"></span><span class="lr-text"><span class="lr-name">Watersheds (HUC)</span><span class="lr-desc">USGS HUC-8, 10 and 12 boundaries and names</span></span><span class="lr-zoom">any zoom</span></button>
               <button class="layer-row" id="tg-streams" data-minzoom="13" data-label="Streams"><span class="lr-box"></span><span class="lr-text"><span class="lr-name">Streams</span><span class="lr-desc">StreamStats stream grid the delineation snaps to</span></span><span class="lr-zoom">zoom 13+</span></button>
@@ -85,8 +86,7 @@
           </div></div>
       </div>
       <label class="ctl">
-        <span>Basemap</span>
-        <select id="ctl-basemap"></select>
+        <select id="ctl-basemap" title="Basemap" aria-label="Basemap"></select>
       </label>
       <button id="btn-export" class="chip" title="Export imagery, DEM and contours for AutoCAD (UTM 15N, US ft)">⬇ CAD export</button>
       <button id="btn-alerts" class="chip alerts" title="Active NWS alerts in the region">⚠ <span id="alerts-count">…</span></button>
@@ -155,7 +155,7 @@
           <li><b>End date / Window</b>: the station colors and all totals follow these. ← → step the date; the ‹ › buttons do the same.</li>
           <li><b>Map tools</b> (left edge): zoom, <b>locate me</b> (centers on your GPS position and follows until you drag the map; if the button reports that location is blocked, allow it for this site from the lock icon in the address bar), <b>measure</b> distance or area (click or tap points, then Finish; on a keyboard, double-click or Enter finishes and Esc clears; the distance tool's <b>Profile</b> button charts the lidar ground profile along the line), and <b>compare imagery</b> (a swipe divider between the current basemap and any imagery year). The search box also finds <b>tax parcels</b> by PIN (any county, dashes optional) or by <b>owner name</b> (4+ letters), and takes coordinates: <code>46.9476, -91.7849</code>, or UTM 15N as metres <code>592123, 5200456</code> or US survey feet <code>1943000, 17062000</code>. Every Point panel shows the spot in lat/lon and UTM 15N metres and US feet with copy buttons.</li>
           <li><b>Radar</b>: <i>Now (reflectivity)</i> is the live NWS radar mosaic, the same picture as radar.weather.gov. The <i>Last 1 h … 24 h</i> choices are rain <i>totals</i> estimated from radar and gauges, issued hourly and 1–2 h behind. The legend states which one is on and its valid time.</li>
-          <li><b>Layers ▾</b> (grouped Water / Land / Hazards &amp; subsurface): Watersheds (USGS HUC-8/10/12 boundaries, any zoom), Contamination (MPCA cleanup and regulated sites, groundwater plumes, land-use restrictions, closed landfills), Trails (MN DNR, Superior National Forest and OpenStreetMap hiking, bike, ski and snowmobile trails), Land cover (NLCD 2021; the runoff tool's curve number uses it), Public waters (PWI), Impaired waters &amp; TMDLs, Conservation easements (RIM, wetland bank), Wetlands (MN NWI update), Trout streams, Streams (StreamStats grid), Soils (hydrologic soil group or water-table depth), Parcels, FEMA (flood zones and floodways, BFE lines, lettered cross sections, LOMRs), Crossings (DNR culvert surveys plus NBI bridges), Wells (County Well Index, DNR drill holes, observation wells), and Karst. Zoomed out, the regional layers and FEMA hazard zones draw as a simplified whole-region overview and wetlands as the FWS 100 m wetland raster; full detail appears past the zoom shown on each row. Parcels, soils and wells need you to zoom in. <b>Terrain ▾</b> adds MnTOPO lidar hillshade, elevation color, 2 ft and 10 ft contours, and USGS contours that work at any zoom.</li>
+          <li><b>Layers ▾</b> (grouped Rain and rivers / Water / Land / Hazards &amp; subsurface): Rain stations, Stream gauges and Radar (with its product picker), Watersheds (USGS HUC-8/10/12 boundaries, any zoom), Contamination (MPCA cleanup and regulated sites, groundwater plumes, land-use restrictions, closed landfills), Trails (MN DNR, Superior National Forest and OpenStreetMap hiking, bike, ski and snowmobile trails), Land cover (NLCD 2021; the runoff tool's curve number uses it), Public waters (PWI), Impaired waters &amp; TMDLs, Conservation easements (RIM, wetland bank), Wetlands (MN NWI update), Trout streams, Streams (StreamStats grid), Soils (hydrologic soil group or water-table depth), Parcels, FEMA (flood zones and floodways, BFE lines, lettered cross sections, LOMRs), Crossings (DNR culvert surveys plus NBI bridges), Wells (County Well Index, DNR drill holes, observation wells), and Karst. Zoomed out, the regional layers and FEMA hazard zones draw as a simplified whole-region overview and wetlands as the FWS 100 m wetland raster; full detail appears past the zoom shown on each row. Parcels, soils and wells need you to zoom in. <b>Terrain ▾</b> adds MnTOPO lidar hillshade, elevation color, 2 ft and 10 ft contours, and USGS contours that work at any zoom.</li>
           <li><b>Search</b> ( / ): place, gauge, station, project, parcel PIN, owner name or coordinates.</li>
           <li><b>Watershed</b> (Point tab): delineates with USGS StreamStats, returns basin characteristics and regression flows, and runs the TSA3 regional curves for bankfull dimensions. Save results to a project.</li>
           <li><b>CAD export</b>: draw a rectangle and download imagery, lidar DEM and contours in UTM 15N US feet, with Civil 3D steps.</li>

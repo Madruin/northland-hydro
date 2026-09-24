@@ -441,3 +441,11 @@ hr.popup-sep { border: 0; border-top: 1px solid #334155; margin: 6px 0; }
 .foot-brand img { vertical-align: -2px; }
 /* keep the desktop header to two rows: the basemap list has long option names */
 @media (min-width: 901px) { #ctl-basemap { max-width: 190px; } #topbar { gap: 12px; } }
+
+/* Radar row carries its product picker (moved from the header, 2026-09-24) */
+.lr-with-select { display: flex; align-items: center; gap: 6px; }
+.lr-with-select .layer-row { flex: 1; min-width: 0; }
+.lr-select { background: var(--bg3); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; color: var(--fg); font-size: 12px; max-width: 150px; }
+
+/* one-row desktop header: Layers/Basemap captions dropped (the controls name themselves), search a bit narrower */
+@media (min-width: 901px) { #ctl-search { width: 215px; } }
