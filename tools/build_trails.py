@@ -40,9 +40,9 @@ def arcgis(url, fields, where="1=1", oid="objectid"):
         if not got or not ((d.get("properties") or {}).get("exceededTransferLimit") or d.get("exceededTransferLimit")): return out
         off += len(got)
 
-def feat(geom, name, src, uses, mgr, surf=None, ref=None, routes=None):
+def feat(geom, name, src, uses, mgr, surf=None, ref=None, routes=None, access=None):
     uses = sorted(set(uses)); name = (name or "").strip() or None
-    return {"type": "Feature", "geometry": geom, "properties": {k: v for k, v in {"name": name, "src": src, "uses": ",".join(uses), "cat": category(uses), "mgr": mgr, "surf": surf, "ref": ref, "routes": routes}.items() if v}}
+    return {"type": "Feature", "geometry": geom, "properties": {k: v for k, v in {"name": name, "src": src, "uses": ",".join(uses), "cat": category(uses), "mgr": mgr, "surf": surf, "ref": ref, "routes": routes, "access": access}.items() if v}}
 
 def agency():
     out = []
@@ -85,7 +85,7 @@ def osm():
         t = r.get("tags", {}); nm = t.get("name") or t.get("ref")
         for m in r.get("members", []):
             if m.get("type") == "way": routes.setdefault(m["ref"], []).append((nm, t.get("route")))
-    ways = overpass(f'[out:json][timeout:300];(way["highway"~"^(path|footway|cycleway|bridleway)$"]["footway"!~"sidewalk|crossing"]["access"!~"^(private|no)$"]{bb};way["piste:type"="nordic"]{bb};way["highway"="track"]["mtb:scale"]{bb};way["snowmobile"~"^(designated|yes)$"]["highway"~"^(track|path)$"]{bb};);out tags geom;')
+    ways = overpass(f'[out:json][timeout:300];(way["highway"~"^(path|footway|cycleway|bridleway)$"]["footway"!~"sidewalk|crossing"]{bb};way["piste:type"="nordic"]{bb};way["highway"="track"]["mtb:scale"]{bb};way["snowmobile"~"^(designated|yes)$"]["highway"~"^(track|path)$"]{bb};);out tags geom;')
     out = []
     for wy in ways.get("elements", []):
         g = wy.get("geometry"); t = wy.get("tags", {})
@@ -105,7 +105,11 @@ def osm():
         if "bicycle" in rt: uses.append("bike")
         names = sorted({nm for nm, _ in rs if nm})
         geom = {"type": "LineString", "coordinates": [[round(p["lon"], 5), round(p["lat"], 5)] for p in g]}
-        out.append(feat(geom, t.get("name") or (names[0] if names else None), "OpenStreetMap (community)", uses or ["hike"], None, t.get("surface"), f"https://www.openstreetmap.org/way/{wy['id']}", "; ".join(names) or None))
+        # access=private/no without a foot exception, and informal=yes, are kept but marked: they are real trails
+        # (often on private land) that engineers should see, with the access caveat
+        priv = t.get("access") in ("private", "no") and t.get("foot") not in ("yes", "designated", "permissive")
+        acc = "private" if priv else ("informal" if t.get("informal") == "yes" else None)
+        out.append(feat(geom, t.get("name") or (names[0] if names else None), "OpenStreetMap (community)", uses or ["hike"], None, t.get("surface"), f"https://www.openstreetmap.org/way/{wy['id']}", "; ".join(names) or None, acc))
     print(f"osm: {len(out)} ways, {len(routes)} ways in {len(rel.get('elements', []))} route relations", flush=True)
     return out
 

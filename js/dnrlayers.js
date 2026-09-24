@@ -47,12 +47,7 @@ export const LAYERS = {
     label: "Trails", agency: "MN DNR · USFS · OpenStreetMap", minZoom: 11, live: false, overviewNote: "named trails and routes, simplified",
     note: "MN DNR state and state-park trails, grant-in-aid snowmobile trails, Superior National Forest trails, and OpenStreetMap paths, bike paths and ski trails (community-mapped: local, city, club and mountain-bike trails the agencies do not publish). Rebuilt monthly. OpenStreetMap data © OpenStreetMap contributors, ODbL.",
     sources: [{ id: "trails", url: "", fields: "", kind: "line", live: false }],
-    legend: `${Object.entries(TRAIL_CAT).map(([k, c]) => `<div class="legend-row"><span class="swatch sq" style="background:${TRAIL_COLORS[k]}"></span>${c}</div>`).join("")}`,
-  },
-  crithab: {
-    label: "Critical habitat", agency: "USFWS", minZoom: 5, note: "USFWS designated critical habitat (Canada lynx, piping plover, gray wolf in this region). Species ranges without critical habitat, like the northern long-eared bat, are not drawn: the Point panel's IPaC section lists them for any spot.",
-    sources: [{ id: "crithab", url: "https://services.arcgis.com/QVENGdaPbd4LUkLV/arcgis/rest/services/USFWS_Critical_Habitat/FeatureServer/0", fields: "comname,sciname,status,fedreg,unitname,listing_status,pubdate,effectdate", kind: "fill" }],
-    legend: `<div class="legend-row"><span class="swatch sq" style="background:#b45309;opacity:.5"></span>Canada lynx</div><div class="legend-row"><span class="swatch sq" style="background:#0ea5e9;opacity:.5"></span>Piping plover</div><div class="legend-row"><span class="swatch sq" style="background:#6b7280;opacity:.5"></span>Gray wolf</div>`,
+    legend: `${Object.entries(TRAIL_CAT).map(([k, c]) => `<div class="legend-row"><span class="swatch sq" style="background:${TRAIL_COLORS[k]}"></span>${c}</div>`).join("")}<div class="legend-row"><span class="swatch sq" style="background:#9ca3af"></span>Private / no public access (OpenStreetMap)</div>`,
   },
   wetlands: {
     label: "Wetlands (NWI)", minZoom: 11, lowZoomNote: "Wetlands: FWS national wetlands raster (100 m cells) at this zoom; DNR polygons with codes load from zoom 11", note: "Minnesota National Wetlands Inventory update (DNR, 2009–2014 imagery): Cowardin code, wetland type, Circular 39 type and hydrogeomorphic class. Inventory-level mapping; jurisdictional boundaries require a delineation.",
@@ -76,6 +71,7 @@ export const LAYERS = {
 };
 
 const enabled = {}; const lastKey = {}; const inflight = {};
+const CELL_ZOOM = 9.5;
 
 export function initDnrLayers() { map.on("moveend", debounce(() => { for (const k of Object.keys(LAYERS)) if (enabled[k]) refresh(k); }, 350)); }
 export function setDnrLayerEnabled(k, on) { enabled[k] = on; if (on) refresh(k); else { for (const s of LAYERS[k].sources) setOverlay(s.id, { type: "FeatureCollection", features: [] }); lastKey[k] = null; note(k, ""); } }
@@ -116,8 +112,7 @@ function decorate(id, p) {
   if (id === "imp-streams") { p.color = "#dc2626"; p.popup = `<div class="popup-title">${escapeHtml(p.name || "Impaired reach")}</div><div class="popup-sub">${escapeHtml(p.reach_desc || "")} · AUID ${escapeHtml(p.auid || "")}</div><div class="popup-sub">Impaired: ${escapeHtml(impShort(p.imp_param))}${p.approved && p.approved !== "None" ? " · TMDL approved: " + escapeHtml(impShort(p.approved)) : ""}${p.needs_pln && p.needs_pln !== "None" ? " · TMDL needed: " + escapeHtml(impShort(p.needs_pln)) : ""}</div>`; return; }
   if (id === "imp-lakes") { p.color = "#f97316"; p.opacity = 0.4; p.popup = `<div class="popup-title">${escapeHtml(p.name || "Impaired lake")}</div><div class="popup-sub">AUID ${escapeHtml(p.auid || "")}${p.area_acres ? " · " + Math.round(p.area_acres).toLocaleString() + " ac" : ""}</div><div class="popup-sub">Impaired: ${escapeHtml(impShort(p.imp_param))}${p.approved && p.approved !== "None" ? " · TMDL approved: " + escapeHtml(impShort(p.approved)) : ""}</div>`; return; }
   if (id === "tmdl-areas") { p.color = "#a855f7"; p.opacity = 0.18; p.popup = `<div class="popup-title">TMDL allocation area · ${escapeHtml(p.waterbody_name || "")}</div><div class="popup-sub">${escapeHtml(p.tmdl_pollutant || "")}${p.epa_approval ? " · EPA approved " + new Date(p.epa_approval).toLocaleDateString() : ""}${p.area_sq_mi ? ` · ${fmt(p.area_sq_mi, 1)} mi²` : ""}</div>`; return; }
-  if (id === "trails") { p.color = TRAIL_COLORS[p.cat] || "#a16207"; p.popup = `<div class="popup-title">${escapeHtml(p.name || "Unnamed trail")}</div><div class="popup-sub">${escapeHtml(TRAIL_CAT[p.cat] || "")}${p.uses ? " · " + escapeHtml(trailUses(p.uses)) : ""}</div><div class="popup-sub">${escapeHtml(p.src || "")}${p.mgr ? " · " + escapeHtml(p.mgr) : ""}${p.surf ? " · " + escapeHtml(p.surf) : ""}${p.routes && p.routes !== p.name ? "<br>Route: " + escapeHtml(p.routes) : ""}</div>`; }
-  if (id === "crithab") { const c = /lynx/i.test(p.comname) ? "#b45309" : /plover/i.test(p.comname) ? "#0ea5e9" : "#6b7280"; p.color = c; p.opacity = 0.22; p.popup = `<div class="popup-title">${escapeHtml(p.comname || "")} critical habitat</div><div class="popup-sub"><i>${escapeHtml(p.sciname || "")}</i> · ${escapeHtml(p.listing_status || "")} · ${escapeHtml(p.status || "")} designation (${escapeHtml(p.fedreg || "")})</div>`; }
+  if (id === "trails") { p.color = p.access === "private" ? "#9ca3af" : TRAIL_COLORS[p.cat] || "#a16207"; p.popup = `<div class="popup-title">${escapeHtml(p.name || "Unnamed trail")}</div>${p.access === "private" ? `<div class="popup-sub"><b>Private or no public access</b> (as mapped in OpenStreetMap)</div>` : p.access === "informal" ? `<div class="popup-sub">Informal (unofficial) trail</div>` : ""}<div class="popup-sub">${escapeHtml(TRAIL_CAT[p.cat] || "")}${p.uses ? " · " + escapeHtml(trailUses(p.uses)) : ""}</div><div class="popup-sub">${escapeHtml(p.src || "")}${p.mgr ? " · " + escapeHtml(p.mgr) : ""}${p.surf ? " · " + escapeHtml(p.surf) : ""}${p.routes && p.routes !== p.name ? "<br>Route: " + escapeHtml(p.routes) : ""}</div>`; }
   if (id === "rim") { p.color = "#16a34a"; p.opacity = 0.4; p.popup = `<div class="popup-title">BWSR ${escapeHtml(p.ease_cat || "RIM")} easement ${escapeHtml(p.ease_num || "")}</div><div class="popup-sub">${escapeHtml(p.ease_type || "")} · ${fmt(p.ease_acres, 1)} ac · ${escapeHtml(String(p.ease_year || ""))} · ${escapeHtml(p.swcd_name || "")} SWCD · ${escapeHtml(p.exp_status || "")}</div>`; return; }
   if (id === "wetbank") { p.color = "#0d9488"; p.opacity = 0.4; p.popup = `<div class="popup-title">Wetland bank easement ${escapeHtml(p.easement_number || "")}</div><div class="popup-sub">site ${escapeHtml(String(p.siteid || ""))} · ${fmt(p.acres, 1)} ac · ${escapeHtml(p.county || "")} County${p.instrument_type ? " · " + escapeHtml(p.instrument_type) : ""}</div>`; return; }
   if (id === "trout") { p.color = p.trout_flag === 1 ? "#1d4ed8" : "#60a5fa"; p.popup = `<div class="popup-title">${escapeHtml(p.kittle_name || "Unnamed stream")}</div><div class="popup-sub">${TROUT_FLAG[p.trout_flag] || "Trout stream"} · ${escapeHtml(p.kittle_nbr || "")} · ${fmt(p.length_mi, 2)} mi segment</div>`; }
@@ -137,7 +132,10 @@ async function loadOverview(id) {
 }
 async function refresh(k) {
   const L = LAYERS[k]; const z = map.getZoom(); const b = map.getBounds();
-  if (z < L.minZoom) {
+  // Between CELL_ZOOM and minZoom, draw the full-detail snapshot for the view (no live check): the ~200 m overview
+  // looks jagged there. Wetlands have no snapshot cells, so they keep the FWS raster until minZoom.
+  const cellsOnly = z >= CELL_ZOOM && z < L.minZoom && L.sources.every((s) => s.static !== false);
+  if (z < L.minZoom && !cellsOnly) {
     inflight[k] = null; liveCtl[k]?.abort(); // a detail load still in flight must not overwrite the overview
     if (lastKey[k] === "overview") return;
     const p = Promise.all(L.sources.map((s) => (s.overview === false ? null : loadOverview(s.id))));
@@ -162,7 +160,7 @@ async function refresh(k) {
   const snap = res.map((r) => r.value?.fetched).find(Boolean);
   const base = `${L.label}: ${n} features${snap ? ` (snapshot ${snap})` : ""}${exceeded ? " (limit hit, zoom in)" : ""}${errs.length ? " · failed: " + errs.join("; ") + " · toggle the layer to retry" : ""}`;
   note(k, base);
-  const snapSrcs = L.sources.filter((s, i) => res[i].value?.fetched && s.live !== false); // live: false = built from several sources, nothing live to check
+  const snapSrcs = cellsOnly ? [] : L.sources.filter((s, i) => res[i].value?.fetched && s.live !== false); // live: false = built from several sources, nothing live to check
   if (snapSrcs.length) revalidate(k, bbox, key, snapSrcs, base);
 }
 // Stale-while-revalidate: the snapshot is drawn at once, then MnGeo is asked for the current features in the

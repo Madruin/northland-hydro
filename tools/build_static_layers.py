@@ -19,10 +19,9 @@ OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
 # single = write one all.json instead of cells (for a few huge polygons that would be duplicated across many cells)
 # ov_where = extra filter for the overview pass; overview_only = no detail cells (source too big to snapshot); oid = order field
 OPTS = {"tmdl-areas": {"offset": 0.0004, "single": True}, "pwi-basins": {"offset": 0.00006}, "pwi-lines": {"offset": 0.00006}, "imp-lakes": {"offset": 0.00006},
-        "fema-zones": {"offset": 0.0001, "oid": "OBJECTID"}, "fema-xs": {"oid": "OBJECTID"}, "fema-bfe": {"oid": "OBJECTID"}, "fema-lomr": {"oid": "OBJECTID"},
+        "fema-zones": {"offset": 0.0001, "oid": "OBJECTID", "ov_offset": 0.0005}, "fema-xs": {"oid": "OBJECTID"}, "fema-bfe": {"oid": "OBJECTID"}, "fema-lomr": {"oid": "OBJECTID"},
         "huc8": {"offset": 0.0015, "prec": 4, "single": True, "no_overview": True}, "huc10": {"offset": 0.001, "prec": 4, "single": True, "no_overview": True},
         "huc12": {"offset": 0.0006, "prec": 4, "single": True, "no_overview": True},
-        "crithab": {"offset": 0.0008, "prec": 4, "single": True, "no_overview": True, "oid": "OBJECTID"},
         "xing-dnr": {"single": True, "no_overview": True}, "xing-nbi": {"single": True, "no_overview": True, "oid": "OBJECTID"}}
 WBD = "https://hydro.nationalmap.gov/arcgis/rest/services/wbd/MapServer"
 FEMA = "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer"
@@ -43,8 +42,6 @@ LAYERS = {
     "fema-xs":     (f"{FEMA}/14", "XS_LTR,WSEL_REG,STREAM_STN,WTR_NM,XS_LN_TYP,V_DATUM", None),
     "fema-bfe":    (f"{FEMA}/16", "ELEV,V_DATUM", None),
     "fema-lomr":   (f"{FEMA}/1", "CASE_NO,EFF_DATE,STATUS", None),
-    # USFWS critical habitat (Canada lynx, piping plover, gray wolf in the region); IPaC gives the species list per point
-    "crithab":     ("https://services.arcgis.com/QVENGdaPbd4LUkLV/arcgis/rest/services/USFWS_Critical_Habitat/FeatureServer/0", "comname,sciname,status,fedreg,unitname,listing_status,pubdate,effectdate", None),
     # USGS Watershed Boundary Dataset (drawn at every zoom; wetlands zoomed out come from the FWS 100 m raster instead)
     "huc8":        (f"{WBD}/4", "huc8,name,areasqkm,states", None),
     "huc10":       (f"{WBD}/5", "huc10,name,areasqkm,states,hutype", None),
@@ -125,7 +122,7 @@ def write_overview(lid, feats):
     """One simplified FeatureCollection for the whole region (points: the full set), read by the site below the layer's minZoom."""
     d = os.path.join(OUT, lid)
     is_point = any((f.get("geometry") or {}).get("type", "").endswith("Point") for f in feats[:20])
-    ov = feats if is_point else page(lid, OV_OFFSET, OPTS.get(lid, {}).get("ov_where"))
+    ov = feats if is_point else page(lid, OPTS.get(lid, {}).get("ov_offset", OV_OFFSET), OPTS.get(lid, {}).get("ov_where"))
     for i, f in enumerate(ov): f["properties"]["__id"] = i
     p = os.path.join(d, "overview.json")
     with open(p, "w", encoding="utf-8") as fh: json.dump({"type": "FeatureCollection", "features": [f for f in ov if f.get("geometry")]}, fh, separators=(",", ":"))

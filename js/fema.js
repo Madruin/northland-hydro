@@ -8,6 +8,7 @@ import { fetchStatic } from "./dnrlayers.js";
 const N = "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer";
 const L = { zones: 28, xs: 14, bfe: 16, lomr: 1, panels: 3, baselines: 17, lomas: 34 };
 export const MIN_ZOOM = 12;
+const DETAIL_ZOOM = 10;
 
 // Zone styling: floodway darkest, 1% (A/AE/AH/AO) red, 0.2% orange, minimal none
 export function zoneStyle(z, sub) {
@@ -49,13 +50,24 @@ let overview, backoffUntil = 0;
 // Snapshot first (data/layers/fema-*: SFHA and 0.2% zones, cross sections, BFEs, LOMRs), then FEMA live; region overview of the zones below MIN_ZOOM.
 async function refresh() {
   const z = map.getZoom(); const b = map.getBounds();
+  // Three tiers so the zones look right at every scale: a ~40 m overview below zoom 10, the full-detail snapshot
+  // (~8 m) for the view from 10, and the snapshot plus a live FEMA check with cross sections and BFEs from 12.
+  if (z >= DETAIL_ZOOM && z < MIN_ZOOM) {
+    inflight = null;
+    const pad = 0.1, bb = [b.getWest() - (b.getEast() - b.getWest()) * pad, b.getSouth() - (b.getNorth() - b.getSouth()) * pad, b.getEast() + (b.getEast() - b.getWest()) * pad, b.getNorth() + (b.getNorth() - b.getSouth()) * pad];
+    const key = "mid:" + bb.map((v) => v.toFixed(2)).join(","); if (key === lastKey) return; lastKey = key;
+    const p = fetchStatic({ id: "fema-zones" }, bb); track("FEMA zones", p); const st = await p.catch(() => null);
+    if (lastKey !== key || !enabled) return;
+    if (st) { setOverlay("fema-zones", decoZones(st.fc)); for (const id of IDS.slice(1)) setOverlay(id, empty()); note(`FEMA: ${st.fc.features.length} hazard zones in view at full detail (snapshot ${st.fetched}); zoom to ${MIN_ZOOM}+ for cross sections, BFEs, LOMRs and the live FEMA check`); return; }
+    lastKey = null; // no snapshot: fall through to the overview
+  }
   if (z < MIN_ZOOM) {
     inflight = null;
     if (lastKey === "overview") return;
     if (overview === undefined) { overview = fetch("data/layers/fema-zones/overview.json").then(async (r) => (r.ok ? decoZones(await r.json()) : null)).catch(() => { overview = undefined; return null; }); track("FEMA overview", overview); }
     const ov = await overview; if (!enabled || map.getZoom() >= MIN_ZOOM) return;
     setOverlay("fema-zones", ov || empty()); for (const id of IDS.slice(1)) setOverlay(id, empty());
-    lastKey = ov ? "overview" : null; note(ov ? `FEMA: whole-region overview of hazard zones (simplified; zoom to ${MIN_ZOOM}+ for cross sections, BFEs, LOMRs and full detail)` : `FEMA: zoom in (${MIN_ZOOM}+) to load`); return;
+    lastKey = ov ? "overview" : null; note(ov ? `FEMA: whole-region overview of hazard zones (simplified to ~40 m; full detail from zoom ${DETAIL_ZOOM}, cross sections and BFEs from ${MIN_ZOOM})` : `FEMA: zoom in (${MIN_ZOOM}+) to load`); return;
   }
   const pad = 0.15;
   const bbox = [b.getWest() - (b.getEast() - b.getWest()) * pad, b.getSouth() - (b.getNorth() - b.getSouth()) * pad, b.getEast() + (b.getEast() - b.getWest()) * pad, b.getNorth() + (b.getNorth() - b.getSouth()) * pad];
