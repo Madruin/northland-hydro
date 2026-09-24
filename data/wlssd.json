@@ -1,16 +1,16 @@
 {
 "source": "http://extranet.wlssd.com/plantoverview/rain.aspx",
-"updated": "2026-09-24T10:00:00-05:00",
-"harvestedAt": "2026-09-24T15:04:00+00:00",
+"updated": "2026-09-24T14:05:00-05:00",
+"harvestedAt": "2026-09-24T19:08:15+00:00",
 "gauges": [
 {
 "name": "WLSSD Plant",
-"thisHour": null,
+"thisHour": 0.0,
 "lastHour": 0.0,
 "today": 0.0,
 "yesterday": 0.0,
 "raw": {
-"thisHour": "NV",
+"thisHour": "0.00",
 "lastHour": "0.00",
 "today": "0.00",
 "yesterday": "0.00"
@@ -21,12 +21,12 @@
 },
 {
 "name": "Scanlon",
-"thisHour": null,
+"thisHour": 0.0,
 "lastHour": 0.0,
 "today": 0.0,
 "yesterday": 0.0,
 "raw": {
-"thisHour": "NV",
+"thisHour": "0.00",
 "lastHour": "0.00",
 "today": "0.00",
 "yesterday": "0.00"
@@ -37,7 +37,7 @@
 },
 {
 "name": "Endion",
-"thisHour": null,
+"thisHour": 0.0,
 "lastHour": 0.0,
 "today": 0.0,
 "yesterday": 0.0,
@@ -45,7 +45,7 @@
 "lastHour": "0.00",
 "today": "0.00",
 "yesterday": "0.00",
-"thisHour": "NV"
+"thisHour": "0.00"
 },
 "lon": -92.0705,
 "lat": 46.796,
@@ -53,12 +53,12 @@
 },
 {
 "name": "Munger Trail",
-"thisHour": null,
+"thisHour": 0.0,
 "lastHour": 0.0,
 "today": 0.0,
 "yesterday": 0.0,
 "raw": {
-"thisHour": "NV",
+"thisHour": "0.00",
 "lastHour": "0.00",
 "today": "0.00",
 "yesterday": "0.00"
@@ -85,14 +85,14 @@
 },
 {
 "name": "Pike Lake",
-"thisHour": null,
+"thisHour": 0.02,
 "lastHour": 0.0,
-"today": 0.0,
+"today": 0.02,
 "yesterday": 0.0,
 "raw": {
-"thisHour": "NV",
+"thisHour": "0.02",
 "lastHour": "0.00",
-"today": "0.00",
+"today": "0.02",
 "yesterday": "0.00"
 },
 "lon": -92.2855,
@@ -101,12 +101,12 @@
 },
 {
 "name": "Rice Lake",
-"thisHour": null,
+"thisHour": 0.0,
 "lastHour": 0.0,
 "today": 0.0,
 "yesterday": 0.0,
 "raw": {
-"thisHour": "NV",
+"thisHour": "0.00",
 "lastHour": "0.00",
 "today": "0.00",
 "yesterday": "0.00"
@@ -117,12 +117,12 @@
 },
 {
 "name": "Proctor",
-"thisHour": null,
+"thisHour": 0.0,
 "lastHour": 0.0,
 "today": 0.0,
 "yesterday": 0.0,
 "raw": {
-"thisHour": "NV",
+"thisHour": "0.00",
 "lastHour": "0.00",
 "today": "0.00",
 "yesterday": "0.00"
@@ -133,7 +133,7 @@
 },
 {
 "name": "Hermantown",
-"thisHour": null,
+"thisHour": 0.0,
 "lastHour": 0.0,
 "today": 0.0,
 "yesterday": 0.0,
@@ -141,7 +141,7 @@
 "lastHour": "0.00",
 "today": "0.00",
 "yesterday": "0.00",
-"thisHour": "NV"
+"thisHour": "0.00"
 },
 "lon": -92.238,
 "lat": 46.807,
@@ -264,7 +264,7 @@
 "Scanlon": 0.0,
 "Endion": 0.0,
 "Munger Trail": 0.0,
-"Pike Lake": 0.0,
+"Pike Lake": 0.02,
 "Rice Lake": 0.0,
 "Proctor": 0.0,
 "Hermantown": 0.0
