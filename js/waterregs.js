@@ -180,6 +180,26 @@ export function renderBasinImpairments(container, geometry) {
   return twoPhase(container, snapFn, liveFn, paint, "Impaired waters in basin");
 }
 
+// ---- MPCA contamination (What's In My Neighborhood, groundwater atlas, institutional controls, closed landfills) ----
+const MPCA_CAT = { cleanup: "cleanup", waste: "tanks / hazardous waste", permit: "permitted facility" };
+export async function renderMpcaAt(container, lon, lat) {
+  container.innerHTML = "";
+  try {
+    const [sites, gw, gwl, ic, lf] = await Promise.all([snapNear("mpca-sites", lon, lat, 152), snapNear("mpca-gwconcern", lon, lat, 0), snapNear("mpca-gwline", lon, lat, 152), snapNear("mpca-ic", lon, lat, 0), snapNear("mpca-landfill", lon, lat, 0)]);
+    const s = sites?.features || [], inside = [...(ic?.features || []).map((p) => ({ t: "Institutional control area (recorded land-use restriction)", d: `${p.ai_name || ""} · ${p.si_type_desc || ""}` })),
+      ...(gw?.features || []).map((p) => ({ t: `Groundwater contamination ${p.kind || "area"}`, d: `${p.project_name || ""} · ${p.media_type || ""} · ${p.status || ""}` })),
+      ...(lf?.features || []).map((p) => ({ t: "Closed landfill waste footprint", d: `${p.facilityname || ""} · ${p.status || ""}` }))];
+    { const seen = new Set(); for (let i = inside.length - 1; i >= 0; i--) { const k = inside[i].t + inside[i].d; if (seen.has(k)) inside.splice(i, 1); else seen.add(k); } } // overlapping identical records
+    const plume = (gwl?.features || [])[0];
+    if (!s.length && !inside.length && !plume) return;
+    container.innerHTML = `<h3>Contamination and regulated sites · MPCA</h3>
+      ${inside.length ? `<div class="notice">${inside.map((x) => `<b>Inside ${escapeHtml(x.t)}</b>: ${escapeHtml(x.d)}`).join("<br>")}. Check the MPCA file before excavation, dewatering or wells.</div>` : ""}
+      ${plume ? `<div class="notice">A mapped groundwater contamination boundary (${escapeHtml(plume.project_na || "")}, ${escapeHtml(plume.media_type || "")}) is ${fmtNum(plume.m * 3.281)} ft away.</div>` : ""}
+      ${s.length ? `<table class="data"><thead><tr><th>MPCA site within 500 ft</th><th>Activity</th><th class="num">ft</th></tr></thead><tbody>${s.slice(0, 8).map((p) => `<tr><td>${p.url ? `<a href="${escapeHtml(p.url)}" target="_blank" rel="noopener">${escapeHtml(p.name || "MPCA site")}</a>` : escapeHtml(p.name || "MPCA site")} <span class="small">${escapeHtml(MPCA_CAT[p.cat] || "")}${p.active === "N" ? ", inactive" : ""}${p.ic ? ", <b>institutional controls</b>" : ""}</span></td><td class="small">${escapeHtml(p.acts || "")}</td><td class="num">${fmtNum(p.m * 3.281)}</td></tr>`).join("")}</tbody></table>${s.length > 8 ? `<div class="small">${s.length - 8} more within 500 ft.</div>` : ""}` : `<div class="small">No MPCA sites within 500 ft.</div>`}
+      <div class="small">MPCA What's In My Neighborhood, Groundwater Contamination Atlas, institutional controls and Closed Landfill Program, via MnGeo (snapshot ${escapeHtml(sites?.fetched || ic?.fetched || "")}); site names link to the MPCA record. Screening only: a Phase I environmental site assessment is the standard for due diligence.</div>`;
+  } catch (e) { container.innerHTML = `<h3>Contamination · MPCA</h3><div class="notice">MPCA layers unavailable: ${escapeHtml(e.message)}</div>`; }
+}
+
 // ---- Easements ----
 export function renderEasementsAt(container, lon, lat) {
   const paint = ({ r, b }, tag) => {

@@ -16,6 +16,8 @@ jobs:
         with: { python-version: "3.12" }
       - name: Rebuild snapshots from MnGeo
         run: python tools/build_static_layers.py
+      - name: Rebuild MPCA contamination layers
+        run: python tools/build_mpca.py
       - name: Rebuild trails (agency + OpenStreetMap)
         run: python tools/build_trails.py || echo "::warning::trails build failed; keeping last month's trails"
       - name: Sanity check and commit
