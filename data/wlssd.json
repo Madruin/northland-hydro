@@ -1,7 +1,7 @@
 {
 "source": "http://extranet.wlssd.com/plantoverview/rain.aspx",
-"updated": "2026-09-24T17:20:00-05:00",
-"harvestedAt": "2026-09-24T22:24:35+00:00",
+"updated": "2026-09-24T20:25:01-05:00",
+"harvestedAt": "2026-09-25T01:28:45+00:00",
 "gauges": [
 {
 "name": "WLSSD Plant",
@@ -21,14 +21,14 @@
 },
 {
 "name": "Scanlon",
-"thisHour": 0.0,
-"lastHour": 0.0,
-"today": 0.02,
+"thisHour": 0.01,
+"lastHour": 0.01,
+"today": 0.03,
 "yesterday": 0.0,
 "raw": {
-"thisHour": "0.00",
-"lastHour": "0.00",
-"today": "0.02",
+"thisHour": "0.01",
+"lastHour": "0.01",
+"today": "0.03",
 "yesterday": "0.00"
 },
 "lon": -92.4268,
@@ -37,15 +37,15 @@
 },
 {
 "name": "Endion",
-"thisHour": 0.0,
-"lastHour": 0.0,
-"today": 0.01,
+"thisHour": 0.04,
+"lastHour": 0.04,
+"today": 0.06,
 "yesterday": 0.0,
 "raw": {
-"lastHour": "0.00",
-"today": "0.01",
+"lastHour": "0.04",
+"today": "0.06",
 "yesterday": "0.00",
-"thisHour": "0.00"
+"thisHour": "0.04"
 },
 "lon": -92.0705,
 "lat": 46.796,
@@ -85,14 +85,14 @@
 },
 {
 "name": "Pike Lake",
-"thisHour": 0.0,
-"lastHour": 0.0,
-"today": 0.09,
+"thisHour": 0.06,
+"lastHour": 0.06,
+"today": 0.18,
 "yesterday": 0.0,
 "raw": {
-"thisHour": "0.00",
-"lastHour": "0.00",
-"today": "0.09",
+"thisHour": "0.06",
+"lastHour": "0.06",
+"today": "0.18",
 "yesterday": "0.00"
 },
 "lon": -92.2855,
@@ -101,14 +101,14 @@
 },
 {
 "name": "Rice Lake",
-"thisHour": 0.0,
-"lastHour": 0.0,
-"today": 0.05,
+"thisHour": 0.01,
+"lastHour": 0.01,
+"today": 0.07,
 "yesterday": 0.0,
 "raw": {
-"thisHour": "0.00",
-"lastHour": "0.00",
-"today": "0.05",
+"thisHour": "0.01",
+"lastHour": "0.01",
+"today": "0.07",
 "yesterday": "0.00"
 },
 "lon": -92.108,
@@ -134,12 +134,12 @@
 {
 "name": "Hermantown",
 "thisHour": 0.0,
-"lastHour": 0.0,
-"today": 0.03,
+"lastHour": 0.02,
+"today": 0.07,
 "yesterday": 0.0,
 "raw": {
-"lastHour": "0.00",
-"today": "0.03",
+"lastHour": "0.02",
+"today": "0.07",
 "yesterday": "0.00",
 "thisHour": "0.00"
 },
@@ -261,13 +261,13 @@
 },
 "2026-09-24": {
 "WLSSD Plant": 0.02,
-"Scanlon": 0.02,
-"Endion": 0.01,
+"Scanlon": 0.03,
+"Endion": 0.06,
 "Munger Trail": 0.0,
-"Pike Lake": 0.09,
-"Rice Lake": 0.05,
+"Pike Lake": 0.18,
+"Rice Lake": 0.07,
 "Proctor": 0.02,
-"Hermantown": 0.03
+"Hermantown": 0.07
 }
 }
 }
