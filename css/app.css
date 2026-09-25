@@ -449,3 +449,26 @@ hr.popup-sep { border: 0; border-top: 1px solid #334155; margin: 6px 0; }
 
 /* one-row desktop header: Layers/Basemap captions dropped (the controls name themselves), search a bit narrower */
 @media (min-width: 901px) { #ctl-search { width: 215px; } }
+
+/* Field notes (points, tracks, photos kept on the device) */
+.fd-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 6px; }
+.fd-actions .btn { padding: 9px 12px; font-size: 13px; }
+.fd-rec { background: #7f1d1d; border-color: var(--danger); color: #fff; }
+.fd-live { border-color: #f43f5e; }
+.fd-err { color: #fca5a5; }
+.fd-row { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.fd-row.fd-hl { background: rgba(56,189,248,.15); }
+.fd-thumb { width: 56px; height: 56px; object-fit: cover; border-radius: 4px; cursor: zoom-in; flex: none; }
+.fd-ico { width: 56px; text-align: center; font-size: 20px; flex: none; }
+.fd-main { flex: 1; min-width: 0; }
+.fd-main input { width: 100%; background: transparent; border: 1px solid transparent; border-radius: 4px; color: var(--fg); padding: 2px 4px; font-size: 13px; }
+.fd-main input:focus { border-color: var(--line); background: var(--bg3); outline: none; }
+.fd-main .fd-note { font-size: 12px; color: var(--fg2); }
+.fd-btns { display: flex; flex-direction: column; gap: 4px; flex: none; }
+.fd-btns .chip { padding: 4px 9px; }
+.fd-lightbox { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,.92); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 12px; }
+.fd-lightbox img { max-width: 100%; max-height: calc(100% - 40px); object-fit: contain; }
+.fd-cap { color: #ddd; font-size: 13px; margin-top: 8px; text-align: center; }
+#fd-banner { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 5; background: #1d4ed8; color: #fff; border: 1px solid #3b82f6; border-radius: 999px; padding: 7px 14px; font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,.4); cursor: pointer; white-space: nowrap; max-width: calc(100% - 120px); overflow: hidden; text-overflow: ellipsis; }
+#fd-banner.rec { background: #7f1d1d; border-color: var(--danger); }
+#fd-banner span { opacity: .75; }

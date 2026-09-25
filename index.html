@@ -113,6 +113,7 @@
         <div class="tabs" role="tablist">
           <button class="tab on" role="tab" aria-selected="true" data-tab="region">Region</button>
           <button class="tab" role="tab" data-tab="projects">Projects</button>
+          <button class="tab" role="tab" data-tab="field">Field</button>
           <button class="tab" role="tab" data-tab="station" disabled>Station</button>
           <button class="tab" role="tab" data-tab="gauge" disabled>Gauge</button>
           <button class="tab" role="tab" data-tab="point" disabled>Point</button>
@@ -123,6 +124,7 @@
       <div class="panel-body">
         <section id="tab-region" class="tab-pane on"></section>
         <section id="tab-projects" class="tab-pane"></section>
+        <section id="tab-field" class="tab-pane"></section>
         <section id="tab-station" class="tab-pane"></section>
         <section id="tab-gauge" class="tab-pane"></section>
         <section id="tab-point" class="tab-pane"></section>
@@ -158,6 +160,7 @@
           <li><b>Layers ▾</b> (grouped Rain and rivers / Water / Land / Hazards &amp; subsurface): Rain stations, Stream gauges and Radar (with its product picker), Watersheds (USGS HUC-8/10/12 boundaries, any zoom), Contamination (MPCA cleanup and regulated sites, groundwater plumes, land-use restrictions, closed landfills), Trails (MN DNR, Superior National Forest and OpenStreetMap hiking, bike, ski and snowmobile trails), Land cover (NLCD 2021; the runoff tool's curve number uses it), Public waters (PWI), Impaired waters &amp; TMDLs, Conservation easements (RIM, wetland bank), Wetlands (MN NWI update), Trout streams, Streams (StreamStats grid), Soils (hydrologic soil group or water-table depth), Parcels, FEMA (flood zones and floodways, BFE lines, lettered cross sections, LOMRs), Crossings (DNR culvert surveys plus NBI bridges), Wells (County Well Index, DNR drill holes, observation wells), and Karst. Zoomed out, the regional layers and FEMA hazard zones draw as a simplified whole-region overview and wetlands as the FWS 100 m wetland raster; full detail appears past the zoom shown on each row. Parcels, soils and wells need you to zoom in. <b>Terrain ▾</b> adds MnTOPO lidar hillshade, elevation color, 2 ft and 10 ft contours, and USGS contours that work at any zoom.</li>
           <li><b>Search</b> ( / ): place, gauge, station, project, parcel PIN, owner name or coordinates.</li>
           <li><b>Watershed</b> (Point tab): delineates with USGS StreamStats, returns basin characteristics and regression flows, and runs the TSA3 regional curves for bankfull dimensions. Save results to a project.</li>
+          <li><b>Field</b> tab (or the pin button on the map's left edge), for use on a phone on site: <b>Point at my location</b> averages about 8 s of GPS fixes; <b>Tap to add point</b> places one by hand; <b>Start track</b> records the route you walk (keep the screen on; if the phone locks, the track pauses and continues as a new segment when you come back; a loop that returns to its start also reports the enclosed acres); <b>Add photos</b> takes pictures from your gallery and places them from their GPS tags and compass direction (Solocator writes both; if a photo arrives without a location, use Place). Tap a yellow point, purple photo or red track on the map to see it. Everything stays on this device only, and nothing is uploaded. Export to <b>Google Earth</b> (KMZ with the photos inside), <b>CAD</b> (Civil 3D PNEZD points and a DXF in UTM 15N US feet, with lidar ground elevations), <b>CSV</b> or <b>GPX</b>. On iPhone, add the site to the Home Screen so Safari keeps the notes.</li>
           <li><b>CAD export</b>: draw a rectangle and download imagery, lidar DEM and contours in UTM 15N US feet, with Civil 3D steps.</li>
           <li><b>Print site report</b> (Point tab or a project): a one-document hydrology summary with sources.</li>
           <li><b>Link</b> copies a URL that reproduces the exact view, date, layers and selection.</li>

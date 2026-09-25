@@ -29,6 +29,7 @@ import { renderSources } from "./sources.js";
 import { initWlssd } from "./wlssd.js";
 import { MeasureControl } from "./measure.js";
 import { CompareControl } from "./compare.js";
+import { initField, FieldControl } from "./field.js";
 import { setHideUnclassified } from "./gauges.js";
 import { setGaugeFilter } from "./map.js";
 
@@ -330,6 +331,8 @@ async function boot() {
   map.addControl(new LocateControl({ onStatus: (m, err) => setStatus(m, !!err, true) }), "top-left");
   map.addControl(new MeasureControl(), "top-left");
   map.addControl(new CompareControl(), "top-left");
+  map.addControl(new FieldControl(), "top-left");
+  initField();
   // Cached stations are drawn immediately by loadPrecip; render the Region panel from them too, then replace when fresh data lands.
   on("precip:loaded", ({ stale }) => { if (!stale) return; setStatus("Showing the last cached observations while fresh data loads…", false, true); renderLegend(); if (!state.selection || state.selection.type === "region") renderRegion(); });
   setLayerVisible("huc", !!state.layers.huc); setLayerVisible("landcover", !!state.layers.landcover); if (state.layers.huc) whenMap(() => setHucEnabled(true)); setLayerVisible("stations", state.layers.stations); setLayerVisible("gauges", state.layers.gauges); setLayerVisible("qpe", state.layers.qpe); setLayerVisible("streams", !!state.layers.streams); setLayerVisible("soils", !!state.layers.soils); setLayerVisible("parcels", !!state.layers.parcels); setLayerVisible("trout", !!state.layers.trout); setLayerVisible("karst", !!state.layers.karst); setLayerVisible("wetlands", !!state.layers.wetlands); setLayerVisible("fema", !!state.layers.fema); setLayerVisible("crossings", !!state.layers.crossings); setLayerVisible("wells", !!state.layers.wells); for (const k of ["pwi", "impaired", "easements", "trails", "contam"]) setLayerVisible(k, !!state.layers[k]);

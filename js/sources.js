@@ -84,7 +84,7 @@ export const METHODS = [
 export const SOFTWARE = [
   ["MapLibre GL JS", "https://maplibre.org/", "BSD-3"], ["Plotly.js", "https://plotly.com/javascript/", "MIT"], ["proj4js", "https://github.com/proj4js/proj4js", "MIT"],
   ["polygon-clipping", "https://github.com/mfogel/polygon-clipping", "MIT"], ["geotiff.js", "https://geotiffjs.github.io/", "MIT"], ["fflate", "https://github.com/101arrowz/fflate", "MIT"],
-  ["topojson-client", "https://github.com/topojson/topojson-client", "ISC"], ["supabase-js", "https://github.com/supabase/supabase-js", "MIT"],
+  ["topojson-client", "https://github.com/topojson/topojson-client", "ISC"], ["exifr", "https://github.com/MikeKovarik/exifr", "MIT"], ["supabase-js", "https://github.com/supabase/supabase-js", "MIT"],
 ];
 
 // "As of" chips come from data/freshness.json, written by tools/check_freshness.py (monthly GitHub Action).

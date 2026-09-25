@@ -1,5 +1,5 @@
 {
- "build": "20260924-1742-4f33e8a",
+ "build": "20260925-1518-4ab259b",
  "files": [
   "css/app.css",
   "css/report.css",
@@ -26,6 +26,7 @@
   "js/elevation.js",
   "js/export.js",
   "js/fema.js",
+  "js/field.js",
   "js/gauges.js",
   "js/huc.js",
   "js/lake.js",
