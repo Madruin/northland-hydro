@@ -1,7 +1,7 @@
 {
 "source": "http://extranet.wlssd.com/plantoverview/rain.aspx",
-"updated": "2026-09-25T02:45:01-05:00",
-"harvestedAt": "2026-09-25T07:47:00+00:00",
+"updated": "2026-09-25T08:40:01-05:00",
+"harvestedAt": "2026-09-25T13:44:58+00:00",
 "gauges": [
 {
 "name": "WLSSD Plant",
@@ -85,14 +85,14 @@
 },
 {
 "name": "Pike Lake",
-"thisHour": 0.0,
-"lastHour": 0.0,
-"today": 0.0,
+"thisHour": 0.01,
+"lastHour": 0.01,
+"today": 0.01,
 "yesterday": 0.2,
 "raw": {
-"thisHour": "0.00",
-"lastHour": "0.00",
-"today": "0.00",
+"thisHour": "0.01",
+"lastHour": "0.01",
+"today": "0.01",
 "yesterday": "0.20"
 },
 "lon": -92.2855,
@@ -274,7 +274,7 @@
 "Scanlon": 0.0,
 "Endion": 0.0,
 "Munger Trail": 0.0,
-"Pike Lake": 0.0,
+"Pike Lake": 0.01,
 "Rice Lake": 0.0,
 "Proctor": 0.0,
 "Hermantown": 0.0
