@@ -1,7 +1,7 @@
 {
 "source": "http://extranet.wlssd.com/plantoverview/rain.aspx",
-"updated": "2026-09-25T08:40:01-05:00",
-"harvestedAt": "2026-09-25T13:44:58+00:00",
+"updated": "2026-09-25T13:30:01-05:00",
+"harvestedAt": "2026-09-25T18:34:56+00:00",
 "gauges": [
 {
 "name": "WLSSD Plant",
@@ -85,13 +85,13 @@
 },
 {
 "name": "Pike Lake",
-"thisHour": 0.01,
-"lastHour": 0.01,
+"thisHour": 0.0,
+"lastHour": 0.0,
 "today": 0.01,
 "yesterday": 0.2,
 "raw": {
-"thisHour": "0.01",
-"lastHour": "0.01",
+"thisHour": "0.00",
+"lastHour": "0.00",
 "today": "0.01",
 "yesterday": "0.20"
 },
