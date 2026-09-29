@@ -262,7 +262,7 @@ function mergeSeries(q, h) {
 // point (a one-line header with the answer, e.g. "Zone AE · floodway"), so nothing jumps as data arrives. Rows open on
 // demand; which rows are open is remembered, so a user who always wants FEMA and Parcel open gets them open.
 const PT_GROUPS = [
-  ["water", "Water and flooding", [["pt-watershed", "Watershed and peak flows"], ["pt-fema", "FEMA flood zone"], ["pt-pwi", "Public waters (PWI)"], ["pt-wetland", "Wetlands (NWI)"], ["pt-impaired", "Impaired waters and TMDLs"], ["pt-lake", "Lake or river"], ["pt-crossing", "Stream crossing"]]],
+  ["water", "Water and flooding", [["pt-watershed", "Watershed and peak flows"], ["pt-runoff", "Runoff and curve number"], ["pt-fema", "FEMA flood zone"], ["pt-pwi", "Public waters (PWI)"], ["pt-wetland", "Wetlands (NWI)"], ["pt-impaired", "Impaired waters and TMDLs"], ["pt-lake", "Lake or river"], ["pt-crossing", "Stream crossing"]]],
   ["screen", "Permitting screens", [["pt-species", "Listed species (USFWS IPaC)"], ["pt-mpca", "Contamination (MPCA)"], ["pt-easement", "Conservation easements"]]],
   ["land", "Land and subsurface", [["pt-parcel", "Parcel"], ["pt-soils", "Soils"], ["pt-wells", "Wells and depth to bedrock"]]],
   ["wx", "Rain and weather", [["pt-precip", "Rainfall here (PRISM)"], ["pt-nearby", "Nearest observers and gauges"], ["pt-wx", "NWS forecast"], ["pt-soil", "Soil moisture (model)"], ["pt-a14", "Design storms (Atlas 14)"]]],
@@ -295,8 +295,13 @@ const parts = (s, k) => s.split(" · ").slice(0, k).join(" · ");
 const bodyRows = (el) => el.querySelectorAll("table.data tbody tr").length;
 const SUMMARY = {
   "pt-watershed": (el) => { const da = statV(el, /drainage area/i); return da ? `${da} mi² drainage area` : "Delineate from here"; },
+  "pt-runoff": (el) => { const cn = statV(el, /composite CN/i); const r = [...el.querySelectorAll("tbody tr")].find((x) => /^100-yr/.test(txt(x.cells[0]))); return [cn && `CN ${cn}`, r && `100-yr ${txt(r.cells[4])} cfs (MSE3)`].filter(Boolean).join(" · ") || cut(firstLine(el)); },
   "pt-fema": (el) => { const t = txt(el); if (/No effective NFHL/i.test(t)) return "No digital FIRM here"; if (/No flood zone polygon/i.test(t)) return "No zone at this point (open water or gap)";
-    const z = t.match(/\bZone ([A-Z0-9]{1,3})\b/); const fw = /Inside the regulatory floodway/i.test(t); return z ? `Zone ${z[1]}${fw ? " · floodway" : ""}` : cut(firstLine(el)); },
+    // Read the flood-zone card itself ("AE FW"); the page's other text mentions zones generically ("Zone A or X")
+    const card = [...el.querySelectorAll(".stat")].find((x) => /^flood zone/i.test(txt(x.querySelector(".l")))); if (!card) return cut(firstLine(el));
+    const v = txt(card.querySelector(".v")), sub = txt(card.querySelector(".s")); const z = v.split(/\s+/)[0];
+    const fw = /FW/.test(v) || /floodway/i.test(sub); const bfe = statV(el, /BFE/i);
+    return [`Zone ${z}`, fw ? "floodway" : z === "X" && sub ? sub : "", bfe && /\d/.test(bfe) ? `BFE ${bfe} ft` : ""].filter(Boolean).join(" · "); },
   "pt-pwi": (el) => cut(parts(firstLine(el), 2)),
   "pt-wetland": (el) => cut(parts(firstLine(el), 2)),
   "pt-impaired": (el) => { const n = bodyRows(el); const names = [...new Set([...el.querySelectorAll("tbody tr td:first-child b")].map(txt))].slice(0, 2).join(", "); return n ? cut(`${n} listed · ${names}`) : cut(firstLine(el)); },
@@ -316,12 +321,12 @@ const SUMMARY = {
   "pt-soil": () => "Past 7 days and 7-day forecast",
   "pt-a14": (el) => { const r = [...el.querySelectorAll("tbody tr")].find((x) => /^24-hr/.test(txt(x.cells[0]))); return r ? `24-hr: 10-yr ${txt(r.cells[4])}" · 100-yr ${txt(r.cells[7])}"` : cut(firstLine(el)); },
 };
-const NONE_TEXT = { "pt-fema": "No FEMA data here", "pt-pwi": "No public water here", "pt-wetland": "No mapped wetland here", "pt-impaired": "No impaired water nearby", "pt-lake": "Not on a lake or river", "pt-crossing": "No crossing within 500 ft",
+const NONE_TEXT = { "pt-runoff": "Delineate the watershed first", "pt-fema": "No FEMA data here", "pt-pwi": "No public water here", "pt-wetland": "No mapped wetland here", "pt-impaired": "No impaired water nearby", "pt-lake": "Not on a lake or river", "pt-crossing": "No crossing within 500 ft",
   "pt-species": "No listed species returned", "pt-mpca": "No MPCA sites within 500 ft", "pt-easement": "Not in a RIM or bank easement", "pt-parcel": "No parcel data here", "pt-soils": "No soil data", "pt-wells": "No wells nearby" };
 let navDone = {}, navObserver = null, navTimer = null, navRun = {}, ptCur = null;
 const FAILED = /failed|timed out|unavailable|error/i;
 function startPointNav(container) {
-  navDone = { "pt-precip": true, "pt-nearby": true, "pt-wx": true, "pt-soil": true, "pt-a14": true, "pt-watershed": true };
+  navDone = { "pt-precip": true, "pt-nearby": true, "pt-wx": true, "pt-soil": true, "pt-a14": true, "pt-watershed": true, "pt-runoff": true };
   navObserver?.disconnect();
   navObserver = new MutationObserver(() => { clearTimeout(navTimer); navTimer = setTimeout(updatePointNav, 120); });
   for (const [id] of PT_SECTIONS) { const el = $(id); if (el) navObserver.observe(el, { childList: true, subtree: true, characterData: true }); }
@@ -332,7 +337,7 @@ function navTrack(id, p) { Promise.resolve(p).catch(() => {}).finally(() => { na
 function updatePointNav() {
   for (const [id] of PT_SECTIONS) {
     const el = $(id), sEl = $(id + "-s"); if (!el || !sEl) continue; const d = el.closest("details.sec");
-    const spinning = !!el.querySelector(".spinner"); const has = txt(el).length > 0 && !spinning;
+    const spinning = !!el.querySelector(".spinner"); const has = txt(el).length > 0 && !spinning && !el.querySelector("[data-empty]");
     const failed = has && [...el.querySelectorAll(".notice")].some((n) => FAILED.test(n.textContent)) && !el.querySelector("table, .stat-row");
     const st = failed ? "error" : has ? "ready" : spinning || !navDone[id] ? "pending" : "none";
     if (st === "ready" && !el.querySelector(":scope > .asof")) { const a = document.createElement("div"); a.className = "asof"; a.textContent = `as of ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`; el.append(a); }
@@ -386,6 +391,7 @@ export async function renderPoint(lon, lat) {
     </div>
     ${pointSectionsHtml()}`;
   for (const [id, t] of [["pt-precip", "PRISM + station normals…"], ["pt-wx", "NWS forecast…"], ["pt-soil", "Open-Meteo…"], ["pt-a14", "Atlas 14…"]]) $(id).innerHTML = `<div class="spinner">${t}</div>`;
+  $("pt-runoff").innerHTML = `<div class="small" data-empty>Delineate the watershed in the row above to compute the basin's land-cover curve number (NLCD 2021 × soil groups) and design-storm peaks (MSE3, MN PRF 400 and Type II).</div>`;
 
   addRecent({ lon, lat });
   const trailsNear = async () => { const d = 35 / 111320, dx = d / Math.cos((lat * Math.PI) / 180); const st = await fetchStatic({ id: "trails" }, [lon - dx, lat - d, lon + dx, lat + d]); if (!st) return []; const seen = new Set(); return st.fc.features.map((f) => ({ p: f.properties, m: distToGeomM(lon, lat, f.geometry) })).filter((t) => t.m <= 30).sort((a, b) => a.m - b.m).filter((t) => { const k = (t.p.name || t.p.routes || "unnamed") + t.p.src; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 4); };

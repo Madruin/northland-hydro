@@ -92,6 +92,8 @@ function renderLive(container, lon, lat, key) {
 
 // Shared renderer for live results and saved analyses.
 function renderResultsInto(body, st, lon, lat, { curveId, onChangeCurve, saveUI = false, saved = null } = {}) {
+  // In the Point panel the runoff card (land-cover CN and design-storm peaks) has its own row, right below this one
+  const roHost = body.closest("#pt-watershed") ? document.getElementById("pt-runoff") : null;
   const da = st.da;
   const bcByCode = st.bcByCode || Object.fromEntries((st.bc || []).map((b) => [b.code, b.value]));
   const auth = authState();
@@ -113,14 +115,18 @@ function renderResultsInto(body, st, lon, lat, { curveId, onChangeCurve, saveUI 
     <details><summary class="small" style="cursor:pointer">All basin characteristics (${(st.bc || []).length})</summary>
       <table class="data"><tbody>${(st.bc || []).map((b) => `<tr><td title="${escapeHtml(b.description || "")}">${escapeHtml(b.name)} <span class="small">${escapeHtml(b.code)}</span></td><td class="num">${fmtNum(b.value, 3)}</td><td class="small">${escapeHtml(b.unit || "")}</td></tr>`).join("")}</tbody></table></details>
     ${flowsHtml(st)}`}
-    ${st.basin && !st.manual ? `<div class="ws-basinsoils"></div><div class="ws-runoff"></div><div class="ws-bedrock"></div><div class="ws-impaired"></div>` : ""}
+    ${st.basin && !st.manual ? `<div class="ws-basinsoils"></div>${roHost ? "" : `<div class="ws-runoff"></div>`}<div class="ws-bedrock"></div><div class="ws-impaired"></div>` : ""}
     <h3>Bankfull channel dimensions · TSA3 regional curves</h3>
     <div class="ws-regional"></div>
 `;
   const bs = body.querySelector(".ws-basinsoils"); if (bs) renderBasinSoils(bs, st.basin.geometry, da);
   const bb = body.querySelector(".ws-bedrock"); if (bb) renderBasinBedrock(bb, st.basin.geometry);
   const bi = body.querySelector(".ws-impaired"); if (bi) renderBasinImpairments(bi, st.basin.geometry);
-  const ro = body.querySelector(".ws-runoff"); if (ro) renderRunoff(ro, { geometry: st.basin.geometry, daSqMi: da, lat, lon, bc: bcByCode });
+  if (roHost) {
+    if (st.basin && !st.manual) { roHost.innerHTML = `<div class="ws-runoff"></div>`; const d = roHost.closest("details"); if (d && !d.open) d.open = true; }
+    else roHost.innerHTML = `<div class="small" data-empty>${st.manual ? "Runoff needs a delineated basin (land cover and soils come from its boundary); a typed drainage area runs the regional curves only." : "Delineate the watershed in the row above to compute the basin's land-cover curve number and design-storm peaks."}</div>`;
+  }
+  const ro = (roHost || body).querySelector(".ws-runoff"); if (ro) renderRunoff(ro, { geometry: st.basin.geometry, daSqMi: da, lat, lon, bc: bcByCode });
   loadCurves().then(() => renderRegional(body.querySelector(".ws-regional"), { da, huc: st.huc, lat, lon, curveId, onChangeCurve }));
   const saveBtn = body.querySelector(".ws-save");
   if (saveBtn) saveBtn.onclick = async () => {
