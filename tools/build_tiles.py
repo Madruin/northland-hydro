@@ -33,8 +33,12 @@ FRESH = {"fema-zones", "fema-xs", "fema-bfe", "fema-lomr", "pwi-basins", "pwi-li
 HP = {"offset": 0.00001, "prec": 6}           # ~1 m
 HP_OVERRIDE = {"tmdl-areas": {"offset": 0.00003, "prec": 6}}  # allocation areas are whole watersheds; 3 m is plenty
 
+# Stable feature IDs, so the map's live check can tell exactly which FEMA features changed since the build
+ID_FIELDS = {"fema-zones": "FLD_AR_ID", "fema-xs": "XS_LN_ID", "fema-bfe": "BFE_LN_ID"}
 def fetch_fresh(lid):
     o = dict(b.OPTS.get(lid, {})); o.update(HP_OVERRIDE.get(lid, HP)); b.OPTS[lid] = o
+    if lid in ID_FIELDS and ID_FIELDS[lid] not in b.LAYERS[lid][1]:
+        url, fields, where = b.LAYERS[lid]; b.LAYERS[lid] = (url, fields + "," + ID_FIELDS[lid], where)
     return b.page(lid)
 
 def load_snapshot(lid):
