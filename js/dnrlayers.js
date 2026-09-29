@@ -224,14 +224,17 @@ async function refreshTiled(k) {
   const res = await Promise.allSettled(liveSrcs.map((s) => fetchLive(s, bbox, ctl.signal)));
   if (ctl.signal.aborted || lastKey[k] !== key || !enabled[k]) return;
   await tilesIdle(); if (lastKey[k] !== key || !enabled[k]) return;
-  let added = 0, ok = 0;
+  let added = 0, ok = 0, notReady = false;
   liveSrcs.forEach((s, i) => {
     const r = res[i]; if (r.status !== "fulfilled") return; ok++;
-    const have = new Set(map.querySourceFeatures("tiles-" + TILE_GROUP[s.id], { sourceLayer: s.id }).map((f) => keyOf(s, f.properties)));
+    const tf = map.querySourceFeatures("tiles-" + TILE_GROUP[s.id], { sourceLayer: s.id });
+    if (!tf.length && r.value.fc.features.length) { notReady = true; setOverlay(s.id, EMPTY); return; } // tiles not drawn yet (hidden tab): nothing to compare against
+    const have = new Set(tf.map((f) => keyOf(s, f.properties)));
     const fresh = r.value.fc.features.filter((f) => !have.has(keyOf(s, f.properties)));
     setOverlay(s.id, { type: "FeatureCollection", features: fresh }); added += fresh.length;
   });
   const at = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  if (notReady) { lastKey[k] = null; note(k, `${base}; live check waits for the map to draw`); return; }
   if (!ok) { liveBackoffUntil[k] = Date.now() + 5 * 60 * 1000; note(k, `${base} · MnGeo not answering (${at}), showing the tiles`); return; }
   note(k, `${base} · checked live ${at}: ${added ? `${added} feature${added > 1 ? "s" : ""} newer than the tiles (dashed outline)` : "no changes in view"}`);
 }

@@ -70,11 +70,12 @@ async function refreshTiled() {
   const res = await live; if (inflight !== live || !enabled) return;
   await (map.areTilesLoaded() ? Promise.resolve() : new Promise((r) => { const t = setTimeout(r, 8000); map.once("idle", () => { clearTimeout(t); r(); }); }));
   if (inflight !== live || !enabled) return;
-  let added = 0, removed = 0, ok = 0;
+  let added = 0, removed = 0, ok = 0, notReady = false;
   res.forEach((r, i) => {
     if (r.status !== "fulfilled") return; ok++;
     const k = TILE_KEY[i]; const liveIds = new Set(r.value.features.map((f) => String(f.properties[k] ?? "")));
     const tiles = map.querySourceFeatures("tiles-fema", { sourceLayer: IDS[i] });
+    if (!tiles.length && r.value.features.length) { notReady = true; return; } // tiles not drawn yet (hidden tab): nothing to compare against
     const tileIds = new Set(tiles.map((f) => String(f.properties[k] ?? "")));
     const fresh = r.value.features.filter((f) => !tileIds.has(String(f.properties[k] ?? "")));
     setOverlay(IDS[i], DECO[i]({ type: "FeatureCollection", features: fresh })); added += fresh.length;
@@ -87,6 +88,7 @@ async function refreshTiled() {
     }
   });
   const at = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  if (notReady) { lastKey = null; IDS.forEach((id, i) => { setOverlay(id, empty()); setHidden(i, []); }); note(`${base}; live check waits for the map to draw`); return; }
   if (!ok) { backoffUntil = Date.now() + 5 * 60 * 1000; note(`${base} · FEMA not answering (${at}), showing the tiles`); return; }
   note(`${base} · checked live ${at}: ${added || removed ? `${added} new or changed (dashed outline)${removed ? `, ${removed} retired and hidden` : ""}` : "no changes in view"}`);
 }
