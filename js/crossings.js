@@ -130,7 +130,7 @@ export async function renderCrossingAt(container, lon, lat) {
     const dist = (f) => haversineKm(lat, lon, f.geometry.coordinates[1], f.geometry.coordinates[0]) * 1000;
     const dnr = (dr?.features || []).sort((a, b) => dist(a) - dist(b))[0];
     const nbi = (nr?.features || []).sort((a, b) => dist(a) - dist(b))[0];
-    if (!dnr && !nbi) return;
+    if (!dnr && !nbi) { if (container.isConnected) container.innerHTML = `<div class="small" data-empty>No crossing in the MN DNR culvert inventory or the National Bridge Inventory within about 260 ft (80 m) of this point. Both inventories are incomplete: the DNR survey covers the culverts it has visited, and the NBI lists only bridges over 20 ft, so an unmapped culvert or small bridge may still be here. Check the site or the road authority's records.</div>`; return; }
     let html = `<h3>Stream crossing at this point</h3>`;
     if (dnr) {
       const p = dnr.properties; const ratio = p.total_span && p.bankfull_width_ft ? p.total_span / p.bankfull_width_ft : null;

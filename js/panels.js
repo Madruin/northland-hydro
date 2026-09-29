@@ -321,7 +321,7 @@ const SUMMARY = {
   "pt-soil": () => "Past 7 days and 7-day forecast",
   "pt-a14": (el) => { const r = [...el.querySelectorAll("tbody tr")].find((x) => /^24-hr/.test(txt(x.cells[0]))); return r ? `24-hr: 10-yr ${txt(r.cells[4])}" · 100-yr ${txt(r.cells[7])}"` : cut(firstLine(el)); },
 };
-const NONE_TEXT = { "pt-runoff": "Delineate the watershed first", "pt-fema": "No FEMA data here", "pt-pwi": "No public water here", "pt-wetland": "No mapped wetland here", "pt-impaired": "No impaired water nearby", "pt-lake": "Not on a lake or river", "pt-crossing": "No crossing within 500 ft",
+const NONE_TEXT = { "pt-runoff": "Delineate the watershed first", "pt-fema": "No FEMA data here", "pt-pwi": "No public water here", "pt-wetland": "No mapped wetland here", "pt-impaired": "No impaired water nearby", "pt-lake": "Not on a lake or river", "pt-crossing": "No mapped crossing within 260 ft",
   "pt-species": "No listed species returned", "pt-mpca": "No MPCA sites within 500 ft", "pt-easement": "Not in a RIM or bank easement", "pt-parcel": "No parcel data here", "pt-soils": "No soil data", "pt-wells": "No wells nearby" };
 let navDone = {}, navObserver = null, navTimer = null, navRun = {}, ptCur = null;
 const FAILED = /failed|timed out|unavailable|error/i;
