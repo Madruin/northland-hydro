@@ -484,3 +484,5 @@ details.sec.error .sec-s { color: #fca5a5; }
 .sec-body > h3:first-child { font-size: 11px; font-weight: 500; color: var(--fg3); margin: 0 0 6px; }
 .sec-body:empty::after { content: "Nothing mapped here."; color: var(--fg3); font-size: 12px; }
 @media (max-width: 900px) { .sec-t { font-size: 13.5px; } details.sec > summary { padding: 10px; } .sec-body { padding-left: 14px; } }
+.sec-cta { background: #1d4ed8; border: 1px solid #60a5fa; color: #fff; font: inherit; font-weight: 700; font-size: 12.5px; border-radius: 999px; padding: 3px 12px; cursor: pointer; box-shadow: 0 0 0 2px rgba(59,130,246,.25); white-space: nowrap; }
+.sec-cta:hover { background: #2563eb; box-shadow: 0 0 0 3px rgba(59,130,246,.4); }

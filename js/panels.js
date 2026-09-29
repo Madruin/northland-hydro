@@ -343,7 +343,13 @@ function updatePointNav() {
     if (st === "ready" && !el.querySelector(":scope > .asof")) { const a = document.createElement("div"); a.className = "asof"; a.textContent = `as of ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`; el.append(a); }
     d.className = `sec ${st}`;
     if (st === "error") { sEl.innerHTML = `Failed · <button type="button" class="linkbtn sec-retry">retry</button>`; sEl.querySelector(".sec-retry").onclick = (e) => { e.preventDefault(); if (navRun[id]) { navDone[id] = false; el.innerHTML = `<div class="spinner">Retrying…</div>`; navTrack(id, navRun[id]()); } else if (ptCur) renderPoint(ptCur.lon, ptCur.lat); }; }
-    else sEl.textContent = st === "pending" ? "Loading…" : st === "none" ? NONE_TEXT[id] || "Nothing here" : (() => { try { return SUMMARY[id]?.(el) || cut(firstLine(el)) || "Details"; } catch { return "Details"; } })();
+    else {
+      const text = st === "pending" ? "Loading…" : st === "none" ? NONE_TEXT[id] || "Nothing here" : (() => { try { return SUMMARY[id]?.(el) || cut(firstLine(el)) || "Details"; } catch { return "Details"; } })();
+      if (id === "pt-watershed" && text === "Delineate from here") { // the main action for a point: a button right in the row header
+        if (!sEl.querySelector(".sec-cta")) { sEl.innerHTML = `<button type="button" class="sec-cta" title="Delineate the watershed draining to this point (USGS StreamStats, about 15 s)">▶ Delineate from here</button>`;
+          sEl.querySelector(".sec-cta").onclick = (e) => { e.preventDefault(); e.stopPropagation(); d.open = true; saveOpenRows(); [...el.querySelectorAll("button")].find((b) => /^Delineate/.test(b.textContent.trim()))?.click(); }; }
+      } else sEl.textContent = id === "pt-watershed" && st === "pending" ? "Delineating…" : text;
+    }
   }
 }
 // Nearest observers and gauges for a point, from the loaded station and gauge layers. Exported so the app can
