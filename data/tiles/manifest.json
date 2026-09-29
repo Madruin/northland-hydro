@@ -1,0 +1,89 @@
+{
+ "groups": {
+  "fema": {
+   "sha256": "70baa9039cdb6c315862579c9d7201e9227fc69f565934ee01dda82b919c3e13",
+   "built": "2026-09-29",
+   "fetched": "2026-09-29",
+   "layers": {
+    "fema-zones": 7970,
+    "fema-xs": 2733,
+    "fema-bfe": 1734,
+    "fema-lomr": 8
+   },
+   "bytes": 28617559
+  },
+  "pwi": {
+   "sha256": "f9e412842620d58a7b128658cee45da7a6eab925d5138a4ceda61d4a1b8eb004",
+   "built": "2026-09-29",
+   "fetched": "2026-09-29",
+   "layers": {
+    "pwi-basins": 4983,
+    "pwi-lines": 4178
+   },
+   "bytes": 24883309
+  },
+  "impaired": {
+   "sha256": "2fad543a06d0dd781a1ab1709d65c027b245a72c83e46203ebbf5d9b28ef6f55",
+   "built": "2026-09-29",
+   "fetched": "2026-09-29",
+   "layers": {
+    "tmdl-areas": 194,
+    "imp-lakes": 621,
+    "imp-streams": 290
+   },
+   "bytes": 19615328
+  },
+  "easements": {
+   "sha256": "7be4f71c926f51db1bc609851f1be65eb1b9dc78fd6d9cfe1a8910df9a341074",
+   "built": "2026-09-29",
+   "fetched": "2026-09-29",
+   "layers": {
+    "rim": 216,
+    "wetbank": 75
+   },
+   "bytes": 538429
+  },
+  "trout": {
+   "sha256": "f0d7e9bc11bd1405f67045ed25b8eb4a74f9a157eb2c2ebb5cf5d24a128ef331",
+   "built": "2026-09-29",
+   "fetched": "2026-09-29",
+   "layers": {
+    "trout": 2351
+   },
+   "bytes": 3575533
+  },
+  "karst": {
+   "sha256": "16244e99d9eece7969c9580c3b34abc9a6a442e55e0ad8e6f7a144db2292f4f0",
+   "built": "2026-09-29",
+   "fetched": "2026-09-17",
+   "layers": {
+    "karst-poly": 266,
+    "karst-pts": 652,
+    "springs": 408
+   },
+   "bytes": 684693
+  },
+  "contam": {
+   "sha256": "a40a67a76db5d0f14fb875fe634bbdde43795831485ddb96aa5b88dc2f596847",
+   "built": "2026-09-29",
+   "fetched": "2026-09-24",
+   "layers": {
+    "mpca-landfill": 33,
+    "mpca-ic": 123,
+    "mpca-gwconcern": 67,
+    "mpca-gwline": 46,
+    "mpca-sites": 13349
+   },
+   "bytes": 8547046
+  },
+  "trails": {
+   "sha256": "32f9ec19c36229bab29da14ff20c85693dd808acb357e3f3e6a4751a0afcbe31",
+   "built": "2026-09-29",
+   "fetched": "2026-09-23",
+   "layers": {
+    "trails": 31816
+   },
+   "bytes": 18372412
+  }
+ }
+}
