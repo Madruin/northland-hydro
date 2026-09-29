@@ -259,29 +259,88 @@ function mergeSeries(q, h) {
 
 // ---------------- Point ----------------
 // Sticky jump bar for the Point panel: one chip per section, spinning until the section has settled, dimmed when it has nothing to say.
-const PT_SECTIONS = [["pt-lake", "Lake"], ["pt-watershed", "Watershed"], ["pt-crossing", "Crossing"], ["pt-pwi", "PWI"], ["pt-impaired", "Impaired"], ["pt-fema", "FEMA"], ["pt-mpca", "Contamination"], ["pt-easement", "Easements"], ["pt-species", "Species"], ["pt-wetland", "Wetland"], ["pt-parcel", "Parcel"], ["pt-soils", "Soils"], ["pt-wells", "Wells"], ["pt-precip", "Rainfall"], ["pt-nearby", "Nearby"], ["pt-wx", "Forecast"], ["pt-soil", "Soil moisture"], ["pt-a14", "Atlas 14"]];
+// ---- Point panel layout: a fixed, grouped list of sections. Every section keeps its row in the same place for every
+// point (a one-line header with the answer, e.g. "Zone AE · floodway"), so nothing jumps as data arrives. Rows open on
+// demand; which rows are open is remembered, so a user who always wants FEMA and Parcel open gets them open.
+const PT_GROUPS = [
+  ["water", "Water and flooding", [["pt-watershed", "Watershed and peak flows"], ["pt-fema", "FEMA flood zone"], ["pt-pwi", "Public waters (PWI)"], ["pt-wetland", "Wetlands (NWI)"], ["pt-impaired", "Impaired waters and TMDLs"], ["pt-lake", "Lake or river"], ["pt-crossing", "Stream crossing"]]],
+  ["screen", "Permitting screens", [["pt-species", "Listed species (USFWS IPaC)"], ["pt-mpca", "Contamination (MPCA)"], ["pt-easement", "Conservation easements"]]],
+  ["land", "Land and subsurface", [["pt-parcel", "Parcel"], ["pt-soils", "Soils"], ["pt-wells", "Wells and depth to bedrock"]]],
+  ["wx", "Rain and weather", [["pt-precip", "Rainfall here (PRISM)"], ["pt-nearby", "Nearest observers and gauges"], ["pt-wx", "NWS forecast"], ["pt-soil", "Soil moisture (model)"], ["pt-a14", "Design storms (Atlas 14)"]]],
+];
+const PT_SECTIONS = PT_GROUPS.flatMap(([, , s]) => s);
+const PT_OPEN_KEY = "nh-pt-open";
+function openRows() { try { const v = JSON.parse(localStorage.getItem(PT_OPEN_KEY) || "null"); if (Array.isArray(v)) return new Set(v); } catch {} return new Set(["pt-watershed"]); }
+function saveOpenRows() { try { localStorage.setItem(PT_OPEN_KEY, JSON.stringify([...document.querySelectorAll("#tab-point details.sec[open]")].map((d) => d.dataset.sec))); } catch {} }
+function pointSectionsHtml() {
+  const open = openRows();
+  return `<div class="sec-tools"><button type="button" class="linkbtn" id="sec-open-all">Open all</button> · <button type="button" class="linkbtn" id="sec-close-all">Close all</button></div>` +
+    PT_GROUPS.map(([g, title, secs]) => `<div class="sec-group g-${g}"><div class="sec-group-h">${title}</div>${secs.map(([id, label]) =>
+      `<details class="sec pending" data-sec="${id}"${open.has(id) ? " open" : ""}><summary><span class="sec-t">${label}</span><span class="sec-s" id="${id}-s">Loading…</span></summary><div class="sec-body" id="${id}"></div></details>`).join("")}</div>`).join("");
+}
+function wireSections(c) {
+  c.querySelectorAll("details.sec").forEach((d) => d.addEventListener("toggle", () => {
+    saveOpenRows();
+    if (d.open && window.Plotly) d.querySelectorAll(".js-plotly-plot").forEach((p) => { try { window.Plotly.Plots.resize(p); } catch {} }); // charts drawn while closed have no width
+  }));
+  $("sec-open-all").onclick = () => { c.querySelectorAll("details.sec").forEach((d) => (d.open = true)); saveOpenRows(); };
+  $("sec-close-all").onclick = () => { c.querySelectorAll("details.sec").forEach((d) => (d.open = false)); saveOpenRows(); };
+}
+// One-line answers for the row headers, read from each section's rendered content
+const txt = (n) => (n?.textContent || "").replace(/\s+/g, " ").trim();
+const cut = (s, n = 70) => (s.length > n ? s.slice(0, n - 1).trimEnd() + "…" : s);
+const statV = (el, re) => txt([...el.querySelectorAll(".stat")].find((s) => re.test(txt(s.querySelector(".l"))))?.querySelector(".v"));
+const rowV = (el, re) => { const tr = [...el.querySelectorAll("tr")].find((r) => r.cells.length > 1 && re.test(txt(r.cells[0]))); return tr ? txt(tr.cells[1]) : ""; };
+const firstLine = (el) => { const n = [...el.children].find((x) => x.tagName !== "H3" && !x.classList.contains("asof") && txt(x)); return n ? txt(n) : ""; };
+const parts = (s, k) => s.split(" · ").slice(0, k).join(" · ");
+const bodyRows = (el) => el.querySelectorAll("table.data tbody tr").length;
+const SUMMARY = {
+  "pt-watershed": (el) => { const da = statV(el, /drainage area/i); return da ? `${da} mi² drainage area` : "Delineate from here"; },
+  "pt-fema": (el) => { const t = txt(el); if (/No effective NFHL/i.test(t)) return "No digital FIRM here"; if (/No flood zone polygon/i.test(t)) return "No zone at this point (open water or gap)";
+    const z = t.match(/\bZone ([A-Z0-9]{1,3})\b/); const fw = /Inside the regulatory floodway/i.test(t); return z ? `Zone ${z[1]}${fw ? " · floodway" : ""}` : cut(firstLine(el)); },
+  "pt-pwi": (el) => cut(parts(firstLine(el), 2)),
+  "pt-wetland": (el) => cut(parts(firstLine(el), 2)),
+  "pt-impaired": (el) => { const n = bodyRows(el); const names = [...new Set([...el.querySelectorAll("tbody tr td:first-child b")].map(txt))].slice(0, 2).join(", "); return n ? cut(`${n} listed · ${names}`) : cut(firstLine(el)); },
+  "pt-lake": (el) => { const name = txt(el.querySelector("b")); const kind = /^River/i.test(txt(el.querySelector("h3"))) ? "river reach" : "lake"; return cut(`${name || "Unnamed"} · ${kind}`); },
+  "pt-crossing": (el) => { const l = firstLine(el); const d = l.match(/([\d,]+) ft from click/); return cut(parts(l, 2) + (d ? ` · ${d[1]} ft away` : "")); },
+  "pt-species": (el) => { const n = bodyRows(el); const t = txt(el); const bat = /long-eared bat|tricolored bat/i.test(t); const ch = /critical habitat here/i.test(t);
+    return n ? `${n} listed species${bat ? " · incl. bat range" : ""}${ch ? " · critical habitat" : ""}` : cut(firstLine(el)); },
+  "pt-mpca": (el) => { const inside = [...el.querySelectorAll(".notice")].map(txt).find((s) => /^Inside/i.test(s)); const n = bodyRows(el); return cut([inside ? parts(inside, 1) : "", n ? `${n} site${n > 1 ? "s" : ""} within 500 ft` : ""].filter(Boolean).join(" · ") || firstLine(el)); },
+  "pt-easement": (el) => cut(firstLine(el)),
+  "pt-parcel": (el) => { const o = rowV(el, /^Owner/i), pin = rowV(el, /^PIN/i); return cut([o, pin && `PIN ${pin}`].filter(Boolean).join(" · ") || firstLine(el)); },
+  "pt-soils": (el) => { const hsg = statV(el, /hydrologic/i); const mu = txt(el.querySelector("b")) || firstLine(el).split(",")[0]; return cut([hsg && `HSG ${hsg}`, mu].filter(Boolean).join(" · ")); },
+  "pt-wells": (el) => { const bd = statV(el, /depth to bedrock/i); const m = txt(el).match(/(\d+) of (\d+) wells within ([\d,]+) (ft|m)/); const r = m && (m[4] === "m" ? `${Math.round((+m[3].replace(/,/g, "") * 3.281) / 50) * 50} ft` : `${m[3]} ft`); return cut([bd && bd !== "–" && `bedrock ~${bd} ft`, m && `${m[2]} wells within ${r}`].filter(Boolean).join(" · ") || firstLine(el)); },
+  "pt-precip": (el) => { const r = [...el.querySelectorAll("tbody tr")].find((x) => /^PRISM/.test(txt(x.cells[0]))); const pct = statV(el, /% of normal/i);
+    return r ? `7 days ${txt(r.cells[1])}" · 30 days ${txt(r.cells[2])}"${pct && pct !== "–" ? ` (${pct} of normal)` : ""}` : cut(firstLine(el)); },
+  "pt-nearby": (el) => { const r = el.querySelector("tbody tr"); return r ? cut(`${txt(r.cells[0])} ${txt(r.cells[1])} mi · ${txt(r.cells[2])} in`) : cut(firstLine(el)); },
+  "pt-wx": (el) => { const q = statV(el, /QPF next 24/i), q3 = statV(el, /QPF next 72/i); return q ? `${q} next 24 h · ${q3} next 72 h` : cut(firstLine(el)); },
+  "pt-soil": () => "Past 7 days and 7-day forecast",
+  "pt-a14": (el) => { const r = [...el.querySelectorAll("tbody tr")].find((x) => /^24-hr/.test(txt(x.cells[0]))); return r ? `24-hr: 10-yr ${txt(r.cells[4])}" · 100-yr ${txt(r.cells[7])}"` : cut(firstLine(el)); },
+};
+const NONE_TEXT = { "pt-fema": "No FEMA data here", "pt-pwi": "No public water here", "pt-wetland": "No mapped wetland here", "pt-impaired": "No impaired water nearby", "pt-lake": "Not on a lake or river", "pt-crossing": "No crossing within 500 ft",
+  "pt-species": "No listed species returned", "pt-mpca": "No MPCA sites within 500 ft", "pt-easement": "Not in a RIM or bank easement", "pt-parcel": "No parcel data here", "pt-soils": "No soil data", "pt-wells": "No wells nearby" };
 let navDone = {}, navObserver = null, navTimer = null, navRun = {}, ptCur = null;
 const FAILED = /failed|timed out|unavailable|error/i;
 function startPointNav(container) {
-  navDone = { "pt-precip": true, "pt-nearby": true, "pt-wx": true, "pt-soil": true, "pt-a14": true };
+  navDone = { "pt-precip": true, "pt-nearby": true, "pt-wx": true, "pt-soil": true, "pt-a14": true, "pt-watershed": true };
   navObserver?.disconnect();
   navObserver = new MutationObserver(() => { clearTimeout(navTimer); navTimer = setTimeout(updatePointNav, 120); });
   for (const [id] of PT_SECTIONS) { const el = $(id); if (el) navObserver.observe(el, { childList: true, subtree: true, characterData: true }); }
+  wireSections(container);
   updatePointNav();
 }
 function navTrack(id, p) { Promise.resolve(p).catch(() => {}).finally(() => { navDone[id] = true; updatePointNav(); }); }
 function updatePointNav() {
-  const nav = $("pt-nav"); if (!nav || !nav.isConnected) return;
-  nav.innerHTML = PT_SECTIONS.map(([id, label]) => {
-    const el = $(id); if (!el) return "";
-    const spinning = !!el.querySelector(".spinner"); const has = el.textContent.trim().length > 0 && !spinning;
+  for (const [id] of PT_SECTIONS) {
+    const el = $(id), sEl = $(id + "-s"); if (!el || !sEl) continue; const d = el.closest("details.sec");
+    const spinning = !!el.querySelector(".spinner"); const has = txt(el).length > 0 && !spinning;
     const failed = has && [...el.querySelectorAll(".notice")].some((n) => FAILED.test(n.textContent)) && !el.querySelector("table, .stat-row");
     const st = failed ? "error" : has ? "ready" : spinning || !navDone[id] ? "pending" : "none";
-    if (st === "ready" && !el.querySelector(":scope > .asof")) { const d = document.createElement("div"); d.className = "asof"; d.textContent = `as of ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`; el.append(d); }
-    return `<button class="pt-chip ${st}" data-t="${id}" ${st === "ready" || st === "error" ? "" : "disabled"} title="${st === "none" ? "Nothing here" : st === "pending" ? "Loading" : st === "error" ? "Failed to load — click to retry" : "Jump to " + label}">${label}${st === "error" ? " ↻" : ""}</button>`;
-  }).join("");
-  nav.querySelectorAll(".pt-chip.ready").forEach((b) => (b.onclick = () => $(b.dataset.t)?.scrollIntoView({ behavior: "smooth", block: "start" })));
-  nav.querySelectorAll(".pt-chip.error").forEach((b) => (b.onclick = () => { const id = b.dataset.t; if (navRun[id]) { navDone[id] = false; $(id).innerHTML = `<div class="spinner">Retrying…</div>`; navTrack(id, navRun[id]()); } else if (ptCur) renderPoint(ptCur.lon, ptCur.lat); }));
+    if (st === "ready" && !el.querySelector(":scope > .asof")) { const a = document.createElement("div"); a.className = "asof"; a.textContent = `as of ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`; el.append(a); }
+    d.className = `sec ${st}`;
+    if (st === "error") { sEl.innerHTML = `Failed · <button type="button" class="linkbtn sec-retry">retry</button>`; sEl.querySelector(".sec-retry").onclick = (e) => { e.preventDefault(); if (navRun[id]) { navDone[id] = false; el.innerHTML = `<div class="spinner">Retrying…</div>`; navTrack(id, navRun[id]()); } else if (ptCur) renderPoint(ptCur.lon, ptCur.lat); }; }
+    else sEl.textContent = st === "pending" ? "Loading…" : st === "none" ? NONE_TEXT[id] || "Nothing here" : (() => { try { return SUMMARY[id]?.(el) || cut(firstLine(el)) || "Details"; } catch { return "Details"; } })();
+  }
 }
 // Nearest observers and gauges for a point, from the loaded station and gauge layers. Exported so the app can
 // refresh just this table when station rainfall arrives after the point panel is already open.
@@ -326,25 +385,8 @@ export async function renderPoint(lon, lat) {
       <a href="https://www.google.com/maps?q=${lat.toFixed(6)},${lon.toFixed(6)}" target="_blank" rel="noopener" title="Google Maps at this point">Google Maps</a>
       <a href="https://www.google.com/maps/dir/?api=1&destination=${lat.toFixed(6)},${lon.toFixed(6)}" target="_blank" rel="noopener" title="Driving directions to this point">Directions</a>
     </div>
-    <div class="pt-nav" id="pt-nav"></div>
-    <div id="pt-lake"></div>
-    <div id="pt-watershed"></div>
-    <div id="pt-crossing"></div>
-    <div id="pt-pwi"></div>
-    <div id="pt-impaired"></div>
-    <div id="pt-fema"></div>
-    <div id="pt-mpca"></div>
-    <div id="pt-easement"></div>
-    <div id="pt-species"></div>
-    <div id="pt-wetland"></div>
-    <div id="pt-parcel"></div>
-    <div id="pt-soils"></div>
-    <div id="pt-wells"></div>
-    <div id="pt-precip"><div class="spinner">PRISM + station normals…</div></div>
-    <div id="pt-nearby"></div>
-    <div id="pt-wx"><div class="spinner">NWS forecast…</div></div>
-    <div id="pt-soil"><div class="spinner">Open-Meteo…</div></div>
-    <div id="pt-a14"></div>`;
+    ${pointSectionsHtml()}`;
+  for (const [id, t] of [["pt-precip", "PRISM + station normals…"], ["pt-wx", "NWS forecast…"], ["pt-soil", "Open-Meteo…"], ["pt-a14", "Atlas 14…"]]) $(id).innerHTML = `<div class="spinner">${t}</div>`;
 
   addRecent({ lon, lat });
   const trailsNear = async () => { const d = 35 / 111320, dx = d / Math.cos((lat * Math.PI) / 180); const st = await fetchStatic({ id: "trails" }, [lon - dx, lat - d, lon + dx, lat + d]); if (!st) return []; const seen = new Set(); return st.fc.features.map((f) => ({ p: f.properties, m: distToGeomM(lon, lat, f.geometry) })).filter((t) => t.m <= 30).sort((a, b) => a.m - b.m).filter((t) => { const k = (t.p.name || t.p.routes || "unnamed") + t.p.src; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 4); };

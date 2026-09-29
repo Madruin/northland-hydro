@@ -1,7 +1,7 @@
 // Wiring: state, controls, data loads, URL sync.
 import { APP, BASEMAPS, HOME, WINDOWS } from "./config.js";
 import { $, isoDate, addDays, on, once, debounce, emit } from "./util.js";
-import { initMap, map, setBasemap, setLayerVisible, setQpeWindow, setTerrainVisible, setTerrainOpacity } from "./map.js";
+import { initMap, loadTileManifest, isTiled, map, setBasemap, setLayerVisible, setQpeWindow, setTerrainVisible, setTerrainOpacity } from "./map.js";
 import { TERRAIN, terrainLegendHtml } from "./terrain.js";
 import { loadPrecip, renderPrecipLegend, lastDay as precipLastDay } from "./precip.js";
 import { loadGauges, renderGaugeLegend } from "./gauges.js";
@@ -225,7 +225,7 @@ function showHintOnce() {
 function dismissHint() { $("map-hint").hidden = true; try { localStorage.setItem("nh-hint", "1"); } catch {} }
 // Raster tile sources (basemap imagery, terrain, radar, stream grid) report through the loader too, and tile errors
 // show in the status pill, so a slow MnGeo imagery or lidar server is visible instead of a silent blank map.
-const TILE_LABEL = (id) => ({ mn: "Imagery tiles", usgs: "Imagery tiles", qpe: "Radar tiles", streams: "Streams grid", landcover: "Land cover tiles", "fws-wetlands": "Wetland tiles" }[id] || (id.startsWith("terrain-") ? "Terrain tiles" : null));
+const TILE_LABEL = (id) => (id.startsWith("tiles-") ? "Layer tiles" : null) || ({ mn: "Imagery tiles", usgs: "Imagery tiles", qpe: "Radar tiles", streams: "Streams grid", landcover: "Land cover tiles", "fws-wetlands": "Wetland tiles" }[id] || (id.startsWith("terrain-") ? "Terrain tiles" : null));
 let tilesPending = null, tileErrAt = 0;
 whenMap(() => {
   map.on("sourcedataloading", (e) => { const lbl = TILE_LABEL(e.sourceId || ""); if (!lbl || tilesPending) return; tilesPending = new Promise((res) => map.once("idle", res)).then(() => { tilesPending = null; }); track(lbl, tilesPending); });
@@ -329,6 +329,9 @@ async function checkBuild() {
 async function boot() {
   if (await checkBuild()) return;
   buildControls();
+  await loadTileManifest(); // which overlay groups draw from vector tiles (a missing manifest means GeoJSON snapshots)
+  // Tiled layers draw at every zoom: their Layers-menu rows lose the "zoom N+" badge
+  for (const [k, id] of Object.entries({ pwi: "pwi-basins", impaired: "imp-lakes", easements: "rim", trout: "trout", karst: "karst-poly", contam: "mpca-sites", trails: "trails", fema: "fema-zones" })) if (isTiled(id)) { const r = $("tg-" + k); if (r) { r.dataset.minzoom = "0"; const zz = r.querySelector(".lr-zoom"); if (zz) zz.textContent = "any zoom"; } }
   initMap({ center: state.center, zoom: state.zoom, basemap: state.basemap });
   map.addControl(new LocateControl({ onStatus: (m, err) => setStatus(m, !!err, true) }), "top-left");
   map.addControl(new MeasureControl(), "top-left");

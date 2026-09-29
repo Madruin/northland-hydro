@@ -2,7 +2,7 @@
 // karst feature points, springs). All from enterprise.gisdata.mn.gov (CORS).
 import { $, escapeHtml, fmt, debounce, emit } from "./util.js";
 import { track } from "./loader.js";
-import { map, setOverlay } from "./map.js";
+import { map, setOverlay, isTiled, tileInfo, setPopupMaker, TILE_GROUP } from "./map.js";
 
 const B = "https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_dnr";
 const PCA = "https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_pca";
@@ -85,7 +85,10 @@ export const LAYERS = {
 const enabled = {}; const lastKey = {}; const inflight = {};
 const CELL_ZOOM = 9.5;
 
-export function initDnrLayers() { map.on("moveend", debounce(() => { for (const k of Object.keys(LAYERS)) if (enabled[k]) refresh(k); }, 350)); }
+export function initDnrLayers() {
+  map.on("moveend", debounce(() => { for (const k of Object.keys(LAYERS)) if (enabled[k]) refresh(k); }, 350));
+  for (const L of Object.values(LAYERS)) for (const s of L.sources) setPopupMaker(s.id, (p) => { decorate(s.id, p); return p.popup; }); // tile features carry attributes only
+}
 export function setDnrLayerEnabled(k, on) { enabled[k] = on; if (on) refresh(k); else { for (const s of LAYERS[k].sources) setOverlay(s.id, { type: "FeatureCollection", features: [] }); lastKey[k] = null; note(k, ""); } }
 function note(k, t) { const el = $(`${k}-note`); if (el) el.textContent = t; emit("layer:status", { name: k, text: t }); }
 
@@ -147,6 +150,7 @@ async function loadOverview(id) {
   return overviewCache[id];
 }
 async function refresh(k) {
+  if (LAYERS[k].sources.every((s) => isTiled(s.id))) return refreshTiled(k);
   const L = LAYERS[k]; const z = map.getZoom(); const b = map.getBounds();
   // Between CELL_ZOOM and minZoom, draw the full-detail snapshot for the view (no live check): the ~200 m overview
   // looks jagged there. Wetlands have no snapshot cells, so they keep the FWS raster until minZoom.
@@ -197,6 +201,39 @@ async function revalidate(k, bbox, key, srcs, base) {
   if (ok === srcs.length) note(k, `${L.label}: ${n} features (live from MnGeo, ${at})${exceeded ? " (limit hit, zoom in)" : ""}`);
   else if (ok) note(k, `${L.label}: partly live (${at}), rest from snapshot`);
   else { liveBackoffUntil[k] = Date.now() + 5 * 60 * 1000; note(k, `${base} · MnGeo not answering (${at}), showing snapshot`); }
+}
+// Tiled layers: the vector tiles draw everything at every zoom. From minZoom, MnGeo is asked in the background for
+// the features in view; anything whose attributes are not in the tiles (new or edited since the monthly build) is drawn
+// on top with a dashed outline. Unchanged data draws nothing extra, so the map never swaps geometry under the user.
+const EMPTY = { type: "FeatureCollection", features: [] };
+const keyOf = (s, p) => s.fields.split(",").map((f) => (p[f] == null ? "" : String(p[f]))).join("|");
+const tilesIdle = () => (map.areTilesLoaded() ? Promise.resolve() : new Promise((res) => { const t = setTimeout(res, 8000); map.once("idle", () => { clearTimeout(t); res(); }); }));
+async function refreshTiled(k) {
+  const L = LAYERS[k]; const z = map.getZoom(); const info = tileInfo(L.sources[0].id);
+  const base = `${L.label}: vector tiles of the ${info?.fetched || info?.built || "monthly"} agency data`;
+  const liveSrcs = L.live === false ? [] : L.sources.filter((s) => s.live !== false && s.url);
+  if (!liveSrcs.length || z < L.minZoom) {
+    liveCtl[k]?.abort(); lastKey[k] = null; for (const s of L.sources) setOverlay(s.id, EMPTY);
+    note(k, liveSrcs.length ? `${base}; live check for newer data from zoom ${L.minZoom}` : `${base} (rebuilt monthly)`); return;
+  }
+  const b = map.getBounds(); const bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
+  const key = bbox.map((v) => v.toFixed(3)).join(","); if (key === lastKey[k]) return; lastKey[k] = key;
+  if (Date.now() < (liveBackoffUntil[k] || 0)) { note(k, `${base} · MnGeo was not answering, live check paused a few minutes`); return; }
+  liveCtl[k]?.abort(); const ctl = (liveCtl[k] = new AbortController());
+  note(k, `${base} · checking MnGeo for newer data…`);
+  const res = await Promise.allSettled(liveSrcs.map((s) => fetchLive(s, bbox, ctl.signal)));
+  if (ctl.signal.aborted || lastKey[k] !== key || !enabled[k]) return;
+  await tilesIdle(); if (lastKey[k] !== key || !enabled[k]) return;
+  let added = 0, ok = 0;
+  liveSrcs.forEach((s, i) => {
+    const r = res[i]; if (r.status !== "fulfilled") return; ok++;
+    const have = new Set(map.querySourceFeatures("tiles-" + TILE_GROUP[s.id], { sourceLayer: s.id }).map((f) => keyOf(s, f.properties)));
+    const fresh = r.value.fc.features.filter((f) => !have.has(keyOf(s, f.properties)));
+    setOverlay(s.id, { type: "FeatureCollection", features: fresh }); added += fresh.length;
+  });
+  const at = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  if (!ok) { liveBackoffUntil[k] = Date.now() + 5 * 60 * 1000; note(k, `${base} · MnGeo not answering (${at}), showing the tiles`); return; }
+  note(k, `${base} · checked live ${at}: ${added ? `${added} feature${added > 1 ? "s" : ""} newer than the tiles (dashed outline)` : "no changes in view"}`);
 }
 // Wetlands intersecting a point (for the Point panel)
 export async function wetlandsAt(lon, lat) {

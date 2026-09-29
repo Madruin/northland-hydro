@@ -1,7 +1,7 @@
 // FEMA National Flood Hazard Layer (NFHL): flood zones (with floodway), BFE lines, cross sections, LOMRs;
 // viewport layer + point section geared to no-rise / CLOMR / LOMR planning. hazards.fema.gov is CORS-enabled.
 import { $, escapeHtml, fmt, fmtNum, debounce, haversineKm, distToGeomM, emit } from "./util.js";
-import { map, setOverlay } from "./map.js";
+import { map, setOverlay, isTiled, tileInfo, setPopupMaker } from "./map.js";
 import { track } from "./loader.js";
 import { fetchStatic } from "./dnrlayers.js";
 
@@ -23,8 +23,11 @@ export function zoneStyle(z, sub) {
 const ZONE_TEXT = { A: "1% annual chance, no BFE determined (approximate study)", AE: "1% annual chance with BFE", AH: "1% annual chance shallow ponding, 1–3 ft", AO: "1% annual chance sheet flow, 1–3 ft", A99: "1% annual chance, protected by levee under construction", V: "Coastal 1% with wave action, no BFE", VE: "Coastal 1% with wave action and BFE", X: "Outside the 1% floodplain", D: "Flood hazard undetermined" };
 
 let enabled = false, lastKey = null, inflight = null;
-export function initFema() { map.on("moveend", debounce(() => { if (enabled) refresh(); }, 350)); }
-export function setFemaEnabled(on) { enabled = on; if (on) refresh(); else { for (const id of ["fema-zones", "fema-xs", "fema-bfe", "fema-lomr"]) setOverlay(id, empty()); lastKey = null; note(""); } }
+export function initFema() {
+  map.on("moveend", debounce(() => { if (enabled) refresh(); }, 350));
+  IDS.forEach((id, i) => setPopupMaker(id, (p) => { DECO[i]({ features: [{ properties: p }] }); return p.popup; })); // tile features carry attributes only
+}
+export function setFemaEnabled(on) { enabled = on; if (on) refresh(); else { for (const id of ["fema-zones", "fema-xs", "fema-bfe", "fema-lomr"]) setOverlay(id, empty()); if (isTiled("fema-zones")) IDS.forEach((id, i) => setHidden(i, [])); lastKey = null; note(""); } }
 const empty = () => ({ type: "FeatureCollection", features: [] });
 function note(t) { const el = $("fema-note"); if (el) el.textContent = t; emit("layer:status", { name: "fema", text: t }); }
 
@@ -40,15 +43,54 @@ function decoBfe(fc) { for (const f of fc.features) { const p = f.properties; p.
 function decoLomr(fc) { for (const f of fc.features) { const p = f.properties; p.popup = `<div class="popup-title">LOMR ${escapeHtml(p.CASE_NO || "")}</div><div class="popup-sub">${escapeHtml(p.STATUS || "")} · effective ${p.EFF_DATE ? new Date(p.EFF_DATE).toLocaleDateString() : "?"}</div>`; } return fc; }
 const IDS = ["fema-zones", "fema-xs", "fema-bfe", "fema-lomr"]; const DECO = [decoZones, decoXs, decoBfe, decoLomr];
 const LIVE = [
-  (env) => q(L.zones, { ...env, outFields: "FLD_ZONE,ZONE_SUBTY,SFHA_TF,STATIC_BFE,DEPTH,V_DATUM,STUDY_TYP,DFIRM_ID" }),
-  (env) => q(L.xs, { ...env, outFields: "XS_LTR,WSEL_REG,STREAM_STN,WTR_NM,XS_LN_TYP,V_DATUM" }),
-  (env) => q(L.bfe, { ...env, outFields: "ELEV,V_DATUM" }),
+  (env) => q(L.zones, { ...env, outFields: "FLD_ZONE,ZONE_SUBTY,SFHA_TF,STATIC_BFE,DEPTH,V_DATUM,STUDY_TYP,DFIRM_ID,FLD_AR_ID" }),
+  (env) => q(L.xs, { ...env, outFields: "XS_LTR,WSEL_REG,STREAM_STN,WTR_NM,XS_LN_TYP,V_DATUM,XS_LN_ID" }),
+  (env) => q(L.bfe, { ...env, outFields: "ELEV,V_DATUM,BFE_LN_ID" }),
   (env) => q(L.lomr, { ...env, outFields: "CASE_NO,EFF_DATE,STATUS" }),
 ];
 const counts = (fcs) => `${fcs[0]?.features.length || 0} zones, ${fcs[1]?.features.length || 0} cross sections, ${fcs[2]?.features.length || 0} BFEs, ${fcs[3]?.features.length || 0} LOMRs`;
 let overview, backoffUntil = 0;
 // Snapshot first (data/layers/fema-*: SFHA and 0.2% zones, cross sections, BFEs, LOMRs), then FEMA live; region overview of the zones below MIN_ZOOM.
+// Tiled: the vector tiles (1 m FEMA geometry, simplified per zoom below a pixel) draw at every zoom, so nothing swaps
+// while zooming. From MIN_ZOOM, FEMA is asked in the background for the features in view; features whose FEMA ID is
+// not in the tiles are drawn on top with a dashed outline, and tile features FEMA no longer has are hidden.
+const TILE_KEY = ["FLD_AR_ID", "XS_LN_ID", "BFE_LN_ID", "CASE_NO"];
+const SFHA_WHERE = "SFHA_TF = 'T' OR ZONE_SUBTY LIKE '%0.2%'"; // the tiles hold the SFHA and 0.2% zones, as the snapshot does
+function setHidden(i, ids) { const lid = "ov-" + IDS[i]; const f = ids.length ? ["!", ["in", ["get", TILE_KEY[i]], ["literal", ids]]] : null; for (const l of [lid, lid + "-line", lid + "-label"]) if (map.getLayer(l)) map.setFilter(l, l.endsWith("-line") && IDS[i] === "fema-zones" ? (f ? ["all", ["==", ["get", "minimal"], 0], f] : ["==", ["get", "minimal"], 0]) : f); }
+async function refreshTiled() {
+  const z = map.getZoom(); const info = tileInfo("fema-zones");
+  const base = `FEMA: vector tiles of the effective NFHL (FEMA data of ${info?.fetched || info?.built || "this month"})`;
+  if (z < MIN_ZOOM) { inflight = null; lastKey = null; IDS.forEach((id, i) => { setOverlay(id, empty()); setHidden(i, []); }); note(`${base}; live check for newer FEMA data from zoom ${MIN_ZOOM}`); return; }
+  const b = map.getBounds(); const bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
+  const key = "t:" + bbox.map((v) => v.toFixed(3)).join(","); if (key === lastKey) return; lastKey = key;
+  if (Date.now() < backoffUntil) { note(`${base} · FEMA was not answering, live check paused a few minutes`); return; }
+  note(`${base} · checking FEMA for newer data…`);
+  const env = { geometry: bbox.map((v) => v.toFixed(5)).join(","), geometryType: "esriGeometryEnvelope", spatialRel: "esriSpatialRelIntersects", resultRecordCount: "2000" };
+  const live = (inflight = Promise.allSettled(LIVE.map((fn, i) => fn(i === 0 ? { ...env, where: SFHA_WHERE } : env))));
+  const res = await live; if (inflight !== live || !enabled) return;
+  await (map.areTilesLoaded() ? Promise.resolve() : new Promise((r) => { const t = setTimeout(r, 8000); map.once("idle", () => { clearTimeout(t); r(); }); }));
+  if (inflight !== live || !enabled) return;
+  let added = 0, removed = 0, ok = 0;
+  res.forEach((r, i) => {
+    if (r.status !== "fulfilled") return; ok++;
+    const k = TILE_KEY[i]; const liveIds = new Set(r.value.features.map((f) => String(f.properties[k] ?? "")));
+    const tiles = map.querySourceFeatures("tiles-fema", { sourceLayer: IDS[i] });
+    const tileIds = new Set(tiles.map((f) => String(f.properties[k] ?? "")));
+    const fresh = r.value.features.filter((f) => !tileIds.has(String(f.properties[k] ?? "")));
+    setOverlay(IDS[i], DECO[i]({ type: "FeatureCollection", features: fresh })); added += fresh.length;
+    // Hide tile features FEMA no longer has, only when the live answer is complete for this view
+    if (!r.value.properties?.exceededTransferLimit) {
+      const inView = (g) => { let w = 180, s = 90, e = -180, n = -90; const walk = (c) => { if (typeof c[0] === "number") { w = Math.min(w, c[0]); e = Math.max(e, c[0]); s = Math.min(s, c[1]); n = Math.max(n, c[1]); } else c.forEach(walk); }; walk(g.coordinates); return w <= bbox[2] && e >= bbox[0] && s <= bbox[3] && n >= bbox[1]; };
+      const gone = [...new Set(tiles.filter((f) => f.properties[k] != null && !liveIds.has(String(f.properties[k])) && inView(f.geometry)).map((f) => f.properties[k]))];
+      setHidden(i, gone); removed += gone.length;
+    }
+  });
+  const at = new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  if (!ok) { backoffUntil = Date.now() + 5 * 60 * 1000; note(`${base} · FEMA not answering (${at}), showing the tiles`); return; }
+  note(`${base} · checked live ${at}: ${added || removed ? `${added} new or changed (dashed outline)${removed ? `, ${removed} retired and hidden` : ""}` : "no changes in view"}`);
+}
 async function refresh() {
+  if (isTiled("fema-zones")) return refreshTiled();
   const z = map.getZoom(); const b = map.getBounds();
   // Three tiers so the zones look right at every scale: a ~40 m overview below zoom 10, the full-detail snapshot
   // (~8 m) for the view from 10, and the snapshot plus a live FEMA check with cross sections and BFEs from 12.
@@ -101,7 +143,7 @@ export function femaLegendHtml() {
     <div class="legend-row"><span class="swatch sq" style="background:#f59e0b;opacity:.45"></span>0.2% annual chance (X shaded)</div>
     <div class="legend-row"><span class="swatch sq" style="background:none;border:1.5px solid #0f172a"></span>Cross section (lettered) · <span style="color:#7c2d12">BFE line</span></div>
     <div class="legend-row"><span class="swatch sq" style="background:none;border:1.5px dashed #6d28d9"></span>LOMR area</div>
-    <div class="small">Effective NFHL from FEMA (hazards.fema.gov), hazard zones drawn region-wide when zoomed out, full detail from zoom ${MIN_ZOOM}+. A digital copy of the effective FIRM; the effective FIRM panel and any LOMCs govern. <span id="fema-note"></span></div>`;
+    <div class="small">Effective NFHL from FEMA (hazards.fema.gov), drawn at every zoom from vector tiles of the effective data; from zoom ${MIN_ZOOM} FEMA is checked live and anything newer is outlined dashed. A digital copy of the effective FIRM; the effective FIRM panel and any LOMCs govern. <span id="fema-note"></span></div>`;
 }
 
 // ---- Point panel section ----
