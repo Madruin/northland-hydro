@@ -25,10 +25,10 @@
   <header id="topbar">
 
     <div class="controls">
-      <div class="ctl search-wrap">
-        <input type="search" id="ctl-search" placeholder="Search place, PIN, owner, gauge, station, or coordinates  ( / )" autocomplete="off" />
+      <form class="ctl search-wrap" role="search" autocomplete="off" onsubmit="return false">
+        <input type="search" id="ctl-search" name="q" placeholder="Search place, PIN, owner, gauge, station, or coordinates  ( / )" autocomplete="off" aria-label="Search" data-lpignore="true" data-1p-ignore data-bwignore="true" data-form-type="other" />
         <div id="search-results" class="menu" hidden></div>
-      </div>
+      </form>
       <div class="ctl" role="group" aria-label="End date">
         <span>End date</span>
         <button class="step" id="date-prev" title="Previous day (←)" aria-label="Previous day">‹</button>

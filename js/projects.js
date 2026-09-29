@@ -48,15 +48,18 @@ function renderSignIn() {
   const c = $("tab-projects");
   c.innerHTML = `<h2>Team projects</h2>
     <div class="muted">A shared watch list for TSA3 projects: each one pinned on the map with its nearest gauge and rain totals. Sign in with a team email to view and edit.</div>
-    <div class="form"><label>Email<input id="pj-email" type="email" placeholder="you@tsa3.org" value="${escapeHtml(pendingEmail || "")}" /></label>
-      <div class="actions"><button class="btn primary" id="pj-send">Email me a sign-in code</button></div>
+    <form class="form" id="pj-login" autocomplete="on"><label>Email<input id="pj-email" name="username" type="email" autocomplete="username" placeholder="you@tsa3.org" value="${escapeHtml(pendingEmail || "")}" /></label>
+      <div class="actions"><button type="button" class="btn primary" id="pj-send">Email me a sign-in code</button></div>
       <div id="pj-msg" class="small"></div>
-      <div id="pj-otp" ${pendingEmail ? "" : "hidden"}><label>Code from the email<input id="pj-code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="6 digits" /></label><div class="actions"><button class="btn primary" id="pj-verify">Sign in with code</button></div></div>
+      <div id="pj-otp" ${pendingEmail ? "" : "hidden"}><label>Code from the email<input id="pj-code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="6 digits" /></label><div class="actions"><button type="button" class="btn primary" id="pj-verify">Sign in with code</button></div></div>
       <details id="pj-pw-wrap" ${pendingEmail ? "" : "open"}><summary class="small" style="cursor:pointer">Or sign in with a password</summary>
-        <label>Password<input id="pj-pw" type="password" autocomplete="current-password" /></label>
-        <div class="actions"><button class="btn" id="pj-pw-go">Sign in with password</button></div></details>
-    </div>
+        <label>Password<input id="pj-pw" name="password" type="password" autocomplete="current-password" /></label>
+        <div class="actions"><button type="button" class="btn" id="pj-pw-go">Sign in with password</button></div></details>
+    </form>
     <div class="small">Use the code, not the link: work mailboxes often pre-open links for security scanning, which uses them up before you can click. Access is limited to emails on the team allowlist; ask Matías to add yours.</div>`;
+  // A real <form> scopes the browser's password autofill to these fields (without one, the whole page counts as
+  // the login form and the search box gets offered the saved username). Enter runs the step you are on.
+  $("pj-login").onsubmit = (e) => { e.preventDefault(); const a = document.activeElement?.id; (a === "pj-code" ? $("pj-verify") : a === "pj-pw" ? $("pj-pw-go") : $("pj-send")).click(); };
   $("pj-send").onclick = async () => {
     const email = $("pj-email").value.trim();
     if (!email) return;
@@ -273,11 +276,12 @@ function renderAccount() {
   const c = $("tab-projects");
   c.innerHTML = `<div class="actions"><button class="btn" id="pj-back">‹ All projects</button></div><h2>Account</h2>
     <div class="muted">${escapeHtml(user.email)}</div>
-    <div class="form"><label>New password <span class="small">(8+ characters)</span><input id="acct-pw" type="password" autocomplete="new-password" /></label>
+    <form class="form" id="acct-form"><input type="email" name="username" autocomplete="username" value="${escapeHtml(user.email)}" hidden readonly /><label>New password <span class="small">(8+ characters)</span><input id="acct-pw" name="new-password" type="password" autocomplete="new-password" /></label>
       <label>Repeat<input id="acct-pw2" type="password" autocomplete="new-password" /></label>
-      <div class="actions"><button class="btn primary" id="acct-save">Set password</button></div><div id="acct-msg" class="small"></div></div>
+      <div class="actions"><button type="button" class="btn primary" id="acct-save">Set password</button></div><div id="acct-msg" class="small"></div></form>
     <div class="small">A password lets you sign in without waiting for an email. Emailed codes keep working too.</div>`;
   $("pj-back").onclick = () => renderList();
+  $("acct-form").onsubmit = (e) => { e.preventDefault(); $("acct-save").click(); };
   $("acct-save").onclick = async () => {
     const a = $("acct-pw").value, b = $("acct-pw2").value;
     if (a.length < 8) { $("acct-msg").textContent = "Use at least 8 characters."; return; }
@@ -294,7 +298,7 @@ async function renderMembers() {
   const admin = members.some((m) => m.email.toLowerCase() === user.email.toLowerCase() && m.role === "admin");
   c.innerHTML = `<div class="actions"><button class="btn" id="pj-back">‹ All projects</button></div><h2>Team members</h2>
     <table class="data"><thead><tr><th>Email</th><th>Name</th><th>Role</th></tr></thead><tbody>${members.map((m) => `<tr><td>${escapeHtml(m.email)}</td><td>${escapeHtml(m.display_name || "")}</td><td>${m.role}</td></tr>`).join("")}</tbody></table>
-    ${admin ? `<div class="form"><div class="row2"><label>Add email<input id="m-email" type="email" /></label><label>Name<input id="m-name" /></label></div><div class="actions"><button class="btn primary" id="m-add">Add member</button></div><div id="m-msg" class="small"></div></div>` : `<div class="small">Only admins can add members.</div>`}`;
+    ${admin ? `<div class="form"><div class="row2"><label>Add email<input id="m-email" type="email" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore="true" /></label><label>Name<input id="m-name" autocomplete="off" data-lpignore="true" data-1p-ignore /></label></div><div class="actions"><button class="btn primary" id="m-add">Add member</button></div><div id="m-msg" class="small"></div></div>` : `<div class="small">Only admins can add members.</div>`}`;
   $("pj-back").onclick = () => renderList();
   const add = $("m-add");
   if (add) add.onclick = async () => { try { await db.addMember($("m-email").value, $("m-name").value); renderMembers(); } catch (e) { $("m-msg").textContent = e.message; } };
