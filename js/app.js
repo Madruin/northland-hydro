@@ -302,11 +302,11 @@ async function refreshPrecipNow() {
     setStatus(`${list.filter((s) => !s.missingAll).length} stations reporting · ${state.days === 1 ? state.endDate : state.days + "-day window ending " + state.endDate} · ${ld.reported} of ${ld.total} have ${today ? "today's" : state.endDate + "'s"} observation${today && ld.reported < ld.total * 0.6 ? " so far (7 AM readings post through the day)" : ""} · fetched ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`);
     if (!firstLoadDone) { firstLoadDone = true; showHintOnce(); }
     renderLegend();
-    if (!state.selection || state.selection.type === "region") renderRegion();
-    else if (state.selection.type === "station") renderStation(state.selection.id);
-    else if (state.selection.type === "point") { const [lon, lat] = state.selection.id.split(",").map(Number); if (pointShown) renderNearby(lon, lat); else renderPoint(lon, lat); }
-    else if (state.selection.type === "gauge") { /* keep the gauge panel when the date changes */ }
-    else renderRegion();
+    const sel = state.selection?.type;
+    renderRegion({ quiet: !!sel && sel !== "region" }); // the Region tab stays current behind an open selection
+    if (sel === "station") renderStation(state.selection.id);
+    else if (sel === "point") { const [lon, lat] = state.selection.id.split(",").map(Number); if (pointShown) renderNearby(lon, lat); else renderPoint(lon, lat); }
+    // gauge: keep the gauge panel when the date changes
     pointShown = false;
   } catch (e) { setStatus("Precipitation load failed: " + e.message, true); console.error(e); }
 }
@@ -343,7 +343,7 @@ async function boot() {
   initField();
   initEgg();
   // Cached stations are drawn immediately by loadPrecip; render the Region panel from them too, then replace when fresh data lands.
-  on("precip:loaded", ({ stale }) => { if (!stale) return; setStatus("Showing the last cached observations while fresh data loads…", false, true); renderLegend(); if (!state.selection || state.selection.type === "region") renderRegion(); });
+  on("precip:loaded", ({ stale }) => { if (!stale) return; setStatus("Showing the last cached observations while fresh data loads…", false, true); renderLegend(); renderRegion({ quiet: !!state.selection && state.selection.type !== "region" }); });
   setLayerVisible("huc", !!state.layers.huc); setLayerVisible("landcover", !!state.layers.landcover); if (state.layers.huc) whenMap(() => setHucEnabled(true)); setLayerVisible("stations", state.layers.stations); setLayerVisible("gauges", state.layers.gauges); setLayerVisible("qpe", state.layers.qpe); setLayerVisible("streams", !!state.layers.streams); setLayerVisible("soils", !!state.layers.soils); setLayerVisible("parcels", !!state.layers.parcels); setLayerVisible("trout", !!state.layers.trout); setLayerVisible("karst", !!state.layers.karst); setLayerVisible("wetlands", !!state.layers.wetlands); setLayerVisible("fema", !!state.layers.fema); setLayerVisible("crossings", !!state.layers.crossings); setLayerVisible("wells", !!state.layers.wells); for (const k of ["pwi", "impaired", "easements", "trails", "contam"]) setLayerVisible(k, !!state.layers[k]);
   setQpeWindow(state.qpeWindow);
   for (const [id, on] of Object.entries(state.terrain)) setTerrainVisible(id, on);
@@ -362,10 +362,11 @@ async function boot() {
   if (state.selection?.type === "point") { const [lon, lat] = state.selection.id.split(",").map(Number); renderPoint(lon, lat); pointShown = true; }
   else if (state.selection?.type === "gauge") renderGauge(state.selection.id);
   else if (!state.selection || state.selection.type === "region") renderRegion();
+  if (state.selection && state.selection.type !== "region") renderRegion({ quiet: true }); // Region tab filled even when a link opens on a point
   // Everything interactive is wired before waiting on ACIS (20-30 s on a first visit): clicks, search, layers and
   // projects work at once; only station-dependent pieces fill in when the rainfall arrives.
   // Don't block the UI on gauges: USGS can take 30+ s on a bad day. Cached gauges already show; re-render when live ones land.
-  gaugesP.then(() => { if (!state.selection || state.selection.type === "region") renderRegion(); });
+  gaugesP.then(() => renderRegion({ quiet: !!state.selection && state.selection.type !== "region" }));
 
   const projectsP = track("projects", initProjects());
   if (state.selection?.type === "project") { const id = state.selection.id; projectsP.then(() => emit("select:project", { id })).catch(() => {}); }

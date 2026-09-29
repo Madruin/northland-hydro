@@ -39,17 +39,25 @@ const countyName = (fips) => { const c = COUNTIES.find((x) => x.fips === String(
 
 const DUR24 = 9, DUR48 = 10, DUR72 = 11; // indexes into Atlas 14 duration list (24-hr, 2-day, 3-day)
 
+// Every tab shares one scrolling panel body, so each tab keeps its own scroll position: switching from a long Point
+// panel scrolled far down to Region used to land below the end of the Region content, which looked blank.
+const tabScroll = {}; let curTab = "region";
 export function showTab(name) {
+  const body = document.querySelector("#panel .panel-body");
+  if (body && name !== curTab) { tabScroll[curTab] = body.scrollTop; }
+  const switching = name !== curTab; curTab = name;
   document.querySelectorAll(".tab").forEach((t) => { t.classList.toggle("on", t.dataset.tab === name); t.setAttribute("aria-selected", String(t.dataset.tab === name)); if (t.dataset.tab === name) t.disabled = false; });
   document.querySelectorAll(".tab-pane").forEach((p) => p.classList.toggle("on", p.id === "tab-" + name));
+  if (body && switching) body.scrollTop = tabScroll[name] || 0; // the new pane is displayed now, so this applies at once
   $("panel").classList.add("open");
   if (window.matchMedia("(max-width: 900px)").matches && ($("panel").dataset.sheet || "peek") === "peek") $("panel").dataset.sheet = "half";
 }
 
 // ---------------- Region ----------------
-export function renderRegion() {
+// quiet: refresh the Region tab in the background while another selection is open (no back-history entry)
+export function renderRegion({ quiet = false } = {}) {
   const c = $("tab-region");
-  visit("region", "", "Region", () => { showTab("region"); renderRegion(); });
+  if (!quiet) visit("region", "", "Region", () => { showTab("region"); renderRegion(); });
   const w = precipWindow;
   if (!w.endDate) { c.innerHTML = `<h2>Region overview</h2><div class="spinner">Loading station rainfall from RCC-ACIS. The first visit can take 20–30 s; after that it opens from this browser's cache. Click anywhere on the map meanwhile.</div>`; return; } // first paint
   const s = summarize(precipStations);
@@ -112,7 +120,7 @@ function gaugeTable(list) {
 let stGen = 0, gaGen = 0, ptGen = 0;
 export async function renderStation(sid) {
   const gen = ++stGen;
-  showTab("station");
+  tabScroll.station = 0; showTab("station");
   const c = $("tab-station");
   const st = precipStations.find((x) => x.sid === sid);
   visit("station", sid, st?.name ? titleWords(st.name) : sid, () => renderStation(sid));
@@ -189,7 +197,7 @@ function maxRun(rows, n) {
 // ---------------- Gauge ----------------
 export async function renderGauge(id) {
   const gen = ++gaGen;
-  showTab("gauge");
+  tabScroll.gauge = 0; showTab("gauge");
   const c = $("tab-gauge");
   const g = gaugeById(id);
   if (!g) { c.innerHTML = `<div class="notice">Unknown gauge ${escapeHtml(id)}</div>`; return; }
@@ -379,6 +387,7 @@ export async function renderPoint(lon, lat) {
   const endDate = precipWindow.endDate, days = precipWindow.days;
   const [ue, un] = toUtm(lon, lat); const uf = utmFeet(lon, lat);
   c.dataset.pt = `${lon.toFixed(5)},${lat.toFixed(5)}`;
+  tabScroll.point = 0; { const b = document.querySelector("#panel .panel-body"); if (b && curTab === "point") b.scrollTop = 0; }
   c.innerHTML = `<h2>Point ${fmt(lat, 4)}, ${fmt(lon, 4)}</h2>
     <div class="coords">
       <span title="Decimal degrees, WGS84/NAD83">${lat.toFixed(5)}, ${lon.toFixed(5)}</span><button class="copy" data-copy="${lat.toFixed(6)}, ${lon.toFixed(6)}" title="Copy lat, lon">⧉</button>
