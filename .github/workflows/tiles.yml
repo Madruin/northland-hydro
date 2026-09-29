@@ -1,0 +1,55 @@
+name: Build vector tiles
+on:
+  workflow_run:
+    workflows: ["Refresh layer snapshots"]   # after the monthly snapshots (contamination, trails and points come from them)
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      groups:
+        description: "Groups to rebuild, space separated (blank = all): fema pwi impaired easements trout karst contam trails"
+        required: false
+        default: ""
+permissions:
+  contents: write
+concurrency: tiles
+jobs:
+  tiles:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Cache tippecanoe
+        id: tc
+        uses: actions/cache@v4
+        with:
+          path: ~/tippecanoe-bin
+          key: tippecanoe-2.79.0-${{ runner.os }}
+      - name: Build tippecanoe
+        if: steps.tc.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get update && sudo apt-get install -y build-essential libsqlite3-dev zlib1g-dev
+          git clone --depth 1 --branch 2.79.0 https://github.com/felt/tippecanoe.git /tmp/tc
+          make -C /tmp/tc -j4
+          mkdir -p ~/tippecanoe-bin && cp /tmp/tc/tippecanoe ~/tippecanoe-bin/
+      - name: Build tiles
+        run: |
+          echo "$HOME/tippecanoe-bin" >> $GITHUB_PATH
+          export PATH="$HOME/tippecanoe-bin:$PATH"
+          tippecanoe --version
+          python tools/build_tiles.py ${{ github.event.inputs.groups }}
+      - name: Sanity check and commit
+        run: |
+          set -e
+          ls -la data/tiles
+          total=$(du -sm data/tiles | cut -f1)
+          echo "tiles size: ${total} MB"
+          if [ "$total" -gt 300 ]; then echo "tiles unexpectedly large, not committing"; exit 1; fi
+          git config user.name "tile-builder"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/tiles
+          if git diff --cached --quiet; then echo "no change"; exit 0; fi
+          git commit -m "Vector tiles rebuilt $(date -u +%Y-%m-%d)"
+          git pull --rebase
+          git push
