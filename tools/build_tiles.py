@@ -29,6 +29,8 @@ GROUPS = {
     "contam": ["mpca-landfill", "mpca-ic", "mpca-gwconcern", "mpca-gwline", "mpca-sites"],
     "trails": ["trails"],
 }
+# Bump when the tippecanoe options change, so every group is rebuilt once
+OPTS_VERSION = "2: no tiny-polygon reduction (small zones stay exact at every zoom; the live check relies on it)"
 FRESH = {"fema-zones", "fema-xs", "fema-bfe", "fema-lomr", "pwi-basins", "pwi-lines", "tmdl-areas", "imp-lakes", "imp-streams", "rim", "wetbank", "trout", "karst-poly"}
 HP = {"offset": 0.00001, "prec": 6}           # ~1 m
 HP_OVERRIDE = {"tmdl-areas": {"offset": 0.00003, "prec": 6}}  # allocation areas are whole watersheds; 3 m is plenty
@@ -109,12 +111,12 @@ def main(only=None):
                 print(f"  {g}/{lid}: {n} features", flush=True)
         except Exception as e:
             print(f"!! {g}: input failed ({e}); keeping the previous tiles", flush=True); continue
-        digest = hashlib.sha256("".join(hashes).encode()).hexdigest()
+        digest = hashlib.sha256((OPTS_VERSION + "".join(hashes)).encode()).hexdigest()
         out = os.path.join(TILES, g + ".pmtiles")
         if manifest["groups"].get(g, {}).get("sha256") == digest and os.path.exists(out):
             print(f"{g}: unchanged, tiles kept", flush=True); manifest["groups"][g]["checked"] = time.strftime("%Y-%m-%d"); continue
         points_only_drop = g == "trails"
-        cmd = ["tippecanoe", "-o", out, "--force", "-Z5", "-z14", "-r1", "--detect-shared-borders", "--no-feature-limit", "-P",
+        cmd = ["tippecanoe", "-o", out, "--force", "-Z5", "-z14", "-r1", "--detect-shared-borders", "--no-feature-limit", "--no-tiny-polygon-reduction", "-P",
                *(["--drop-densest-as-needed", "--extend-zooms-if-still-dropping"] if points_only_drop else ["--no-tile-size-limit"]),
                "--name", f"Northland Eco {g}", "--attribution", "Northland Eco snapshot of agency data",
                *[a for lid, p in files for a in ("-L", json.dumps({"file": p, "layer": lid}))]]

@@ -80,7 +80,8 @@ async function refreshTiled() {
     setOverlay(IDS[i], DECO[i]({ type: "FeatureCollection", features: fresh })); added += fresh.length;
     // Hide tile features FEMA no longer has, only when the live answer is complete for this view
     if (!r.value.properties?.exceededTransferLimit) {
-      const inView = (g) => { let w = 180, s = 90, e = -180, n = -90; const walk = (c) => { if (typeof c[0] === "number") { w = Math.min(w, c[0]); e = Math.max(e, c[0]); s = Math.min(s, c[1]); n = Math.max(n, c[1]); } else c.forEach(walk); }; walk(g.coordinates); return w <= bbox[2] && e >= bbox[0] && s <= bbox[3] && n >= bbox[1]; };
+      // a vertex inside the view means the feature certainly intersects it (a bbox overlap alone does not)
+      const inView = (g) => { let hit = false; const walk = (c) => { if (hit) return; if (typeof c[0] === "number") { if (c[0] >= bbox[0] && c[0] <= bbox[2] && c[1] >= bbox[1] && c[1] <= bbox[3]) hit = true; } else c.forEach(walk); }; walk(g.coordinates); return hit; };
       const gone = [...new Set(tiles.filter((f) => f.properties[k] != null && !liveIds.has(String(f.properties[k])) && inView(f.geometry)).map((f) => f.properties[k]))];
       setHidden(i, gone); removed += gone.length;
     }

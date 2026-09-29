@@ -242,6 +242,7 @@ async function addOverlays() {
       const g = TILE_GROUP[id], ts = "tiles-" + g;
       if (!map.getSource(ts)) map.addSource(ts, { type: "vector", url: "pmtiles://" + new URL(`data/tiles/${g}.pmtiles`, location.href).href, attribution: overlayCredit(id) });
       addOverlayLayers(id, kind, vis, ts, id, "");
+      if (kind === "fema-xs" || kind === "fema-line") for (const l of ["ov-" + id, "ov-" + id + "-label"]) if (map.getLayer(l)) map.setLayerZoomRange(l, Math.max(11, map.getLayer(l).minzoom || 0), 24); // cross sections and BFEs clutter the regional view
       addOverlayLayers(id, kind, vis, "ov-" + id, null, "~new");
       for (const l of map.getStyle().layers) if (l.id.startsWith("ov-" + id) && l.id.endsWith("~new") && l.type === "line") { map.setPaintProperty(l.id, "line-dasharray", [2, 1.5]); map.setPaintProperty(l.id, "line-width", 2.4); }
     } else addOverlayLayers(id, kind, vis, "ov-" + id, null, "");

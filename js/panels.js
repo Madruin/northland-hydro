@@ -258,7 +258,6 @@ function mergeSeries(q, h) {
 }
 
 // ---------------- Point ----------------
-// Sticky jump bar for the Point panel: one chip per section, spinning until the section has settled, dimmed when it has nothing to say.
 // ---- Point panel layout: a fixed, grouped list of sections. Every section keeps its row in the same place for every
 // point (a one-line header with the answer, e.g. "Zone AE · floodway"), so nothing jumps as data arrives. Rows open on
 // demand; which rows are open is remembered, so a user who always wants FEMA and Parcel open gets them open.
