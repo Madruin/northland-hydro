@@ -15,6 +15,8 @@ export function el(tag, attrs = {}, children = []) {
   return e;
 }
 
+// Links from outside services: only http(s) URLs become hrefs (no javascript: or data: schemes)
+export const safeUrl = (u) => (/^https?:\/\//i.test(String(u || "").trim()) ? String(u).trim() : "");
 export function escapeHtml(s) {
   return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
@@ -138,6 +140,8 @@ export function downloadCSV(filename, rows) {
 const handlers = {};
 export function on(evt, fn) { (handlers[evt] ||= []).push(fn); }
 export function emit(evt, data) { (handlers[evt] || []).forEach((fn) => fn(data)); }
+// One-shot listener: startup work tied to map:ready must not re-run on every basemap switch (map:ready fires on each style load).
+export function once(evt, fn) { const w = (d) => { handlers[evt] = (handlers[evt] || []).filter((f) => f !== w); fn(d); }; on(evt, w); }
 
 export function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
 

@@ -101,7 +101,7 @@ export function femaLegendHtml() {
     <div class="legend-row"><span class="swatch sq" style="background:#f59e0b;opacity:.45"></span>0.2% annual chance (X shaded)</div>
     <div class="legend-row"><span class="swatch sq" style="background:none;border:1.5px solid #0f172a"></span>Cross section (lettered) · <span style="color:#7c2d12">BFE line</span></div>
     <div class="legend-row"><span class="swatch sq" style="background:none;border:1.5px dashed #6d28d9"></span>LOMR area</div>
-    <div class="small">Effective NFHL from FEMA (hazards.fema.gov), hazard zones drawn region-wide when zoomed out, full detail from zoom ${MIN_ZOOM}+. Regulatory data for the effective FIRM; check the panel date and any LOMRs. <span id="fema-note"></span></div>`;
+    <div class="small">Effective NFHL from FEMA (hazards.fema.gov), hazard zones drawn region-wide when zoomed out, full detail from zoom ${MIN_ZOOM}+. A digital copy of the effective FIRM; the effective FIRM panel and any LOMCs govern. <span id="fema-note"></span></div>`;
 }
 
 // ---- Point panel section ----

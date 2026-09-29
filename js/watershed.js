@@ -100,7 +100,7 @@ function renderResultsInto(body, st, lon, lat, { curveId, onChangeCurve, saveUI 
       <span class="small">Save to project</span>
       <select class="ws-save-project">${auth.projects.map((p) => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join("")}</select>
       <input class="ws-save-label" placeholder="label (optional), e.g. Alt 2 culvert site" />
-      <button class="btn primary ws-save">Save</button><span class="small ws-save-msg"></span></div>` : saveUI && !auth.user ? `<div class="small">Sign in on the Projects tab to save this analysis to a project.</div>` : ""}
+      <button class="btn primary ws-save">Save</button><span class="small ws-save-msg"></span></div>` : saveUI && !auth.user ? `<div class="small">TSA3 staff can sign in on the Projects tab to save this analysis to a project.</div>` : ""}
     ${saved ? `<div class="notice">Saved analysis from ${fmtDateTime(saved.created_at)} by ${escapeHtml(saved.created_by || "?")}${saved.label ? ` · ${escapeHtml(saved.label)}` : ""}. Numbers below are as retrieved then; re-run at the point for current values.</div>` : ""}
     ${(st.warnings || []).map((w) => `<div class="notice">⚠ ${escapeHtml(w)}</div>`).join("")}
     ${st.manual ? `<div class="notice">Drainage area entered manually (${fmt(da, 2)} mi²); no delineation. Regional-curve suggestion is based on location only.</div>` : `

@@ -165,7 +165,7 @@ function approxAcres(g) {
 }
 
 export function parcelsLegendHtml() {
-  return `<h4>Parcels (county tax parcels)</h4><div class="legend-row"><span class="swatch sq" style="background:none;border:2px solid #f59e0b"></span>Parcel boundary · owner labels at 16+</div><div class="small">Pine County from the county's 2026-09-09 export; others live from each county's GIS: St. Louis, Cook, Lake, Carlton, Aitkin, Mille Lacs, Kanabec. Pine has no public service. Loads at zoom ${MIN_ZOOM}+. <span id="parcels-note"></span></div>`;
+  return `<h4>Parcels (county tax parcels)</h4><div class="legend-row"><span class="swatch sq" style="background:none;border:2px solid #f59e0b"></span>Parcel boundary · owner labels at 16+</div><div class="small">Pine County from the county's 2026-09-09 export; others live from each county's GIS: St. Louis, Cook, Lake, Carlton, Aitkin, Mille Lacs, Kanabec. Pine has no public service. Loads at zoom ${MIN_ZOOM}+. Owners are the county tax roll's owner of record and can lag recent sales; boundaries are not survey. <span id="parcels-note"></span></div>`;
 }
 
 // ---- Point panel section ----
@@ -184,7 +184,7 @@ export async function renderParcelAt(container, lon, lat) {
       const rows = [["PIN", p.pin], ["Owner", p.owner], ["Site address", p.address], ["Acres (GIS / deeded)", `${p.acres != null ? fmt(p.acres, 2) : "–"} / ${p.acresDeed != null ? fmt(p.acresDeed, 2) : "–"}`], ["Class code", p.use], ["Taxing district", cell.district], ["Sec-Twp-Rng", cell.str], ["Year built", cell.year || "–"], ["Legal", cell.legal]].filter(([, v]) => v != null && v !== "");
       container.innerHTML = `<h3>Parcel at this point · ${escapeHtml(s.name)} County</h3>
         <table class="data"><tbody>${rows.map(([k, v]) => `<tr><td class="small" style="white-space:nowrap">${k}</td><td>${escapeHtml(String(v))}</td></tr>`).join("")}</tbody></table>
-        <div class="small">${escapeHtml(idx.source || s.note)}. Ownership and values are as published by the county assessor and can lag recent transfers.</div>`;
+        <div class="small">${escapeHtml(idx.source || s.note)}. Owner of record from the county tax roll as published by the assessor; it can lag recent sales. Boundaries are for reference, not survey.</div>`;
     } catch (e) { container.innerHTML = `<h3>Parcel at this point · ${escapeHtml(s.name)} County</h3><div class="notice">County export unavailable: ${escapeHtml(e.message)}</div>`; }
     return;
   }
@@ -203,6 +203,6 @@ export async function renderParcelAt(container, lon, lat) {
     const rows = [["PIN", m.pin], ["Owner", m.owner], ["Site address", [m.address, m.city].filter(Boolean).join(", ")], ["Acres (GIS / deeded)", `${m.acres != null ? fmt(m.acres, 2) : "–"} / ${m.acresDeed != null ? fmt(m.acresDeed, 2) : "–"}`], ["Use / ownership", m.use], ["Homestead", m.homestead], ["Tax district", m.district], ["Estimated market value", m.emv ? "$" + fmtNum(m.emv) : null], ["Tax year", m.year], ["Lake", m.lake], ["Legal", m.legal], ["HUC-12", m.extra]].filter(([, v]) => v != null && v !== "");
     container.innerHTML = `<h3>Parcel at this point · ${escapeHtml(s.name)} County</h3>
       <table class="data"><tbody>${rows.map(([k, v]) => `<tr><td class="small" style="white-space:nowrap">${k}</td><td>${escapeHtml(String(v))}</td></tr>`).join("")}</tbody></table>
-      <div class="small">Live from the county's GIS service; ownership and values are as published by the county assessor and can lag recent transfers.</div>`;
+      <div class="small">Live from the county's GIS service. Owner of record from the county tax roll as published by the assessor; it can lag recent sales. Boundaries are for reference, not survey.</div>`;
   } catch (e) { container.innerHTML = `<h3>Parcel at this point · ${escapeHtml(s.name)} County</h3><div class="notice">County GIS request failed: ${escapeHtml(e.message)}</div>`; }
 }

@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Northland Eco — rain, rivers, soils and terrain for NE Minnesota</title>
-  <meta name="description" content="Live rainfall (CoCoRaHS/COOP/ASOS), radar precipitation estimates, USGS and MN DNR stream gauges, NWS forecasts and Lake Superior levels for the TSA3 counties of northeastern Minnesota." />
+  <meta name="description" content="Rainfall, stream gauges, radar, watersheds, soils, wetlands, flood zones, wells and lidar for northeastern Minnesota, in one map. Built by MN SWCD TSA3." />
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="assets/icon-180.png" />
   <link rel="manifest" href="manifest.webmanifest" />
@@ -144,12 +144,12 @@
           <div class="qs"><span class="qn">3</span><b>Print</b><span>“Print site report” turns the panel into a letter-size briefing with sources.</span></div>
           <button class="btn primary" id="help-example" title="Jump to the Knife River at CR 102 with the Wells, FEMA and Crossings layers on">Try it on the Knife River →</button>
         </div>
-        <p>One map for rainfall, stream gauges, forecast, Lake Superior, watersheds and lidar across the TSA3 counties. Data comes from public agency services. Slow-changing regional layers (public waters, impaired waters, easements, trout, karst, culvert surveys, FEMA hazard zones) draw first from monthly snapshots kept in the site and then refresh live; each legend note says which you are seeing. The site stores nothing about you; only the team project list lives in a database.</p>
+        <p>One map for rainfall, stream gauges, forecast, Lake Superior, watersheds and lidar across the TSA3 counties. Data comes from public agency services. Slow-changing regional layers (public waters, impaired waters, easements, trout, karst, DNR culvert surveys, FEMA hazard zones) draw first from monthly snapshots kept in the site and then refresh live; trails, contamination, watershed boundaries and the bridge inventory are monthly snapshots only. Each legend note says which you are seeing. Visitors need no account and are not tracked. The team project list and saved analyses are in a database; field notes, caches and preferences stay in your browser.</p>
         <h4>Reading the map</h4>
         <ul>
           <li><b>Dots</b> are precipitation stations (CoCoRaHS, COOP, ASOS via RCC-ACIS), colored by the total for the window set at the top. Grey = no report. Hover for the value; click for the station's record.</li>
           <li><b>Triangles</b> are stream gauges (MN DNR/MPCA cooperative gaging merged with USGS), colored by today's flow relative to the site's record for this date. Click for hydrographs with percentile bands.</li>
-          <li><b>Stars</b> are team projects (sign in on the Projects tab).</li>
+          <li><b>Stars</b> are team projects (TSA3 staff sign in on the Projects tab).</li>
           <li><b>Click anywhere else</b> for a point: ground elevation, the HUCs and land cover it falls in, trails within 100 ft, public waters, impaired waters, FEMA flood zone, MPCA contamination and regulated sites nearby, easements, federally listed species from USFWS IPaC (including northern long-eared and tricolored bat ranges), wetland, parcel, soils, nearby wells, gridded rainfall and percent of normal, forecast, soil moisture, Atlas 14 design storms, and the watershed tools. The chips at the top of the panel jump to each section.</li>
         </ul>
         <h4>Controls</h4>
@@ -159,7 +159,7 @@
           <li><b>Radar</b>: <i>Now (reflectivity)</i> is the live NWS radar mosaic, the same picture as radar.weather.gov. The <i>Last 1 h … 24 h</i> choices are rain <i>totals</i> estimated from radar and gauges, issued hourly and 1–2 h behind. The legend states which one is on and its valid time.</li>
           <li><b>Layers ▾</b> (grouped Rain and rivers / Water / Land / Hazards &amp; subsurface): Rain stations, Stream gauges and Radar (with its product picker), Watersheds (USGS HUC-8/10/12 boundaries, any zoom), Contamination (MPCA cleanup and regulated sites, groundwater plumes, land-use restrictions, closed landfills), Trails (MN DNR, Superior National Forest and OpenStreetMap hiking, bike, ski and snowmobile trails), Land cover (NLCD 2021; the runoff tool's curve number uses it), Public waters (PWI), Impaired waters &amp; TMDLs, Conservation easements (RIM, wetland bank), Wetlands (MN NWI update), Trout streams, Streams (StreamStats grid), Soils (hydrologic soil group or water-table depth), Parcels, FEMA (flood zones and floodways, BFE lines, lettered cross sections, LOMRs), Crossings (DNR culvert surveys plus NBI bridges), Wells (County Well Index, DNR drill holes, observation wells), and Karst. Zoomed out, the regional layers and FEMA hazard zones draw as a simplified whole-region overview and wetlands as the FWS 100 m wetland raster; full detail appears past the zoom shown on each row. Parcels, soils and wells need you to zoom in. <b>Terrain ▾</b> adds MnTOPO lidar hillshade, elevation color, 2 ft and 10 ft contours, and USGS contours that work at any zoom.</li>
           <li><b>Search</b> ( / ): place, gauge, station, project, parcel PIN, owner name or coordinates.</li>
-          <li><b>Watershed</b> (Point tab): delineates with USGS StreamStats, returns basin characteristics and regression flows, and runs the TSA3 regional curves for bankfull dimensions. Save results to a project.</li>
+          <li><b>Watershed</b> (Point tab): delineates with USGS StreamStats, returns basin characteristics and regression flows, and runs the TSA3 regional curves for bankfull dimensions. TSA3 staff can save results to a project.</li>
           <li><b>Field</b> tab (or the pin button on the map's left edge), for use on a phone on site: <b>Point at my location</b> averages about 8 s of GPS fixes; <b>Tap to add point</b> places one by hand; <b>Start track</b> records the route you walk (keep the screen on; if the phone locks, the track pauses and continues as a new segment when you come back; a loop that returns to its start also reports the enclosed acres); <b>Add photos</b> takes pictures from your gallery and places them from their GPS tags and compass direction (Solocator writes both; if a photo arrives without a location, use Place). Tap a yellow point, purple photo or red track on the map to see it. Everything stays on this device only, and nothing is uploaded. Export to <b>Google Earth</b> (KMZ with the photos inside), <b>CAD</b> (Civil 3D PNEZD points and a DXF in UTM 15N US feet, with lidar ground elevations), <b>CSV</b> or <b>GPX</b>. On iPhone, add the site to the Home Screen so Safari keeps the notes.</li>
           <li><b>CAD export</b>: draw a rectangle and download imagery, lidar DEM and contours in UTM 15N US feet, with Civil 3D steps.</li>
           <li><b>Print site report</b> (Point tab or a project): a one-document hydrology summary with sources.</li>
@@ -167,20 +167,44 @@
         </ul>
         <h4>Caveats</h4>
         <ul>
+          <li><b>Northland Eco is a planning and screening tool</b>, not an official product of DNR, MPCA, BWSR, FEMA, USFWS or any county. Data are shown as published by the issuing agencies and are provisional; verify with the agency of record before design, permitting or legal use.</li>
           <li>Station values are the 24 h ending the morning of the date shown; today's reports arrive through the morning.</li>
           <li>Percent of normal is only shown for 7-day and longer windows.</li>
           <li>PRISM grids lag 1–2 days. USGS and DNR values are provisional. Return periods use the nearest Atlas 14 grid node; use the official PFDS query for submittals.</li>
           <li>Regression flows take the region at the pour point, without area weighting or gage adjustment. Regional-curve dimensions are planning-level; verify with a bankfull survey. Design-storm peaks in the watershed section use the NRCS unit-hydrograph method with the MSE3 distribution for one lumped, unrouted basin: planning values, checked against MnDOT's HydroCAD example; model subareas and storage for design.</li>
           <li>Wetland, FEMA, parcel and easement boundaries are inventory or GIS versions. Jurisdictional wetland lines need a delineation, and the effective FIRM, recorded easement and deed govern.</li>
         </ul>
-        <p class="small">Full list under <b>Sources &amp; methods</b> above. RCC-ACIS · USGS NWIS · MN DNR/MPCA CSG · NWS API & RFC QPE · Open-Meteo · NOAA CO-OPS · NOAA Atlas 14 · USGS StreamStats · MnGeo/MnTOPO · TSA3 regional curve workbooks. Built by the MN SWCD Technical Service Area 3 engineering office. Open source under the MIT license: <a href="https://github.com/Madruin/northland-hydro" target="_blank" rel="noopener">github.com/Madruin/northland-hydro</a>.</p>
+        <h4>Abbreviations</h4>
+        <ul class="abbr">
+          <li><b>AEP</b>: annual exceedance probability (1% AEP = 100-year)</li>
+          <li><b>BFE</b>: base flood elevation</li>
+          <li><b>CN</b>: NRCS runoff curve number (AMC II = average antecedent moisture)</li>
+          <li><b>CoCoRaHS / COOP / ASOS</b>: volunteer, NWS cooperative and airport weather stations</li>
+          <li><b>CSG</b>: MN DNR/MPCA cooperative stream gaging</li>
+          <li><b>FIRM</b>: Flood Insurance Rate Map</li>
+          <li><b>HSG</b>: NRCS hydrologic soil group (A–D)</li>
+          <li><b>HUC</b>: USGS hydrologic unit code (HUC-8 subbasin, HUC-10 watershed, HUC-12 subwatershed)</li>
+          <li><b>LOMR / LOMC</b>: FEMA letter of map revision / change</li>
+          <li><b>MSE3</b>: Minnesota-specific NRCS 24-hour rainfall distribution (replaces Type II)</li>
+          <li><b>NBI</b>: FHWA National Bridge Inventory</li>
+          <li><b>NLCD</b>: National Land Cover Database</li>
+          <li><b>NWI</b>: National Wetlands Inventory</li>
+          <li><b>OHWL</b>: ordinary high water level</li>
+          <li><b>PRF</b>: peak rate factor of the NRCS unit hydrograph (484 standard, 400 flatter terrain)</li>
+          <li><b>PWI</b>: MN DNR Public Waters Inventory</li>
+          <li><b>Q25 / Q75 / Q90</b>: flow exceeded 25 / 75 / 90% of days for the date (high to low)</li>
+          <li><b>QPE</b>: quantitative precipitation estimate (radar plus gauges)</li>
+          <li><b>RIM</b>: BWSR Reinvest in Minnesota conservation easement</li>
+          <li><b>TMDL / AUID</b>: total maximum daily load study / MPCA assessment unit ID of an impaired reach or lake</li>
+        </ul>
+        <p class="small">Full list under <b>Sources &amp; methods</b> above. RCC-ACIS · USGS NWIS · MN DNR/MPCA CSG · NWS API & RFC QPE · Open-Meteo · NOAA CO-OPS · NOAA Atlas 14 · USGS StreamStats · MnGeo/MnTOPO · TSA3 regional curve workbooks. Maintained by Matías Valero, MN SWCD Technical Service Area 3. Report a data problem or ask a question: <a href="mailto:matiasvalero@tsa3.org">matiasvalero@tsa3.org</a>. Open source under the MIT license: <a href="https://github.com/Madruin/northland-hydro" target="_blank" rel="noopener">github.com/Madruin/northland-hydro</a>.</p>
         </div>
         <div id="help-pane-sources" class="help-pane"></div>
       </div>
     </div>
   </div>
   <footer id="attrib">
-    <span class="foot-brand"><img src="assets/icon.svg" alt="" width="13" height="13" /> <b>Northland Eco</b></span> ·
+    <span class="foot-brand"><img src="assets/icon.svg" alt="" width="13" height="13" id="foot-logo" /> <b>Northland Eco</b></span> ·
     <a href="#" id="attrib-sources" title="All data sources, methods and software">Sources</a> · Data: <a href="https://www.rcc-acis.org/" target="_blank" rel="noopener">RCC-ACIS</a> (CoCoRaHS · COOP · ASOS) ·
     <a href="https://waterdata.usgs.gov/" target="_blank" rel="noopener">USGS NWIS</a> ·
     <a href="https://www.dnr.state.mn.us/waters/csg/index.html" target="_blank" rel="noopener">MN DNR/MPCA CSG</a> ·
@@ -189,7 +213,7 @@
     <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> ·
     <a href="https://tidesandcurrents.noaa.gov/stationhome.html?id=9099064" target="_blank" rel="noopener">NOAA CO-OPS</a> ·
     <a href="https://hdsc.nws.noaa.gov/pfds/" target="_blank" rel="noopener">NOAA Atlas 14</a>.
-    Provisional data, subject to revision. Public agency data, with monthly snapshots of slow-changing layers kept in the site.
+    Planning and screening tool; verify with the agency of record. · <a href="mailto:matiasvalero@tsa3.org" title="Report a data problem or ask a question">Contact</a>
   </footer>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/maplibre-gl/5.6.0/maplibre-gl.js"></script>

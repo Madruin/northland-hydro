@@ -15,6 +15,18 @@ let rect = null; // { cb, onFirst, a: [lon,lat] | null }
 const visibility = { contam: false, trails: false, huc: false, landcover: false, stations: true, gauges: true, qpe: false, streams: false, soils: false, parcels: false, trout: false, karst: false, wetlands: false, fema: false, crossings: false, wells: false, pwi: false, impaired: false, easements: false };
 let parcelsData = { type: "FeatureCollection", features: [] };
 let lakeFeature = null;
+// Map attribution for each overlay (MapLibre shows it while the layer is on)
+function overlayCredit(id) {
+  if (id.startsWith("huc")) return "USGS WBD";
+  if (id.startsWith("fema")) return "FEMA NFHL";
+  if (id.startsWith("mpca") || id === "tmdl-areas" || id.startsWith("imp-")) return "MPCA";
+  if (id === "rim" || id === "wetbank") return "BWSR";
+  if (id === "xing-nbi") return "FHWA NBI";
+  if (id === "wells" || id === "drillholes") return "MGS/MDH County Well Index";
+  if (id === "wlssd") return "WLSSD";
+  if (id === "trails") return "MN DNR, USFS, © OpenStreetMap contributors (ODbL)";
+  return "MN DNR";
+}
 const OVERLAYS = { huc8: "huc", huc10: "huc", huc12: "huc", "huc8-lbl": "huc-label", "huc10-lbl": "huc-label", "huc12-lbl": "huc-label", "fema-zones": "fema-fill", "fema-lomr": "fema-lomr", wetlands: "fill", trout: "line", "karst-poly": "fill", "karst-pts": "point", springs: "point", "fema-bfe": "fema-line", "fema-xs": "fema-xs", "xing-dnr": "point", "xing-nbi": "diamond", wells: "point", drillholes: "diamond", wlssd: "point", "pwi-basins": "fill", "pwi-lines": "line", "tmdl-areas": "fill", "imp-lakes": "fill", "imp-streams": "line", rim: "fill", wetbank: "fill", obwells: "point", trails: "line", "mpca-landfill": "fill", "mpca-ic": "fill", "mpca-gwconcern": "fill", "mpca-gwline": "line", "mpca-sites": "point" };
 const overlayData = {};
 let countyBboxCache = null;
@@ -150,7 +162,7 @@ async function addOverlays() {
   }
   if (!map.hasImage("gauge-tri")) map.addImage("gauge-tri", triangleImage(), { sdf: true });
   map.setLayoutProperty("gauges-circle", "icon-image", "gauge-tri");
-  if (gaugeFilterHideUnclassified) map.setFilter("gauges-circle", ["!=", ["get", "flowClass"], 0]);
+  map.setFilter("gauges-circle", gaugeFilterExpr());
   map.setPaintProperty("gauges-circle", "icon-color", ["get", "color"]);
   map.setPaintProperty("gauges-circle", "icon-halo-color", "#0f172a");
   map.setPaintProperty("gauges-circle", "icon-halo-width", 1);
@@ -186,7 +198,7 @@ async function addOverlays() {
   }
   for (const [id, kind] of Object.entries(OVERLAYS)) {
     if (map.getSource("ov-" + id)) continue;
-    map.addSource("ov-" + id, { type: "geojson", data: overlayData[id] || { type: "FeatureCollection", features: [] } });
+    map.addSource("ov-" + id, { type: "geojson", data: overlayData[id] || { type: "FeatureCollection", features: [] }, attribution: overlayCredit(id) });
     const vis = (id.startsWith("huc") ? visibility.huc : id.startsWith("mpca") ? visibility.contam : id === "trails" ? visibility.trails : id === "trout" ? visibility.trout : id === "wetlands" ? visibility.wetlands : id.startsWith("fema") ? visibility.fema : id.startsWith("xing") ? visibility.crossings : id === "wells" || id === "drillholes" || id === "obwells" ? visibility.wells : id === "wlssd" ? visibility.stations : id.startsWith("pwi") ? visibility.pwi : id.startsWith("imp") || id === "tmdl-areas" ? visibility.impaired : id === "rim" || id === "wetbank" ? visibility.easements : visibility.karst) ? "visible" : "none";
     if (kind === "diamond") { if (!map.hasImage("diamond")) map.addImage("diamond", diamondImage(), { sdf: true }); map.addLayer({ id: "ov-" + id, type: "symbol", source: "ov-" + id, layout: { visibility: vis, "icon-image": "diamond", "icon-size": ["interpolate", ["linear"], ["zoom"], 10, 0.45, 14, 0.8], "icon-allow-overlap": true }, paint: { "icon-color": ["get", "color"], "icon-halo-color": "#fff", "icon-halo-width": 1 } }); continue; }
     if (kind === "fema-fill") { map.addLayer({ id: "ov-" + id, type: "fill", source: "ov-" + id, layout: { visibility: vis }, paint: { "fill-color": ["get", "color"], "fill-opacity": ["get", "opacity"] } }, firstSymbol); map.addLayer({ id: "ov-" + id + "-line", type: "line", source: "ov-" + id, filter: ["==", ["get", "minimal"], 0], layout: { visibility: vis }, paint: { "line-color": ["get", "color"], "line-width": 1, "line-opacity": 0.8 } }, firstSymbol); continue; }
@@ -208,7 +220,7 @@ async function addOverlays() {
     map.addLayer({ id: "lake-line", type: "line", source: "lake", paint: { "line-color": "#0ea5e9", "line-width": 2.5, "line-opacity": 0.9 } });
   }
   if (!map.getSource("parcels")) {
-    map.addSource("parcels", { type: "geojson", data: parcelsData });
+    map.addSource("parcels", { type: "geojson", data: parcelsData, attribution: "County GIS parcels" });
     map.addLayer({ id: "parcels-fill", type: "fill", source: "parcels", layout: { visibility: visibility.parcels ? "visible" : "none" }, paint: { "fill-color": "#f59e0b", "fill-opacity": 0.03 } });
     map.addLayer({ id: "parcels-line", type: "line", source: "parcels", layout: { visibility: visibility.parcels ? "visible" : "none" }, paint: { "line-color": "#f59e0b", "line-width": ["interpolate", ["linear"], ["zoom"], 14, 0.8, 17, 1.6], "line-opacity": 0.9 } });
     map.addLayer({ id: "parcels-label", type: "symbol", source: "parcels", minzoom: 16, layout: { visibility: visibility.parcels ? "visible" : "none", "symbol-placement": "point", "text-field": ["get", "label"], "text-size": 10, "text-font": ["Noto Sans Regular"], "text-max-width": 8 },
@@ -259,7 +271,8 @@ export function setBasin(polygonFeature, pourpointFeature) {
 export function snapshot() {
   return new Promise((resolve) => {
     if (!map) return resolve(null);
-    map.once("render", () => { try { resolve(map.getCanvas().toDataURL("image/jpeg", 0.85)); } catch (e) { resolve(null); } });
+    let done = false; const t = setTimeout(() => { if (!done) { done = true; resolve(null); } }, 2000); // a hidden page never renders
+    map.once("render", () => { if (done) return; done = true; clearTimeout(t); try { resolve(map.getCanvas().toDataURL("image/jpeg", 0.85)); } catch (e) { resolve(null); } });
     map.triggerRepaint();
   });
 }
@@ -281,10 +294,12 @@ export function setLayerVisible(name, on) {
   const ids = { stations: ["stations-circle", "stations-label", "ov-wlssd"], gauges: ["gauges-circle"], qpe: ["qpe"], streams: ["streams"], soils: ["soils-fill", "soils-line", "soils-label"], parcels: ["parcels-fill", "parcels-line", "parcels-label"], trout: ["ov-trout"], karst: ["ov-karst-poly", "ov-karst-poly-line", "ov-karst-pts", "ov-springs"], wetlands: ["ov-wetlands", "ov-wetlands-line", "fws-wetlands"], landcover: ["landcover"], trails: ["ov-trails"], contam: ["ov-mpca-landfill", "ov-mpca-landfill-line", "ov-mpca-ic", "ov-mpca-ic-line", "ov-mpca-gwconcern", "ov-mpca-gwconcern-line", "ov-mpca-gwline", "ov-mpca-sites"], huc: ["ov-huc8", "ov-huc10", "ov-huc12", "ov-huc8-lbl", "ov-huc10-lbl", "ov-huc12-lbl"], fema: ["ov-fema-zones", "ov-fema-zones-line", "ov-fema-lomr", "ov-fema-bfe", "ov-fema-bfe-label", "ov-fema-xs", "ov-fema-xs-label"], crossings: ["ov-xing-dnr", "ov-xing-nbi"], wells: ["ov-wells", "ov-drillholes", "ov-obwells"], pwi: ["ov-pwi-basins", "ov-pwi-basins-line", "ov-pwi-lines"], impaired: ["ov-tmdl-areas", "ov-tmdl-areas-line", "ov-imp-lakes", "ov-imp-lakes-line", "ov-imp-streams"], easements: ["ov-rim", "ov-rim-line", "ov-wetbank", "ov-wetbank-line"] }[name] || [];
   for (const id of ids) if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
 }
-let gaugeFilterHideUnclassified = false;
+let gaugeFilterHideUnclassified = false, gaugeShowRetired = false;
+function gaugeFilterExpr() { const f = ["all"]; if (gaugeFilterHideUnclassified) f.push(["!=", ["get", "flowClass"], 0]); if (!gaugeShowRetired) f.push(["!=", ["get", "retired"], true]); return f.length > 1 ? f : null; }
+export function setGaugeRetired(show) { gaugeShowRetired = show; if (map?.getLayer("gauges-circle")) map.setFilter("gauges-circle", gaugeFilterExpr()); }
 export function setGaugeFilter(hideUnclassified) {
   gaugeFilterHideUnclassified = hideUnclassified;
-  if (map.getLayer("gauges-circle")) map.setFilter("gauges-circle", hideUnclassified ? ["!=", ["get", "flowClass"], 0] : null);
+  if (map.getLayer("gauges-circle")) map.setFilter("gauges-circle", gaugeFilterExpr());
 }
 export function setTerrainVisible(id, on) { terrainVis[id] = on; if (overlaysReady) _stv(map, id, on); }
 export function setTerrainOpacity(v) { terrainOpacity = v; if (overlaysReady) _sto(map, v); }

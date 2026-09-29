@@ -30,7 +30,7 @@ function maxRun(rows, n) {
 }
 
 // Build the report document. `analysis` (optional) is a saved hydro_project_analyses row; otherwise live watershed state is used if present.
-export async function buildReport({ lon, lat, project = null, analysis = null, onStatus = () => {} }) {
+export async function buildReport({ lon, lat, project = null, analysis = null, onStatus = () => {}, mapImage: preShot }) {
   const endDate = precipWindow.endDate, days = precipWindow.days;
   const auth = authState();
   const now = new Date();
@@ -74,7 +74,7 @@ export async function buildReport({ lon, lat, project = null, analysis = null, o
   const [elev, hucs, cover] = await Promise.all([pointElevation(lon, lat).catch(() => null), hucsAt(lon, lat).catch(() => []), landCoverAt(lon, lat).catch(() => null)]);
   const [ue, un] = toUtm(lon, lat); const uf = utmFeet(lon, lat);
   onStatus("Capturing map…");
-  const mapImage = await snapshot();
+  const mapImage = preShot !== undefined ? preShot : await snapshot();
   const sections = captureSections(lon, lat);
   const doc = {
     app: `${APP.name} ${APP.version}`, generatedAt: now.toISOString(), generatedBy: auth.user?.email || null,
@@ -144,7 +144,16 @@ function captureSections(lon, lat) {
 }
 
 export async function openReport(args) {
-  const doc = await buildReport(args);
-  try { localStorage.setItem("nh-report", JSON.stringify(doc)); } catch (e) { alert("Report too large for this browser's storage: " + e.message); return; }
-  window.open("report.html", "_blank");
+  // Snapshot the map first (one frame, while this page is still visible), then open the tab while the click
+  // still counts as a user gesture: building the report takes 5–15 s and a window.open after that is blocked
+  // as a pop-up, and once the new tab has focus this page stops rendering. The tab shows a holding message.
+  args.onStatus?.("Capturing map…");
+  const mapImage = await snapshot();
+  const w = window.open("", "_blank");
+  if (w) { try { w.document.write('<!doctype html><title>Building report…</title><body style="font:15px system-ui;padding:40px;color:#334">Building the site report… this tab fills in when it is ready (usually 5–15 seconds).</body>'); } catch {} }
+  let doc;
+  try { doc = await buildReport({ ...args, mapImage }); } catch (e) { w?.close(); throw e; }
+  try { localStorage.setItem("nh-report", JSON.stringify(doc)); } catch (e) { w?.close(); alert("Report too large for this browser's storage: " + e.message); return; }
+  if (w && !w.closed) w.location.href = new URL("report.html", location.href).href;
+  else if (!window.open("report.html", "_blank")) throw new Error("the browser blocked the report tab; allow pop-ups for this site and try again");
 }

@@ -19,7 +19,7 @@ function db() {
 }
 async function store(name, mode, fn) {
   const d = await db();
-  return new Promise((res, rej) => { const t = d.transaction(name, mode); const s = t.objectStore(name); const out = fn(s); t.oncomplete = () => res(out?.result ?? out); t.onerror = () => rej(t.error); });
+  return new Promise((res, rej) => { const t = d.transaction(name, mode); const s = t.objectStore(name); const out = fn(s); t.oncomplete = () => res(out?.result ?? out); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error || new Error("storage write aborted (device storage may be full)")); });
 }
 const put = (name, v) => store(name, "readwrite", (s) => s.put(v));
 const del = (name, id) => store(name, "readwrite", (s) => s.delete(id));
@@ -28,6 +28,7 @@ const get = (name, id) => store(name, "readonly", (s) => s.get(id));
 
 let items = []; const thumbs = {}; // id → object URL
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+function saveQuiet(it) { put("items", it).then(draw).catch((e) => msg("Could not save: " + e.message, true)); }
 async function save(it) { const i = items.findIndex((x) => x.id === it.id); if (i >= 0) items[i] = it; else items.push(it); await put("items", it); draw(); render(); askPersist(); }
 async function remove(id) { items = items.filter((x) => x.id !== id); await del("items", id); await del("blobs", id).catch(() => {}); if (thumbs[id]) { URL.revokeObjectURL(thumbs[id]); delete thumbs[id]; } draw(); render(); }
 let persistAsked = false;
@@ -112,12 +113,15 @@ function trackArea(it) { // acres, only when the track ends within 30 m of its s
   return Math.abs(s) / 2 / 4046.856;
 }
 async function wake() { try { rec.lock = await navigator.wakeLock?.request("screen"); } catch { rec.lock = null; } }
+let starting = false;
 async function startTrack(resumeId) {
-  if (rec) return;
+  if (rec || starting) return;
   if (!navigator.geolocation) { msg("This browser has no location support.", true); return; }
   const it = resumeId ? items.find((i) => i.id === resumeId) : { id: uid(), type: "track", name: nextName("track", "Track "), note: "", t: Date.now(), segs: [] };
-  it.segs.push([]); it.open = true; await save(it);
-  rec = { it, last: null, tick: setInterval(() => banner(), 30000) };
+  starting = true;
+  it.segs.push([]); it.open = true;
+  try { await save(it); } catch (e) { starting = false; msg("Could not start the track: " + e.message, true); return; }
+  rec = { it, last: null, tick: setInterval(() => { banner(); updateLive(); }, 30000) }; starting = false;
   await wake();
   rec.watch = navigator.geolocation.watchPosition(async (p) => {
     if (!rec) return; const c = p.coords; if (c.accuracy > 50) { msg(`Waiting for a better GPS fix (±${fmtNum(c.accuracy * 3.281)} ft)…`); return; }
@@ -125,7 +129,7 @@ async function startTrack(resumeId) {
     const seg = rec.it.segs[rec.it.segs.length - 1]; const prev = seg[seg.length - 1];
     if (prev && p.timestamp - prev[2] > 60000) rec.it.segs.push([pt]); // gap (screen off / app switched): start a new segment
     else if (!prev || haversineKm(prev[1], prev[0], pt[1], pt[0]) * 1000 >= Math.max(3, c.accuracy / 2)) seg.push(pt); else return;
-    rec.last = pt; await put("items", rec.it); liveDraw(); render(); banner(); map.easeTo({ center: [pt[0], pt[1]], duration: 400 });
+    rec.last = pt; await put("items", rec.it); liveDraw(); updateLive(); banner(); map.easeTo({ center: [pt[0], pt[1]], duration: 400 });
   }, (e) => msg("GPS error: " + (e.code === 1 ? "location is blocked for this site" : e.message), true), { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 });
   document.addEventListener("visibilitychange", onVis);
   banner(); msg("Recording. Keep this page open with the screen on; if the phone locks, the track pauses and resumes when you return.");
@@ -192,14 +196,14 @@ function kml(photoPath) {
 <Style id="tk"><LineStyle><color>ff5e3ff4</color><width>3</width></LineStyle></Style>
 <Folder><name>Points</name>${pts.map((it) => pm(it, `<Point><coordinates>${c7(it.lon)},${c7(it.lat)}</coordinates></Point>`, `<styleUrl>#pt</styleUrl><description>${xml([it.note, it.acc ? `GPS ±${Math.round(it.acc * 3.281)} ft` : it.src, it.elevFt != null ? `ground ${it.elevFt} ft NAVD88 (lidar)` : ""].filter(Boolean).join(" · "))}</description>`)).join("\n")}</Folder>
 <Folder><name>Tracks</name>${trks.map((it) => pm(it, `<MultiGeometry>${it.segs.filter((s) => s.length > 1).map((s) => `<LineString><tessellate>1</tessellate><coordinates>${s.map((p) => `${p[0]},${p[1]}`).join(" ")}</coordinates></LineString>`).join("")}</MultiGeometry>`, `<styleUrl>#tk</styleUrl><description>${xml(`${fmt(trackLen(it) / 1609.344, 2)} mi${trackArea(it) ? `, encloses ${fmt(trackArea(it), 2)} ac` : ""}${it.note ? " · " + it.note : ""}`)}</description>`)).join("\n")}</Folder>
-<Folder><name>Photos</name>${phs.map((it) => pm(it, `<Point><coordinates>${c7(it.lon)},${c7(it.lat)}</coordinates></Point>`, `<styleUrl>#ph</styleUrl><description><![CDATA[${photoPath ? `<img src="${photoPath}${it.file}" width="480"/><br/>` : ""}${xml([it.note, it.dir != null ? `facing ${Math.round(it.dir)}°` : "", it.file].filter(Boolean).join(" · "))}]]></description>`)).join("\n")}</Folder>
+<Folder><name>Photos</name>${phs.map((it) => pm(it, `<Point><coordinates>${c7(it.lon)},${c7(it.lat)}</coordinates></Point>`, `<styleUrl>#ph</styleUrl><description><![CDATA[${photoPath ? `<img src="${photoPath}${it.id}.jpg" width="480"/><br/>` : ""}${xml([it.note, it.dir != null ? `facing ${Math.round(it.dir)}°` : "", it.file].filter(Boolean).join(" · "))}]]></description>`)).join("\n")}</Folder>
 </Document></kml>`;
 }
 async function exportKmz() {
   msg("Building Google Earth file…"); await withElevations();
   await loadScript("https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js", "fflate");
   const files = { "doc.kml": fflate.strToU8(kml("files/")) };
-  for (const it of items.filter((i) => i.type === "photo" && i.lon != null)) { const b = await get("blobs", it.id); if (b?.full) files[`files/${it.file}`] = new Uint8Array(await b.full.arrayBuffer()); }
+  for (const it of items.filter((i) => i.type === "photo" && i.lon != null)) { const b = await get("blobs", it.id); if (b?.full) files[`files/${it.id}.jpg`] = new Uint8Array(await b.full.arrayBuffer()); }
   download(new Blob([fflate.zipSync(files, { level: 0 })], { type: "application/vnd.google-earth.kmz" }), `northland-field-${stamp()}.kmz`); exported();
 }
 async function exportGpx() {
@@ -222,7 +226,7 @@ async function exportCsv() {
 async function exportCad() { // Civil 3D: PNEZD points (comma delimited) + DXF of points, labels and track polylines, UTM 15N NAD83 US ft
   msg("Building CAD files (lidar elevations)…"); await withElevations();
   const pts = rowsForCad();
-  const pnezd = pts.map(({ n, it, N, E }) => [n, N.toFixed(3), E.toFixed(3), it.elevFt != null ? it.elevFt.toFixed(2) : "0", `${it.name}${it.note ? " " + it.note : ""}`.replace(/,/g, " ")].join(",")).join("\r\n");
+  const pnezd = pts.map(({ n, it, N, E }) => [n, N.toFixed(3), E.toFixed(3), it.elevFt != null ? it.elevFt.toFixed(2) : "", `${it.name}${it.note ? " " + it.note : ""}`.replace(/,/g, " ")].join(",")).join("\r\n");
   const L = []; const g = (c, v) => L.push(String(c), String(v));
   g(0, "SECTION"); g(2, "ENTITIES");
   for (const { it, N, E } of pts) { const lay = it.type === "photo" ? "FIELD_PHOTOS" : "FIELD_POINTS"; const z = it.elevFt ?? 0;
@@ -234,7 +238,7 @@ async function exportCad() { // Civil 3D: PNEZD points (comma delimited) + DXF o
     g(0, "SEQEND"); g(8, "FIELD_TRACKS"); }
   g(0, "ENDSEC"); g(0, "EOF");
   await loadScript("https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js", "fflate");
-  const readme = `Northland Eco field notes, ${new Date().toLocaleString()}\r\nCoordinate system: NAD83 UTM zone 15N, US survey feet (EPSG:26915 in US ft; AutoCAD/Civil 3D: UTM83-15F).\r\nElevations: ground from MnTOPO lidar (NAVD88 ft) at each point; 0 where no lidar was available. Track vertices are 2D.\r\nfield_points_PNEZD.csv: Civil 3D point import format "PNEZD (comma delimited)".\r\nfield.dxf: layers FIELD_POINTS, FIELD_PHOTOS (points + labels) and FIELD_TRACKS (polylines). Insert at 0,0, scale 1.\r\nGPS positions are phone-grade (accuracy recorded per point in the CSV export); not survey control.\r\n`;
+  const readme = `Northland Eco field notes, ${new Date().toLocaleString()}\r\nCoordinate system: NAD83 UTM zone 15N, US survey feet (EPSG:26915 in US ft; AutoCAD/Civil 3D: UTM83-15F).\r\nElevations: ground from MnTOPO lidar (NAVD88 ft) at each point; blank in the PNEZD file (0 in the DXF) where no lidar was available. Track vertices are 2D.\r\nfield_points_PNEZD.csv: Civil 3D point import format "PNEZD (comma delimited)".\r\nfield.dxf: layers FIELD_POINTS, FIELD_PHOTOS (points + labels) and FIELD_TRACKS (polylines). Insert at 0,0, scale 1.\r\nGPS positions are phone-grade (accuracy recorded per point in the CSV export); not survey control.\r\n`;
   download(new Blob([fflate.zipSync({ "field_points_PNEZD.csv": fflate.strToU8(pnezd), "field.dxf": fflate.strToU8(L.join("\r\n")), "README.txt": fflate.strToU8(readme) })], { type: "application/zip" }), `northland-field-${stamp()}_cad_utm15n_usft.zip`); exported();
 }
 function exported() { try { localStorage.setItem("nh-field-exported", String(Date.now())); } catch {} msg("Exported. Keep the file; the notes also stay on this device until you delete them."); render(); }
@@ -242,6 +246,8 @@ function exported() { try { localStorage.setItem("nh-field-exported", String(Dat
 // ---------- panel ----------
 let lastMsg = "", lastErr = false;
 function msg(t, err = false) { lastMsg = t; lastErr = err; const el = $("fd-msg"); if (el) { el.textContent = t; el.className = "small" + (err ? " fd-err" : ""); } }
+function liveLineHtml() { if (!rec) return ""; const dur = Math.round((Date.now() - rec.it.t) / 60000); return `Recording <b>${escapeHtml(rec.it.name)}</b>: ${fmt(trackLen(rec.it) / 1609.344, 2)} mi · ${dur} min · ${rec.it.segs.reduce((n, s) => n + s.length, 0)} fixes${rec.last ? ` · ±${fmtNum(rec.last[3] * 3.281)} ft` : " · waiting for GPS"}. Keep the screen on.`; }
+function updateLive() { const el = document.querySelector(".fd-live"); if (el) el.innerHTML = liveLineHtml(); else render(); }
 function render() {
   const c = $("tab-field"); if (!c) return;
   const pts = items.filter((i) => i.type === "point"), trks = items.filter((i) => i.type === "track"), phs = items.filter((i) => i.type === "photo");
@@ -261,7 +267,7 @@ function render() {
       ${rec ? `<button class="btn fd-rec" id="fd-stop">■ Stop track</button>` : `<button class="btn" id="fd-start">● Start track</button>`}
       <label class="btn" for="fd-files">📷 Add photos</label><input type="file" id="fd-files" accept="image/*" multiple hidden>
     </div>
-    ${rec ? `<div class="notice fd-live">Recording <b>${escapeHtml(rec.it.name)}</b>: ${fmt(trackLen(rec.it) / 1609.344, 2)} mi · ${dur} min · ${rec.it.segs.reduce((n, s) => n + s.length, 0)} fixes${rec.last ? ` · ±${fmtNum(rec.last[3] * 3.281)} ft` : " · waiting for GPS"}. Keep the screen on.</div>` : ""}
+    ${rec ? `<div class="notice fd-live">${liveLineHtml()}</div>` : ""}
     <div id="fd-msg" class="small${lastErr ? " fd-err" : ""}">${escapeHtml(lastMsg)}</div>
     ${items.length ? `<h3>Export</h3><div class="fd-actions">
       <button class="btn" id="fd-kmz" title="Points, tracks and photos (photos embedded)">Google Earth (KMZ)</button>
@@ -283,8 +289,8 @@ function render() {
   $("fd-clear")?.addEventListener("click", async () => { if (!confirm(`Delete all ${items.length} field notes from this device? Export first if you need them.`)) return; for (const it of [...items]) await remove(it.id); msg("All field notes deleted."); });
   c.querySelectorAll(".fd-row").forEach((r) => {
     const it = items.find((i) => i.id === r.dataset.id); if (!it) return;
-    r.querySelector(".fd-name").onchange = (e) => { it.name = e.target.value.trim() || it.name; save(it); };
-    r.querySelector(".fd-note").onchange = (e) => { it.note = e.target.value.trim(); save(it); };
+    r.querySelector(".fd-name").onchange = (e) => { it.name = e.target.value.trim() || it.name; saveQuiet(it); };
+    r.querySelector(".fd-note").onchange = (e) => { it.note = e.target.value.trim(); saveQuiet(it); };
     r.querySelector(".fd-del").onclick = () => { if (confirm(`Delete ${it.name}?`)) remove(it.id); };
     r.querySelector(".fd-place")?.addEventListener("click", () => tapToPlace(it));
     r.querySelector(".fd-resume")?.addEventListener("click", () => startTrack(it.id));

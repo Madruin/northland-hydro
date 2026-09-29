@@ -1,6 +1,6 @@
 // Point and basin sections for the regulatory water layers: DNR Public Waters Inventory, MPCA impaired waters and
 // TMDL allocation areas, and BWSR RIM / wetland-bank easements. Map layers themselves live in dnrlayers.js.
-import { escapeHtml, fmt, fmtNum, haversineKm, distToGeomM } from "./util.js";
+import { escapeHtml, fmt, fmtNum, haversineKm, distToGeomM, safeUrl } from "./util.js";
 import { fetchStatic } from "./dnrlayers.js";
 
 const DNR = "https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_dnr";
@@ -195,7 +195,7 @@ export async function renderMpcaAt(container, lon, lat) {
     container.innerHTML = `<h3>Contamination and regulated sites · MPCA</h3>
       ${inside.length ? `<div class="notice">${inside.map((x) => `<b>Inside ${escapeHtml(x.t)}</b>: ${escapeHtml(x.d)}`).join("<br>")}. Check the MPCA file before excavation, dewatering or wells.</div>` : ""}
       ${plume ? `<div class="notice">A mapped groundwater contamination boundary (${escapeHtml(plume.project_na || "")}, ${escapeHtml(plume.media_type || "")}) is ${fmtNum(plume.m * 3.281)} ft away.</div>` : ""}
-      ${s.length ? `<table class="data"><thead><tr><th>MPCA site within 500 ft</th><th>Activity</th><th class="num">ft</th></tr></thead><tbody>${s.slice(0, 8).map((p) => `<tr><td>${p.url ? `<a href="${escapeHtml(p.url)}" target="_blank" rel="noopener">${escapeHtml(p.name || "MPCA site")}</a>` : escapeHtml(p.name || "MPCA site")} <span class="small">${escapeHtml(MPCA_CAT[p.cat] || "")}${p.active === "N" ? ", inactive" : ""}${p.ic ? ", <b>institutional controls</b>" : ""}</span></td><td class="small">${escapeHtml(p.acts || "")}</td><td class="num">${fmtNum(p.m * 3.281)}</td></tr>`).join("")}</tbody></table>${s.length > 8 ? `<div class="small">${s.length - 8} more within 500 ft.</div>` : ""}` : `<div class="small">No MPCA sites within 500 ft.</div>`}
+      ${s.length ? `<table class="data"><thead><tr><th>MPCA site within 500 ft</th><th>Activity</th><th class="num">ft</th></tr></thead><tbody>${s.slice(0, 8).map((p) => `<tr><td>${safeUrl(p.url) ? `<a href="${escapeHtml(safeUrl(p.url))}" target="_blank" rel="noopener">${escapeHtml(p.name || "MPCA site")}</a>` : escapeHtml(p.name || "MPCA site")} <span class="small">${escapeHtml(MPCA_CAT[p.cat] || "")}${p.active === "N" ? ", inactive" : ""}${p.ic ? ", <b>institutional controls</b>" : ""}</span></td><td class="small">${escapeHtml(p.acts || "")}</td><td class="num">${fmtNum(p.m * 3.281)}</td></tr>`).join("")}</tbody></table>${s.length > 8 ? `<div class="small">${s.length - 8} more within 500 ft.</div>` : ""}` : `<div class="small">No MPCA sites within 500 ft.</div>`}
       <div class="small">MPCA What's In My Neighborhood, Groundwater Contamination Atlas, institutional controls and Closed Landfill Program, via MnGeo (snapshot ${escapeHtml(sites?.fetched || ic?.fetched || "")}); site names link to the MPCA record. Screening only: a Phase I environmental site assessment is the standard for due diligence.</div>`;
   } catch (e) { container.innerHTML = `<h3>Contamination · MPCA</h3><div class="notice">MPCA layers unavailable: ${escapeHtml(e.message)}</div>`; }
 }

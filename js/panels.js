@@ -3,7 +3,7 @@ import { toUtm, utmFeet } from "./coords.js";
 import { addRecent } from "./recent.js";
 import { mscUrl } from "./fema.js";
 import { plot } from "./loader.js";
-import { $, el, on, escapeHtml, fmt, fmtNum, fmtDate, fmtDateTime, addDays, isoDate, ago, haversineKm, kmToMi, downloadCSV, plotlyLayout } from "./util.js";
+import { $, el, on, escapeHtml, fmt, fmtNum, fmtDate, fmtDateTime, addDays, isoDate, ago, haversineKm, kmToMi, downloadCSV, plotlyLayout, emit } from "./util.js";
 import { stations as precipStations, current as precipWindow, summarize, lastDay as precipLastDay } from "./precip.js";
 import { doc as wlssdDoc } from "./wlssd.js";
 import { pointElevation } from "./elevation.js";
@@ -81,8 +81,8 @@ export function renderRegion() {
     <div id="region-lake"></div>
     <h3>Sources & caveats</h3>
     <div class="small">Station precipitation is the daily observation ending the morning of the date shown (CoCoRaHS/COOP report ~7 AM). Gauge flow classes come from the MN DNR CSG feed and compare today's flow to the site's period-of-record percentiles for this time of year. USGS values are provisional.</div>`;
-  c.querySelectorAll("tr[data-sid]").forEach((tr) => tr.addEventListener("click", () => { const st = precipStations.find((x) => x.sid === tr.dataset.sid); if (st) { map.flyTo({ center: [st.lon, st.lat], zoom: Math.max(map.getZoom(), 9.5) }); renderStation(st.sid); } }));
-  c.querySelectorAll("tr[data-gid]").forEach((tr) => tr.addEventListener("click", () => { const g = gaugeById(tr.dataset.gid); if (g) { map.flyTo({ center: [g.lon, g.lat], zoom: Math.max(map.getZoom(), 9.5) }); renderGauge(g.id); } }));
+  c.querySelectorAll("tr[data-sid]").forEach((tr) => tr.addEventListener("click", () => { const st = precipStations.find((x) => x.sid === tr.dataset.sid); if (st) { map.flyTo({ center: [st.lon, st.lat], zoom: Math.max(map.getZoom(), 9.5) }); emit("select:station", { sid: st.sid }); } }));
+  c.querySelectorAll("tr[data-gid]").forEach((tr) => tr.addEventListener("click", () => { const g = gaugeById(tr.dataset.gid); if (g) { map.flyTo({ center: [g.lon, g.lat], zoom: Math.max(map.getZoom(), 9.5) }); emit("select:gauge", { id: g.id }); } }));
   renderLakeSection($("region-lake"));
   renderWlssdSection($("region-wlssd"));
 }
@@ -90,13 +90,13 @@ on("wlssd:loaded", () => { const f = $("region-fresh"); if (f) f.innerHTML = fre
 function freshnessHtml() {
   const ld = precipLastDay; const today = ld.date === isoDate();
   const gTimes = gauges.map((g) => g.flowTime || g.stageTime).filter(Boolean).map((t) => new Date(t).getTime()).filter((t) => !isNaN(t));
-  const gLatest = gTimes.length ? new Date(Math.max(...gTimes)) : null; const gStale = gauges.filter((g) => g.stale).length;
+  const gLatest = gTimes.length ? new Date(Math.max(...gTimes)) : null; const gStale = gauges.filter((g) => g.stale && !g.retired).length, gRetired = gauges.filter((g) => g.retired).length;
   const row = (k, v, cls = "") => `<tr class="${cls}"><td class="small" style="white-space:nowrap">${k}</td><td>${v}</td></tr>`;
   const fetched = ld.fetchedAt ? ld.fetchedAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : "–";
-  return `<table class="data fresh"><tbody>
+  return `<table class="data fresh-table"><tbody>
     ${row("Stations", ld.date ? `Observations through <b>${fmtDate(ld.date)}</b>: ${ld.reported} of ${ld.total} stations have reported for that day${today ? " (CoCoRaHS and COOP read at ~7 AM and post through the day; yesterday is the last complete day)" : ""}. ${ld.stale ? "<b>Showing cached data</b>, refreshing… " : ""}Fetched ${fetched}.` : "Loading stations…", today && ld.reported < ld.total * 0.6 ? "warn" : "")}
-    ${row("Gauges", gLatest ? `Latest reading ${fmtDateTime(gLatest)}${gStale ? ` · ${gStale} gauge${gStale > 1 ? "s" : ""} stale (no reading in 6 h, shown grey)` : ""}.` : "Loading…")}
-    ${row("Radar QPE", "NWS RFC multi-sensor estimate, valid for the window ending at the last hourly update; typically 1–2 h behind real time.")}
+    ${row("Gauges", gLatest ? `Latest reading ${fmtDateTime(gLatest)}${gStale ? ` · ${gStale} gauge${gStale > 1 ? "s" : ""} stale (no reading in 3 days, shown grey)` : ""}${gRetired ? ` · ${gRetired} discontinued gauges (no data in a year) hidden; the legend can show them` : ""}.` : "Loading…")}
+    ${row("Radar", "Now: live NWS reflectivity mosaic, a few minutes old. Rain totals: NWS RFC multi-sensor estimate (QPE), valid for the window ending at the last hourly update; typically 1–2 h behind real time.")}
     ${row("WLSSD gauges", wlssdDoc?.updated ? `Telemetry as of ${fmtDateTime(new Date(wlssdDoc.updated))} (snapshotted hourly)${Date.now() - new Date(wlssdDoc.updated).getTime() > 3 * 3600e3 ? " · <b>stale</b>" : ""}.` : "Not available.")}
     ${row("Forecast", "NWS grid, refreshed on each click; alerts live.")}
   </tbody></table>`;
@@ -107,7 +107,11 @@ function gaugeTable(list) {
 }
 
 // ---------------- Station ----------------
+// Each render bumps its tab's generation; async answers for an older selection are dropped instead of
+// being written into the newer panel (two quick clicks used to mix one point's elevation or rainfall into the next).
+let stGen = 0, gaGen = 0, ptGen = 0;
 export async function renderStation(sid) {
+  const gen = ++stGen;
   showTab("station");
   const c = $("tab-station");
   const st = precipStations.find((x) => x.sid === sid);
@@ -117,6 +121,7 @@ export async function renderStation(sid) {
   const sdate = addDays(endDate, -89);
   try {
     const [daily, ctx] = await Promise.all([acis.stationDaily({ sid, sdate, edate: endDate }), acis.stationContext({ sid, endDate })]);
+    if (gen !== stGen) return;
     const m = daily.meta;
     const rows = daily.rows;
     const winRows = rows.filter((r) => r.date >= addDays(endDate, -(days - 1)));
@@ -183,6 +188,7 @@ function maxRun(rows, n) {
 
 // ---------------- Gauge ----------------
 export async function renderGauge(id) {
+  const gen = ++gaGen;
   showTab("gauge");
   const c = $("tab-gauge");
   const g = gaugeById(id);
@@ -207,6 +213,7 @@ export async function renderGauge(id) {
   if (g.usgs_id) {
     try {
       const [iv, stats] = await Promise.all([usgs.ivSeries(g.usgs_id, { period: "P30D" }), usgs.dailyStats(g.usgs_id).catch(() => null)]);
+      if (gen !== gaGen) return;
       body.innerHTML = `<div id="gauge-q" class="chart tall"></div><div id="gauge-h" class="chart"></div>
         ${stats ? `<div class="small">Shaded bands are the daily 10–90th (light) and 25–75th (dark) percentiles of discharge for each calendar day, ${stats.beginYear}–${stats.endYear} (USGS statistics service).</div>` : ""}
         <div id="gauge-dv" class="chart"></div>`;
@@ -290,8 +297,8 @@ export function renderNearby(lon, lat) {
     <h3>Nearest gauges</h3>
     <table class="data"><thead><tr><th>Gauge</th><th class="num">mi</th><th class="num">cfs</th><th>Class</th></tr></thead><tbody>
     ${nearG.map((g) => `<tr class="clickable" data-gid="${escapeHtml(g.id)}"><td>${escapeHtml(g.name)}</td><td class="num">${fmt(kmToMi(g.km), 1)}</td><td class="num">${fmtNum(g.flow, g.flow < 10 ? 1 : 0)}</td><td><span class="pill class" style="background:${g.color}">${FLOW_CLASSES[g.flowClass].label.split(" (")[0]}</span></td></tr>`).join("")}</tbody></table>`;
-  $("pt-nearby").querySelectorAll("tr[data-sid]").forEach((tr) => tr.addEventListener("click", () => renderStation(tr.dataset.sid)));
-  $("pt-nearby").querySelectorAll("tr[data-gid]").forEach((tr) => tr.addEventListener("click", () => renderGauge(tr.dataset.gid)));
+  $("pt-nearby").querySelectorAll("tr[data-sid]").forEach((tr) => tr.addEventListener("click", () => emit("select:station", { sid: tr.dataset.sid })));
+  $("pt-nearby").querySelectorAll("tr[data-gid]").forEach((tr) => tr.addEventListener("click", () => emit("select:gauge", { id: tr.dataset.gid })));
 
 }
 export async function renderPoint(lon, lat) {
@@ -299,6 +306,7 @@ export async function renderPoint(lon, lat) {
   visit("point", `${lon.toFixed(4)},${lat.toFixed(4)}`, `Point ${lat.toFixed(3)}, ${lon.toFixed(3)}`, () => renderPoint(lon, lat));
   setPin([lon, lat]);
   const c = $("tab-point");
+  const gen = ++ptGen, live = () => gen === ptGen;
   const endDate = precipWindow.endDate, days = precipWindow.days;
   const [ue, un] = toUtm(lon, lat); const uf = utmFeet(lon, lat);
   c.dataset.pt = `${lon.toFixed(5)},${lat.toFixed(5)}`;
@@ -340,9 +348,9 @@ export async function renderPoint(lon, lat) {
 
   addRecent({ lon, lat });
   const trailsNear = async () => { const d = 35 / 111320, dx = d / Math.cos((lat * Math.PI) / 180); const st = await fetchStatic({ id: "trails" }, [lon - dx, lat - d, lon + dx, lat + d]); if (!st) return []; const seen = new Set(); return st.fc.features.map((f) => ({ p: f.properties, m: distToGeomM(lon, lat, f.geometry) })).filter((t) => t.m <= 30).sort((a, b) => a.m - b.m).filter((t) => { const k = (t.p.name || t.p.routes || "unnamed") + t.p.src; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 4); };
-  Promise.all([hucsAt(lon, lat).catch(() => []), landCoverAt(lon, lat).catch(() => null), trailsNear().catch(() => [])]).then(([h, c, tr]) => { const el = $("pt-huc"); if (!el) return;
+  Promise.all([hucsAt(lon, lat).catch(() => []), landCoverAt(lon, lat).catch(() => null), trailsNear().catch(() => [])]).then(([h, c, tr]) => { const el = $("pt-huc"); if (!el || !live()) return;
     el.innerHTML = [hucLineHtml(h), c ? `Land cover: <span class="swatch sq" style="display:inline-block;width:9px;height:9px;background:${c.color}"></span> <b>${escapeHtml(c.name)}</b> <span class="small">(NLCD ${NLCD_YEAR} class ${c.code}; TR-55 ${escapeHtml(c.tr55)})</span>` : "", tr.length ? `Trails within 100 ft: ${tr.map((t) => `<b>${escapeHtml(t.p.name || t.p.routes || "unnamed trail")}</b> <span class="small">(${escapeHtml(trailUses(t.p.uses) || "")}; ${escapeHtml(t.p.src.replace(" (community)", ""))}${t.p.mgr ? ", " + escapeHtml(t.p.mgr) : ""}; ${Math.round(t.m * 3.281)} ft)</span>`).join(" · ")}` : ""].filter(Boolean).join("<br>"); });
-  pointElevation(lon, lat).then((e) => { const el = $("pt-elev"); if (el) el.innerHTML = e ? `Elev <b>${fmt(e.ft, 1)} ft</b> NAVD88 <span class="small">(${e.src})</span>` : "elev n/a"; });
+  pointElevation(lon, lat).then((e) => { const el = live() && $("pt-elev"); if (el) el.innerHTML = e ? `Elev <b>${fmt(e.ft, 1)} ft</b> NAVD88 <span class="small">(${e.src})</span>` : "elev n/a"; });
   ptCur = { lon, lat };
   navRun = {
     "pt-watershed": () => renderWatershed($("pt-watershed"), lon, lat), "pt-soils": () => renderSoilsAt($("pt-soils"), lon, lat), "pt-parcel": () => renderParcelAt($("pt-parcel"), lon, lat),
@@ -374,6 +382,7 @@ export async function renderPoint(lon, lat) {
     try {
       const sdate = addDays(endDate, -364);
       const [normals, dailyAll] = await Promise.all([acis.normalsNear({ lon, lat, endDate, days: 30 }), acis.gridDaily({ lon, lat, sdate, edate: endDate })]);
+      if (!live()) return;
       const valid = dailyAll.filter((r) => r.pcpn != null);
       const lastDate = valid.length ? valid[valid.length - 1].date : null;
       const lag = lastDate ? Math.round((new Date(endDate) - new Date(lastDate)) / 86400e3) : null;
@@ -403,7 +412,7 @@ export async function renderPoint(lon, lat) {
         <div class="small">Windows end ${lastDate ? fmtDate(lastDate) : "–"}; * = some days not gridded. PRISM is a modeled grid (gauge + radar + terrain) and can differ from the nearest gauge. Percent of normal uses the nearest station with 1991–2020 normals.</div>`;
       plot("pt-daily", [{ x: daily.map((r) => r.date), y: daily.map((r) => r.pcpn ?? 0), type: "bar", marker: { color: daily.map((r) => (r.date >= addDays(endDate, -(days - 1)) ? "#38bdf8" : "#475569")) }, hovertemplate: "%{x}: %{y:.2f}\"<extra></extra>" }],
         plotlyLayout({ title: "PRISM daily precip, last 90 days", yaxis: { title: "in" }, showlegend: false }), { displayModeBar: false, responsive: true });
-    } catch (e) { $("pt-precip").innerHTML = `<div class="notice">ACIS grid request failed: ${escapeHtml(e.message)}</div>`; }
+    } catch (e) { if (live()) $("pt-precip").innerHTML = `<div class="notice">ACIS grid request failed: ${escapeHtml(e.message)}</div>`; }
   })();
 
   // NWS forecast + QPF
@@ -412,6 +421,7 @@ export async function renderPoint(lon, lat) {
       const p = await nws.pointInfo(lat, lon);
       const [periods, qpf, stns, alerts] = await Promise.all([nws.forecast(p), nws.gridQpf(p), nws.nearestStations(p, 1), nws.activeAlerts({ point: [lat, lon] }).catch(() => [])]);
       let obs = null; try { obs = stns[0] ? await nws.latestObs(stns[0].id) : null; } catch {}
+      if (!live()) return;
       const next72 = qpf.values.filter((v) => v.start.getTime() < Date.now() + 72 * 3600e3 && v.start.getTime() + v.hours * 3600e3 > Date.now()).reduce((s, v) => s + v.inches, 0);
       const next24 = qpf.values.filter((v) => v.start.getTime() < Date.now() + 24 * 3600e3 && v.start.getTime() + v.hours * 3600e3 > Date.now()).reduce((s, v) => s + v.inches, 0);
       $("pt-wx").innerHTML = `<h3>NWS forecast · ${escapeHtml(p.relativeLocation?.properties?.city || "")}, grid ${p.gridId} ${p.gridX},${p.gridY}</h3>
@@ -427,13 +437,14 @@ export async function renderPoint(lon, lat) {
       const q = qpf.values.slice(0, 40);
       plot("pt-qpf", [{ x: q.map((v) => v.start), y: q.map((v) => v.inches), type: "bar", width: q.map((v) => v.hours * 3600e3 * 0.9), marker: { color: "#38bdf8" }, hovertemplate: "%{x}: %{y:.2f}\" / %{customdata} h<extra></extra>", customdata: q.map((v) => v.hours) }],
         plotlyLayout({ title: "Forecast precipitation by period (in)", yaxis: { title: "in" }, showlegend: false }), { displayModeBar: false, responsive: true });
-    } catch (e) { $("pt-wx").innerHTML = `<div class="notice">NWS request failed: ${escapeHtml(e.message)}</div>`; }
+    } catch (e) { if (live()) $("pt-wx").innerHTML = `<div class="notice">NWS request failed: ${escapeHtml(e.message)}</div>`; }
   })();
 
   // Open-Meteo soil moisture & hourly precip (past 7 d + next 7 d)
   (async () => {
     try {
       const w = await om.pointWeather(lat, lon);
+      if (!live()) return;
       const h = w.hourly;
       const nowIdx = h.time.findIndex((t) => new Date(t) > new Date());
       $("pt-soil").innerHTML = `<h3>Model soil moisture & hourly precip (Open-Meteo)</h3><div id="pt-om" class="chart tall"></div>
@@ -445,12 +456,12 @@ export async function renderPoint(lon, lat) {
         { x: h.time, y: h.soil_moisture_28_to_100cm, mode: "lines", name: "Soil 28–100 cm", line: { color: "#a16207", width: 1.2 } },
       ], plotlyLayout({ yaxis: { title: "m³/m³", range: [0, 0.6] }, yaxis2: { title: "in/h", overlaying: "y", side: "right", gridcolor: "rgba(0,0,0,0)", rangemode: "tozero" },
         shapes: nowIdx > 0 ? [{ type: "line", x0: h.time[nowIdx], x1: h.time[nowIdx], y0: 0, y1: 1, yref: "paper", line: { color: "#94a3b8", dash: "dash", width: 1 } }] : [] }), { displayModeBar: false, responsive: true });
-    } catch (e) { $("pt-soil").innerHTML = `<div class="notice">Open-Meteo request failed: ${escapeHtml(e.message)}</div>`; }
+    } catch (e) { if (live()) $("pt-soil").innerHTML = `<div class="notice">Open-Meteo request failed: ${escapeHtml(e.message)}</div>`; }
   })();
 
   // Atlas 14 table
   (async () => { // the grid may still be loading when a shared point link opens at startup
-  await atlas.loadAtlas14(); if (!$("pt-a14")) return;
+  await atlas.loadAtlas14(); if (!live() || !$("pt-a14")) return;
   const a14 = atlas.nearest(lat, lon);
   if (a14) {
     const durs = [4, 5, 6, 7, 8, 9, 10, 11, 13]; // 60-min … 7-day

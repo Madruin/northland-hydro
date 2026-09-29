@@ -8,6 +8,7 @@ export async function renderLakeAt(container, lon, lat) {
   container.innerHTML = "";
   let lake = null;
   try { lake = await dnr.lakeAt(lon, lat); } catch (e) { console.warn("lake lookup failed", e); return; }
+  if (!container.isConnected) return; // a newer point replaced this panel
   if (!lake) { setLake(null); return; }
   const p = lake.props;
   const dow = p.dowlknum;
@@ -75,7 +76,7 @@ export async function renderLakeAt(container, lon, lat) {
   (async () => {
     try {
       const d = await dnr.lakeDetail(dow);
-      if (!d || !$("lk-morph")) return;
+      if (!d || !container.isConnected || !$("lk-morph")) return;
       $("lk-morph").innerHTML = `<div class="small">LakeFinder: ${d.areaAcres ? fmtNum(d.areaAcres) + " ac" : ""}${d.littoralAcres ? ` · littoral ${fmtNum(d.littoralAcres)} ac` : ""}${d.maxDepthFeet ? ` · max depth ${d.maxDepthFeet} ft` : ""}${d.meanDepthFeet ? ` · mean depth ${d.meanDepthFeet} ft` : ""}${d.averageWaterClarity ? ` · clarity ${d.averageWaterClarity} ft` : ""}${d.surveys?.length ? ` · last fisheries survey ${d.surveys[0].surveyDate}` : ""}</div>`;
     } catch {}
   })();

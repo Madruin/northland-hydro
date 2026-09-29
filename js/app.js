@@ -1,6 +1,6 @@
 // Wiring: state, controls, data loads, URL sync.
 import { APP, BASEMAPS, HOME, WINDOWS } from "./config.js";
-import { $, isoDate, addDays, on, debounce, emit } from "./util.js";
+import { $, isoDate, addDays, on, once, debounce, emit } from "./util.js";
 import { initMap, map, setBasemap, setLayerVisible, setQpeWindow, setTerrainVisible, setTerrainOpacity } from "./map.js";
 import { TERRAIN, terrainLegendHtml } from "./terrain.js";
 import { loadPrecip, renderPrecipLegend, lastDay as precipLastDay } from "./precip.js";
@@ -30,8 +30,9 @@ import { initWlssd } from "./wlssd.js";
 import { MeasureControl } from "./measure.js";
 import { CompareControl } from "./compare.js";
 import { initField, FieldControl } from "./field.js";
-import { setHideUnclassified } from "./gauges.js";
-import { setGaugeFilter } from "./map.js";
+import { initEgg } from "./egg.js";
+import { setHideUnclassified, setShowRetired } from "./gauges.js";
+import { setGaugeFilter, setGaugeRetired } from "./map.js";
 
 const state = {
   endDate: isoDate(), days: 1, zoom: HOME.zoom, center: HOME.center, basemap: "light",
@@ -45,7 +46,7 @@ if (!readUrl().endDate && new Date().getHours() < 9) state.endDate = addDays(iso
 let firstLoadDone = false, pointShown = false; // pointShown: boot already opened the linked point
 let normalStatus = "", zoomHint = null;
 function setStatus(msg, isError = false, hint = false) { if (!hint) { normalStatus = msg; zoomHint = null; } $("status-text").textContent = msg; $("status").classList.toggle("error", isError); }
-const whenMap = (fn) => (map ? fn() : on("map:ready", fn));
+const whenMap = (fn) => (map ? fn() : once("map:ready", fn));
 function syncUrl() { writeUrl(state); }
 
 function buildControls() {
@@ -81,13 +82,14 @@ function buildControls() {
     $("help").hidden = true; dismissHint();
     for (const k of ["wells", "fema", "crossings"]) if (!state.layers[k]) toggleLayer(k, true);
     const go = () => { map.flyTo({ center: [-91.7854, 46.9472], zoom: 14, duration: 1200 }); map.once("moveend", () => emit("select:point", { lon: -91.7854, lat: 46.9472 })); };
-    if (map?.loaded?.()) go(); else on("map:ready", go);
+    if (map?.getStyle()) go(); else once("map:ready", go); // tiles may still be loading; flying does not need them
   });
   $("help-close").addEventListener("click", () => ($("help").hidden = true));
   $("help").addEventListener("click", (e) => { if (e.target.id === "help") $("help").hidden = true; });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") $("help").hidden = true; if (e.key === "?" && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) $("help").hidden = !$("help").hidden; });
-  $("legend").addEventListener("change", (e) => { if (e.target.id === "soils-theme") { setSoilsTheme(e.target.value); renderLegend(); return; } if (e.target.id === "lg-hide-unclassified") { setHideUnclassified(e.target.checked); setGaugeFilter(e.target.checked); try { localStorage.setItem("nh-hide-unclassified", e.target.checked ? "1" : "0"); } catch {} } });
-  try { if (localStorage.getItem("nh-hide-unclassified") === "1") { setHideUnclassified(true); on("map:ready", () => setGaugeFilter(true)); } } catch {}
+  $("legend").addEventListener("change", (e) => { if (e.target.id === "soils-theme") { setSoilsTheme(e.target.value); renderLegend(); return; } if (e.target.id === "lg-show-retired") { setShowRetired(e.target.checked); setGaugeRetired(e.target.checked); try { localStorage.setItem("nh-show-retired", e.target.checked ? "1" : "0"); } catch {} return; } if (e.target.id === "lg-hide-unclassified") { setHideUnclassified(e.target.checked); setGaugeFilter(e.target.checked); try { localStorage.setItem("nh-hide-unclassified", e.target.checked ? "1" : "0"); } catch {} } });
+  try { if (localStorage.getItem("nh-show-retired") === "1") { setShowRetired(true); setGaugeRetired(true); } } catch {}
+  try { if (localStorage.getItem("nh-hide-unclassified") === "1") { setHideUnclassified(true); once("map:ready", () => setGaugeFilter(true)); } } catch {}
   $("ctl-date").addEventListener("change", (e) => { if (e.target.value && e.target.value <= isoDate()) { state.endDate = e.target.value; refreshPrecip(); } });
   win.addEventListener("change", (e) => { state.days = Number(e.target.value); refreshPrecip(); });
   bm.addEventListener("change", (e) => { state.basemap = e.target.value; setBasemap(state.basemap); syncUrl(); });
@@ -332,7 +334,11 @@ async function boot() {
   map.addControl(new MeasureControl(), "top-left");
   map.addControl(new CompareControl(), "top-left");
   map.addControl(new FieldControl(), "top-left");
+  // Keep the desktop legend below the left tool column: its max height follows the column's actual bottom.
+  const fitLegend = () => { const ctl = document.querySelector(".maplibregl-ctrl-top-left"), wrap = $("map-wrap"); if (ctl && wrap) wrap.style.setProperty("--ctl-h", Math.round(ctl.getBoundingClientRect().bottom - wrap.getBoundingClientRect().top + 10) + "px"); };
+  fitLegend(); window.addEventListener("resize", debounce(fitLegend, 150)); map.once("load", fitLegend);
   initField();
+  initEgg();
   // Cached stations are drawn immediately by loadPrecip; render the Region panel from them too, then replace when fresh data lands.
   on("precip:loaded", ({ stale }) => { if (!stale) return; setStatus("Showing the last cached observations while fresh data loads…", false, true); renderLegend(); if (!state.selection || state.selection.type === "region") renderRegion(); });
   setLayerVisible("huc", !!state.layers.huc); setLayerVisible("landcover", !!state.layers.landcover); if (state.layers.huc) whenMap(() => setHucEnabled(true)); setLayerVisible("stations", state.layers.stations); setLayerVisible("gauges", state.layers.gauges); setLayerVisible("qpe", state.layers.qpe); setLayerVisible("streams", !!state.layers.streams); setLayerVisible("soils", !!state.layers.soils); setLayerVisible("parcels", !!state.layers.parcels); setLayerVisible("trout", !!state.layers.trout); setLayerVisible("karst", !!state.layers.karst); setLayerVisible("wetlands", !!state.layers.wetlands); setLayerVisible("fema", !!state.layers.fema); setLayerVisible("crossings", !!state.layers.crossings); setLayerVisible("wells", !!state.layers.wells); for (const k of ["pwi", "impaired", "easements", "trails", "contam"]) setLayerVisible(k, !!state.layers[k]);
@@ -340,7 +346,7 @@ async function boot() {
   for (const [id, on] of Object.entries(state.terrain)) setTerrainVisible(id, on);
   setTerrainOpacity(state.terrainOpacity);
   renderLegend();
-  track("map", new Promise((res) => on("map:ready", res)));
+  track("map", new Promise((res) => once("map:ready", res)));
   track("design storms", loadAtlas14());
   track("alerts", loadAlerts()).catch((e) => { $("alerts-count").textContent = "n/a"; console.warn(e); });
   track("lake level", loadLake());
@@ -370,14 +376,14 @@ async function boot() {
   initCrossings();
   initWells();
   whenMap(() => initWlssd());
-  if (state.layers.wells) { if (map.getSource("ov-wells")) setWellsEnabled(true); else on("map:ready", () => setWellsEnabled(true)); }
-  if (state.layers.crossings) { if (map.getSource("ov-xing-dnr")) setCrossingsEnabled(true); else on("map:ready", () => setCrossingsEnabled(true)); }
-  if (state.layers.fema) { if (map.getSource("ov-fema-zones")) setFemaEnabled(true); else on("map:ready", () => setFemaEnabled(true)); }
-  for (const k of ["pwi", "impaired", "easements", "trails", "contam"]) if (state.layers[k]) { if (map.getSource("ov-rim")) setDnrLayerEnabled(k, true); else on("map:ready", () => setDnrLayerEnabled(k, true)); }
-  for (const k of ["wetlands", "trout", "karst"]) if (state.layers[k]) { if (map.getSource("ov-trout")) setDnrLayerEnabled(k, true); else on("map:ready", () => setDnrLayerEnabled(k, true)); }
+  if (state.layers.wells) { if (map.getSource("ov-wells")) setWellsEnabled(true); else once("map:ready", () => state.layers.wells && setWellsEnabled(true)); }
+  if (state.layers.crossings) { if (map.getSource("ov-xing-dnr")) setCrossingsEnabled(true); else once("map:ready", () => state.layers.crossings && setCrossingsEnabled(true)); }
+  if (state.layers.fema) { if (map.getSource("ov-fema-zones")) setFemaEnabled(true); else once("map:ready", () => state.layers.fema && setFemaEnabled(true)); }
+  for (const k of ["pwi", "impaired", "easements", "trails", "contam"]) if (state.layers[k]) { if (map.getSource("ov-rim")) setDnrLayerEnabled(k, true); else once("map:ready", () => state.layers[k] && setDnrLayerEnabled(k, true)); }
+  for (const k of ["wetlands", "trout", "karst"]) if (state.layers[k]) { if (map.getSource("ov-trout")) setDnrLayerEnabled(k, true); else once("map:ready", () => state.layers[k] && setDnrLayerEnabled(k, true)); }
   initNav(); watchTooltips();
-  if (state.layers.parcels) { if (map.getSource("parcels")) setParcelsEnabled(true); else on("map:ready", () => setParcelsEnabled(true)); }
-  if (state.layers.soils) { if (map.getSource("soils")) setSoilsEnabled(true); else on("map:ready", () => setSoilsEnabled(true)); }
+  if (state.layers.parcels) { if (map.getSource("parcels")) setParcelsEnabled(true); else once("map:ready", () => state.layers.parcels && setParcelsEnabled(true)); }
+  if (state.layers.soils) { if (map.getSource("soils")) setSoilsEnabled(true); else once("map:ready", () => state.layers.soils && setSoilsEnabled(true)); }
   on("map:moveend", ({ center, zoom }) => { state.center = [center.lng, center.lat]; state.zoom = zoom; syncUrl(); });
   on("select:station", (p) => { state.selection = { type: "station", id: p.sid }; syncUrl(); renderStation(p.sid); });
   on("select:gauge", (p) => { state.selection = { type: "gauge", id: p.id }; syncUrl(); renderGauge(p.id); });

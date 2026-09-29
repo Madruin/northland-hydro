@@ -1,6 +1,6 @@
 // Wells and borings: Minnesota County Well Index (MGS/MDH) points with stratigraphy logs, water levels and construction,
 // plus DNR Drill Core Library boring locations. Viewport layer at zoom 12+, point section, and basin depth-to-bedrock.
-import { $, escapeHtml, fmt, fmtNum, debounce, haversineKm, emit } from "./util.js";
+import { $, escapeHtml, fmt, fmtNum, debounce, haversineKm, emit, safeUrl } from "./util.js";
 import { track } from "./loader.js";
 import { map, setOverlay } from "./map.js";
 
@@ -139,7 +139,7 @@ export async function renderWellsAt(container, lon, lat) {
     }
     if (obwells.length) {
       html += `<div style="margin-top:8px"><b>DNR observation wells within 2 km</b></div><table class="data"><thead><tr><th>Well</th><th>Aquifer</th><th class="num">Depth ft</th><th>Status</th><th class="num">Dist ft</th></tr></thead><tbody>
-        ${obwells.slice(0, 6).map((o) => `<tr><td><a href="${escapeHtml(o.url || "https://www.dnr.state.mn.us/waters/cgm/index.html")}" target="_blank" rel="noopener">${escapeHtml(o.dnr_obwell_id || o.station || "")}</a><div class="small">${escapeHtml(o.well_type || "")}</div></td><td>${escapeHtml(o.aquifer_name || "")}</td><td class="num">${o.completed_depth ? fmt(Number(o.completed_depth), 0) : "–"}</td><td class="small">${o.read_status === "YES" ? "read" : "inactive"}${o.lastfieldvisit ? "<br>" + new Date(o.lastfieldvisit).toLocaleDateString() : ""}${o.has_provisional_data === "Y" ? "<br>provisional data" : ""}</td><td class="num">${fmtNum(o.d * 3.281)}</td></tr>`).join("")}</tbody></table>
+        ${obwells.slice(0, 6).map((o) => `<tr><td><a href="${escapeHtml(safeUrl(o.url) || "https://www.dnr.state.mn.us/waters/cgm/index.html")}" target="_blank" rel="noopener">${escapeHtml(o.dnr_obwell_id || o.station || "")}</a><div class="small">${escapeHtml(o.well_type || "")}</div></td><td>${escapeHtml(o.aquifer_name || "")}</td><td class="num">${o.completed_depth ? fmt(Number(o.completed_depth), 0) : "–"}</td><td class="small">${o.read_status === "YES" ? "read" : "inactive"}${o.lastfieldvisit ? "<br>" + new Date(o.lastfieldvisit).toLocaleDateString() : ""}${o.has_provisional_data === "Y" ? "<br>provisional data" : ""}</td><td class="num">${fmtNum(o.d * 3.281)}</td></tr>`).join("")}</tbody></table>
         <div class="small">DNR Cooperative Groundwater Monitoring network; the well link opens its hydrograph and downloadable water-level record.</div>`;
     }
     html += `<div class="small">Source: MN County Well Index (Minnesota Geological Survey and MDH). Driller descriptions are as logged by the contractor; unit codes are the MGS interpretation. Well locations vary from GPS to section-level; check the location method before relying on a log. <a href="https://mnwellindex.web.health.state.mn.us/mwi/" target="_blank" rel="noopener">Minnesota Well Index map</a>.</div>`;

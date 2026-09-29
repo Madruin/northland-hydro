@@ -45,7 +45,7 @@ export const LAYERS = {
   },
   contam: {
     label: "Contamination (MPCA)", agency: "MPCA", minZoom: 11, live: false, overviewNote: "all kept sites and every area polygon",
-    note: "MPCA What's In My Neighborhood sites (cleanup, tanks and hazardous waste, permitted facilities; construction-stormwater-only and licence-only records left out), Groundwater Contamination Atlas areas of concern, source areas and plume boundaries, institutional control areas (recorded land-use restrictions) and closed-landfill waste footprints. Snapshot kept in the site, rebuilt monthly. Pale dots are inactive (closed) records; a closed leak site can still leave residual contamination.",
+    note: "MPCA What's In My Neighborhood sites (cleanup, tanks and hazardous waste, permitted facilities; construction-stormwater-only and licence-only records left out), Groundwater Contamination Atlas areas of concern, source areas and plume boundaries, institutional control areas (recorded land-use restrictions) and closed-landfill waste footprints. Snapshot kept in the site, rebuilt monthly. Pale dots are inactive (closed) records; a closed leak site can still leave residual contamination. Screening only; not a Phase I environmental site assessment.",
     sources: [
       { id: "mpca-landfill", url: "", fields: "", kind: "fill", live: false },
       { id: "mpca-ic", url: "", fields: "", kind: "fill", live: false },
