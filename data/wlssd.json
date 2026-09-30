@@ -1,19 +1,19 @@
 {
 "source": "http://extranet.wlssd.com/plantoverview/rain.aspx",
-"updated": "2026-09-29T19:25:00-05:00",
-"harvestedAt": "2026-09-30T00:26:47+00:00",
+"updated": "2026-09-30T01:40:00-05:00",
+"harvestedAt": "2026-09-30T06:41:24+00:00",
 "gauges": [
 {
 "name": "WLSSD Plant",
-"thisHour": 0.24,
-"lastHour": 0.25,
-"today": 0.37,
-"yesterday": 0.0,
+"thisHour": 0.0,
+"lastHour": 0.0,
+"today": 0.0,
+"yesterday": 0.39,
 "raw": {
-"thisHour": "0.24",
-"lastHour": "0.25",
-"today": "0.37",
-"yesterday": "0.00"
+"thisHour": "0.00",
+"lastHour": "0.00",
+"today": "0.00",
+"yesterday": "0.39"
 },
 "lon": -92.1249,
 "lat": 46.7522,
@@ -21,15 +21,15 @@
 },
 {
 "name": "Scanlon",
-"thisHour": 0.17,
-"lastHour": 0.17,
-"today": 0.24,
-"yesterday": 0.0,
+"thisHour": 0.0,
+"lastHour": 0.0,
+"today": 0.0,
+"yesterday": 0.26,
 "raw": {
-"thisHour": "0.17",
-"lastHour": "0.17",
-"today": "0.24",
-"yesterday": "0.00"
+"thisHour": "0.00",
+"lastHour": "0.00",
+"today": "0.00",
+"yesterday": "0.26"
 },
 "lon": -92.4268,
 "lat": 46.705,
@@ -37,15 +37,15 @@
 },
 {
 "name": "Endion",
-"thisHour": 0.19,
-"lastHour": 0.19,
-"today": 0.29,
-"yesterday": 0.0,
+"thisHour": 0.0,
+"lastHour": 0.0,
+"today": 0.0,
+"yesterday": 0.31,
 "raw": {
-"lastHour": "0.19",
-"today": "0.29",
-"yesterday": "0.00",
-"thisHour": "0.19"
+"lastHour": "0.00",
+"today": "0.00",
+"yesterday": "0.31",
+"thisHour": "0.00"
 },
 "lon": -92.0705,
 "lat": 46.796,
@@ -53,15 +53,15 @@
 },
 {
 "name": "Munger Trail",
-"thisHour": 0.3,
-"lastHour": 0.3,
-"today": 0.37,
-"yesterday": 0.0,
+"thisHour": 0.0,
+"lastHour": 0.0,
+"today": 0.0,
+"yesterday": 0.38,
 "raw": {
-"thisHour": "0.30",
-"lastHour": "0.30",
-"today": "0.37",
-"yesterday": "0.00"
+"thisHour": "0.00",
+"lastHour": "0.00",
+"today": "0.00",
+"yesterday": "0.38"
 },
 "lon": -92.201,
 "lat": 46.723,
@@ -85,15 +85,15 @@
 },
 {
 "name": "Pike Lake",
-"thisHour": 0.07,
-"lastHour": 0.08,
-"today": 0.11,
-"yesterday": 0.0,
+"thisHour": 0.0,
+"lastHour": 0.0,
+"today": 0.0,
+"yesterday": 0.14,
 "raw": {
-"thisHour": "0.07",
-"lastHour": "0.08",
-"today": "0.11",
-"yesterday": "0.00"
+"thisHour": "0.00",
+"lastHour": "0.00",
+"today": "0.00",
+"yesterday": "0.14"
 },
 "lon": -92.2855,
 "lat": 46.846,
@@ -101,15 +101,15 @@
 },
 {
 "name": "Rice Lake",
-"thisHour": 0.04,
-"lastHour": 0.04,
-"today": 0.08,
-"yesterday": 0.0,
+"thisHour": 0.0,
+"lastHour": 0.0,
+"today": 0.0,
+"yesterday": 0.1,
 "raw": {
-"thisHour": "0.04",
-"lastHour": "0.04",
-"today": "0.08",
-"yesterday": "0.00"
+"thisHour": "0.00",
+"lastHour": "0.00",
+"today": "0.00",
+"yesterday": "0.10"
 },
 "lon": -92.108,
 "lat": 46.896,
@@ -117,15 +117,15 @@
 },
 {
 "name": "Proctor",
-"thisHour": 0.26,
-"lastHour": 0.27,
-"today": 0.37,
-"yesterday": 0.0,
+"thisHour": 0.0,
+"lastHour": 0.0,
+"today": 0.0,
+"yesterday": 0.39,
 "raw": {
-"thisHour": "0.26",
-"lastHour": "0.27",
-"today": "0.37",
-"yesterday": "0.00"
+"thisHour": "0.00",
+"lastHour": "0.00",
+"today": "0.00",
+"yesterday": "0.39"
 },
 "lon": -92.225,
 "lat": 46.747,
@@ -134,13 +134,13 @@
 {
 "name": "Hermantown",
 "thisHour": 0.0,
-"lastHour": 0.09,
-"today": 0.12,
-"yesterday": 0.0,
+"lastHour": 0.0,
+"today": 0.01,
+"yesterday": 0.14,
 "raw": {
-"lastHour": "0.09",
-"today": "0.12",
-"yesterday": "0.00",
+"lastHour": "0.00",
+"today": "0.01",
+"yesterday": "0.14",
 "thisHour": "0.00"
 },
 "lon": -92.238,
@@ -310,14 +310,24 @@
 "Hermantown": 0.0
 },
 "2026-09-29": {
-"WLSSD Plant": 0.37,
-"Scanlon": 0.24,
-"Endion": 0.29,
-"Munger Trail": 0.37,
-"Pike Lake": 0.11,
-"Rice Lake": 0.08,
-"Proctor": 0.37,
-"Hermantown": 0.12
+"WLSSD Plant": 0.39,
+"Scanlon": 0.26,
+"Endion": 0.31,
+"Munger Trail": 0.38,
+"Pike Lake": 0.14,
+"Rice Lake": 0.1,
+"Proctor": 0.39,
+"Hermantown": 0.14
+},
+"2026-09-30": {
+"WLSSD Plant": 0.0,
+"Scanlon": 0.0,
+"Endion": 0.0,
+"Munger Trail": 0.0,
+"Pike Lake": 0.0,
+"Rice Lake": 0.0,
+"Proctor": 0.0,
+"Hermantown": 0.01
 }
 }
 }
