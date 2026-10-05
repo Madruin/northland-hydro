@@ -268,20 +268,38 @@ async function resized(file, max) {
   c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k); c.getContext("2d").drawImage(bmp, 0, 0, c.width, c.height);
   return new Promise((res) => c.toBlob(res, "image/jpeg", max > 400 ? 0.85 : 0.7));
 }
-async function addPhotos(files) {
+// Camera: "Take photo" opens the phone camera (<input capture>). Camera apps often leave GPS out of the file, so a
+// location watch starts when the button is pressed and the most accurate fix from the last minute is used when the
+// photo has no GPS tag of its own.
+let camFix = null;
+function startCamFix() {
+  stopCamFix(); if (!navigator.geolocation) return;
+  const f = { fixes: [] };
+  f.watch = navigator.geolocation.watchPosition((p) => { const c = p.coords; f.fixes.push({ lon: c.longitude, lat: c.latitude, acc: c.accuracy, alt: c.altitude, t: Date.now() }); }, () => {}, { enableHighAccuracy: true, maximumAge: 10000, timeout: 60000 });
+  f.timer = setTimeout(stopCamFix, 5 * 60000); camFix = f;
+}
+function stopCamFix() {
+  const f = camFix; if (!f) return null; camFix = null; navigator.geolocation.clearWatch(f.watch); clearTimeout(f.timer);
+  const last = f.fixes.length ? f.fixes[f.fixes.length - 1].t : 0;
+  return f.fixes.filter((x) => x.t >= last - 60000).sort((a, b) => a.acc - b.acc)[0] || null;
+}
+async function addPhotos(files, cam = null) { // cam: { fix } for camera shots (phone GPS at capture, used when the photo has no GPS tag)
   if (!files?.length) return;
   await loadScript("https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js", "exifr");
-  let placed = 0, missing = 0;
+  let placed = 0, missing = 0, last = null;
   for (const [i, file] of [...files].entries()) {
     msg(`Reading photo ${i + 1} of ${files.length}…`);
     let ex = null; try { ex = await exifr.parse(file, { gps: true, exif: true, tiff: true, xmp: false, icc: false, iptc: false }) /* no `pick`: it stops exifr deriving latitude/longitude */; } catch { ex = null; }
     const [full, thumb] = await Promise.all([resized(file, 1600), resized(file, 360)]);
     const t = (ex?.DateTimeOriginal || ex?.CreateDate || new Date(file.lastModified)).valueOf();
-    const it = { id: uid(), type: "photo", name: file.name.replace(/\.[^.]+$/, ""), file: file.name.replace(/\.[^.]+$/, "") + ".jpg", note: "", t,
+    const name = cam ? nextName("photo", "Photo ") : file.name.replace(/\.[^.]+$/, ""); // camera files have meaningless names
+    const it = { id: uid(), type: "photo", name, file: name.replace(/[^\w.-]+/g, "_") + ".jpg", note: "", t,
       lon: ex?.longitude ?? null, lat: ex?.latitude ?? null, alt: ex?.GPSAltitude ?? null, dir: ex?.GPSImgDirection ?? null, src: ex?.latitude != null ? "photo GPS (EXIF)" : null };
+    const fix = cam?.fix; if (it.lon == null && fix) Object.assign(it, { lon: fix.lon, lat: fix.lat, acc: fix.acc, alt: fix.alt, src: "phone GPS when the photo was taken" });
     await put("blobs", { id: it.id, full, thumb }); thumbs[it.id] = URL.createObjectURL(thumb);
-    await save(it); if (it.lon != null) placed++; else missing++;
+    await save(it); last = it; if (it.lon != null) placed++; else missing++;
   }
+  if (files.length === 1 && last) { if (last.lon != null) map.easeTo({ center: [last.lon, last.lat], zoom: Math.max(map.getZoom(), 16) }); msg(last.lon != null ? `Added ${last.name}.` : `Added ${last.name}; it has no location yet.`, last.lon == null); annotate(last); return; }
   const withLoc = items.filter((i) => i.type === "photo" && i.lon != null);
   if (placed) { const b = withLoc.slice(-placed); const xs = b.map((i) => i.lon), ys = b.map((i) => i.lat); map.fitBounds([[Math.min(...xs), Math.min(...ys)], [Math.max(...xs), Math.max(...ys)]], { padding: 60, maxZoom: 17 }); }
   msg(`${placed} photo${placed === 1 ? "" : "s"} placed from their GPS tags${missing ? `; ${missing} had no location (the phone may have removed it when sharing; on iPhone, pick them through Files instead of Photos, or use "Place on map")` : ""}.`, !!missing);
@@ -377,6 +395,7 @@ function render() {
       <button class="btn primary" id="fd-here">📍 Point at my location</button>
       <button class="btn" id="fd-tap">✚ Tap to add point</button>
       ${rec ? `<button class="btn fd-rec" id="fd-stop">■ Stop track</button>` : `<button class="btn" id="fd-start">● Start track</button>`}
+      ${matchMedia("(pointer: coarse)").matches ? `<label class="btn" for="fd-cam" id="fd-cam-btn">📸 Take photo</label><input type="file" id="fd-cam" accept="image/*" capture="environment" hidden>` : ""}
       <label class="btn" for="fd-files">📷 Add photos</label><input type="file" id="fd-files" accept="image/*" multiple hidden>
     </div>
     ${rec ? `<div class="notice fd-live">${liveLineHtml()}</div>` : ""}
@@ -393,6 +412,8 @@ function render() {
     ${items.length ? `<div class="fd-actions" style="margin-top:12px"><button class="btn" id="fd-clear">Clear this device…</button></div>` : `<div class="hint">Drop a point, record a track while walking a site, or add photos from your gallery. Solocator photos carry location and compass direction; they appear as purple dots.</div>`}`;
   $("fd-here").onclick = dropPointHere; $("fd-tap").onclick = () => tapToPlace(null);
   $("fd-start")?.addEventListener("click", () => startTrack()); $("fd-stop")?.addEventListener("click", stopTrack);
+  $("fd-cam")?.addEventListener("click", startCamFix);
+  $("fd-cam")?.addEventListener("change", (e) => { const fix = stopCamFix(); addPhotos(e.target.files, { fix }).catch((err) => msg("Photo failed: " + err.message, true)).finally(() => (e.target.value = "")); });
   $("fd-files").onchange = (e) => addPhotos(e.target.files).catch((err) => msg("Photos failed: " + err.message, true)).finally(() => (e.target.value = ""));
   $("fd-kmz")?.addEventListener("click", () => exportKmz().catch((e) => msg("Export failed: " + e.message, true)));
   $("fd-cad")?.addEventListener("click", () => exportCad().catch((e) => msg("Export failed: " + e.message, true)));
@@ -419,6 +440,24 @@ function zoomTo(it) {
   if (it.type === "track") { const p = it.segs.flat(); if (!p.length) return; const xs = p.map((q) => q[0]), ys = p.map((q) => q[1]); map.fitBounds([[Math.min(...xs), Math.min(...ys)], [Math.max(...xs), Math.max(...ys)]], { padding: 60, maxZoom: 18 }); }
   else map.easeTo({ center: [it.lon, it.lat], zoom: Math.max(map.getZoom(), 17) });
   peek();
+}
+// After a photo comes in: a full-screen card to name it and add a note (the note can also be edited later in the list)
+async function annotate(it) {
+  document.querySelector(".fd-annot")?.remove();
+  const o = document.createElement("div"); o.className = "fd-annot"; o.setAttribute("role", "dialog"); o.setAttribute("aria-label", "Describe this photo");
+  o.innerHTML = `<div class="fd-annot-box"><img alt="" src="${thumbs[it.id] || ""}">
+    <label class="small">Name<input class="fd-a-name" value="${escapeHtml(it.name)}" autocomplete="off"></label>
+    <label class="small">Note<textarea class="fd-a-note" rows="3" placeholder="What does it show? e.g. culvert outlet, scour on the left bank, looking upstream">${escapeHtml(it.note || "")}</textarea></label>
+    <div class="small">${it.lon != null ? `📍 ${escapeHtml(it.src || "located")}${it.acc ? ` · ±${fmtNum(it.acc * 3.281)} ft` : ""}${it.dir != null ? ` · facing ${Math.round(it.dir)}°` : ""}` : "No location in the photo; place it on the map or keep it unplaced."}</div>
+    <div class="fd-actions"><button class="btn primary fd-a-done">Save</button>${it.lon == null ? `<button class="btn fd-a-place">Place on map</button>` : ""}<button class="btn fd-a-del">Discard photo</button></div></div>`;
+  document.body.append(o);
+  get("blobs", it.id).then((b) => { if (b?.full && o.isConnected) { const u = URL.createObjectURL(b.full); const img = o.querySelector("img"); img.onload = () => URL.revokeObjectURL(u); img.src = u; } }).catch(() => {});
+  const keep = () => { it.name = o.querySelector(".fd-a-name").value.trim() || it.name; it.note = o.querySelector(".fd-a-note").value.trim(); o.remove(); return save(it); };
+  o.querySelector(".fd-a-done").onclick = () => keep().then(() => msg(`Saved ${it.name}.`));
+  o.querySelector(".fd-a-place")?.addEventListener("click", () => keep().then(() => tapToPlace(it)));
+  o.querySelector(".fd-a-del").onclick = () => { o.remove(); remove(it.id).then(() => msg("Photo discarded.")); };
+  o.addEventListener("keydown", (e) => { if (e.key === "Escape") keep(); });
+  o.querySelector(".fd-a-note").focus({ preventScroll: true });
 }
 // Banner over the map: pick-mode instructions and live recording status stay visible when the sheet is collapsed
 let pickMsg = null;
