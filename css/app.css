@@ -246,7 +246,7 @@ details.steps code { background: var(--bg2); padding: 0 4px; border-radius: 3px;
   .stat .v { font-size: 17px; }
   .chart { height: 200px; }
   .chart.tall { height: 240px; }
-  #attrib { white-space: nowrap; overflow-x: auto; height: 22px; line-height: 22px; font-size: 10px; scrollbar-width: none; }
+  #attrib { white-space: nowrap; overflow-x: auto; height: 24px; line-height: 23px; font-size: 10px; scrollbar-width: none; }
   .forecast-row .fc { width: 84px; }
   .stat-row { gap: 6px; }
   .stat { min-width: 96px; padding: 6px 8px; }
@@ -505,7 +505,10 @@ details.sec.error .sec-s { color: #fca5a5; }
 .rpt-style { display: flex; flex-direction: column; gap: 6px; } .rpt-style label { display: flex; gap: 8px; align-items: baseline; cursor: pointer; }
 #rpt-detail[hidden] { display: none; }
 
-/* Site-in-development notice (footer label and help panels) */
-.foot-wip { display: inline-block; padding: 0 7px; border-radius: 999px; border: 1px solid #b45309; color: #fcd34d; background: rgba(180,83,9,.18); font-size: 10.5px; line-height: 16px; white-space: nowrap; }
-.wip-note { border: 1px solid #b45309; background: rgba(180,83,9,.14); color: var(--fg); border-radius: 6px; padding: 8px 10px; margin: 10px 0; font-size: 12.5px; line-height: 1.45; }
-.wip-note a { color: #fcd34d; }
+/* Site-in-development notice (footer label and help panels): neutral, not alarming */
+.foot-wip { display: inline-block; vertical-align: middle; padding: 0 6px; border-radius: 999px; border: 1px solid var(--line); color: var(--fg2); background: var(--bg3); font-size: 10.5px; line-height: 14px; white-space: nowrap; }
+.wip-note { border: 1px solid var(--line); background: var(--bg3); color: var(--fg2); border-radius: 6px; padding: 8px 10px; margin: 10px 0; font-size: 12.5px; line-height: 1.45; }
+.wip-note b { color: var(--fg); }
+.wip-note a { color: var(--accent); }
+/* keep every footer item on the footer's single line (taller inline items pushed the text below the clip) */
+#attrib > * { vertical-align: middle; }
