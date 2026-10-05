@@ -460,6 +460,6 @@ export async function initField() {
   on("select:field", ({ id, lngLat }) => showPopup(id, lngLat));
   on("projects:state", (s) => { ctx = s; render(); emit("field:team", teamOn()); if (s.user) scheduleSync(500); });
   window.addEventListener("online", () => scheduleSync(0)); window.addEventListener("offline", syncState);
-  map.on("style.load", ensureLayers); if (map.isStyleLoaded()) ensureLayers(); else map.once("load", ensureLayers);
+  map.on("style.load", ensureLayers); map.once("load", ensureLayers); map.once("idle", ensureLayers); try { ensureLayers(); } catch {} // the load event may have passed already (isStyleLoaded stays false while tiles load)
   render();
 }

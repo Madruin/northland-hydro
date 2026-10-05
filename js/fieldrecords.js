@@ -72,7 +72,7 @@ function lightbox(url, it) {
 }
 
 export function initTeamLayer() {
-  map.on("style.load", ensureLayers); if (map.isStyleLoaded()) ensureLayers(); else map.once("load", ensureLayers);
+  map.on("style.load", ensureLayers); map.once("load", ensureLayers); map.once("idle", ensureLayers); try { ensureLayers(); } catch {} // the load event may have passed already (isStyleLoaded stays false while tiles load)
   on("projects:state", (s) => { ctx = s; if (!s.user) { rows = []; draw(); } else load(); });
   on("field:team", () => load());
   on("field:synced", () => load());
