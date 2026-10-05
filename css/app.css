@@ -504,3 +504,8 @@ details.sec.error .sec-s { color: #fca5a5; }
 .rpt-prev img[hidden] { display: none; }
 .rpt-style { display: flex; flex-direction: column; gap: 6px; } .rpt-style label { display: flex; gap: 8px; align-items: baseline; cursor: pointer; }
 #rpt-detail[hidden] { display: none; }
+
+/* Work-in-progress notice (footer label and help panels) */
+.foot-wip { display: inline-block; padding: 0 7px; border-radius: 999px; border: 1px solid #b45309; color: #fcd34d; background: rgba(180,83,9,.18); font-size: 10.5px; line-height: 16px; white-space: nowrap; }
+.wip-note { border: 1px solid #b45309; background: rgba(180,83,9,.14); color: var(--fg); border-radius: 6px; padding: 8px 10px; margin: 10px 0; font-size: 12.5px; line-height: 1.45; }
+.wip-note a { color: #fcd34d; }

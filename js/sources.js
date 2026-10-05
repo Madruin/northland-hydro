@@ -1,5 +1,6 @@
 // Every data source, method and library the site uses, rendered into the help dialog's "Sources & methods" tab.
 import { escapeHtml } from "./util.js";
+import { versionInfo } from "./config.js";
 
 export const SOURCES = [
   { group: "Rainfall and weather", items: [
@@ -98,8 +99,13 @@ async function applyFreshness(el) {
     sp.className = `fresh fresh-${r.status}`; sp.title = r.detail; sp.textContent = `${r.label.replace(/ (County )?parcels$/, "")}: ${r.asOf || (r.lastGood ? `last seen ${r.lastGood}` : "check failed")}`;
   }
 }
+// Work-in-progress notice shown at the top of both help tabs
+export function wipNoteHtml() {
+  const v = versionInfo();
+  return `<div class="wip-note"><b>Work in progress.</b> Northland Eco is under active development by MN SWCD Technical Service Area 3 and is shared for testing and feedback. Version ${escapeHtml(v.version)}${v.updated ? `, last updated ${escapeHtml(v.updated)}` : ""}. Features, layout and data sources may change; please report problems or ideas to <a href="mailto:matiasvalero@tsa3.org">matiasvalero@tsa3.org</a>.</div>`;
+}
 export function renderSources(el) {
-  el.innerHTML = `<p>Everything on the map comes from the public services below. The regional layers (FEMA flood hazard, PWI, impaired waters and TMDL areas, easements, trout, karst, contamination and trails) are drawn from vector tiles (PMTiles) rebuilt monthly from ~1 m agency geometry, so they are accurate at every zoom; zoomed in, the site asks the agency service for the features in view and outlines anything newer than the tiles with a dashed line. Watershed boundaries and crossing inventories are monthly snapshots; everything else is fetched live. Each Point panel section and the printed report name the source and retrieval time of what they show.</p><p class="small" id="fresh-head">Checking source freshness…</p>
+  el.innerHTML = `${wipNoteHtml()}<p>Everything on the map comes from the public services below. The regional layers (FEMA flood hazard, PWI, impaired waters and TMDL areas, easements, trout, karst, contamination and trails) are drawn from vector tiles (PMTiles) rebuilt monthly from ~1 m agency geometry, so they are accurate at every zoom; zoomed in, the site asks the agency service for the features in view and outlines anything newer than the tiles with a dashed line. Watershed boundaries and crossing inventories are monthly snapshots; everything else is fetched live. Each Point panel section and the printed report name the source and retrieval time of what they show.</p><p class="small" id="fresh-head">Checking source freshness…</p>
     ${SOURCES.map((g) => `<h4>${escapeHtml(g.group)}</h4><ul class="src">${g.items.map((it) => `<li><b><a href="${escapeHtml(it.url)}" target="_blank" rel="noopener">${escapeHtml(it.name)}</a></b> — ${escapeHtml(it.use)}${it.note ? ` <span class="small">${escapeHtml(it.note)}</span>` : ""}${(it.fresh || []).map((id) => `<span class="fresh" data-fresh="${id}"></span>`).join("")}</li>`).join("")}</ul>`).join("")}
     <h4>Methods</h4><ul class="src">${METHODS.map(([k, v]) => `<li><b>${escapeHtml(k)}.</b> ${escapeHtml(v)}</li>`).join("")}</ul>
     <h4>Software</h4><p class="small">${SOFTWARE.map(([n, u, l]) => `<a href="${escapeHtml(u)}" target="_blank" rel="noopener">${escapeHtml(n)}</a> (${l})`).join(" · ")}. Site code: <a href="https://github.com/Madruin/northland-hydro" target="_blank" rel="noopener">github.com/Madruin/northland-hydro</a>, MIT license. Maintained by Matías Valero, MN SWCD Technical Service Area 3. Report a data problem or ask a question: <a href="mailto:matiasvalero@tsa3.org">matiasvalero@tsa3.org</a>.</p>`;

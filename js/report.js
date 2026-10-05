@@ -90,7 +90,7 @@ export async function buildReport({ lon, lat, project = null, analysis = null, o
     } catch (e) { console.warn("report: basin soils failed", e); }
   }
   const doc = {
-    app: `${APP.name} ${APP.version}`, generatedAt: now.toISOString(), generatedBy: auth.user?.email || null,
+    app: `${APP.name} ${APP.version} (work in progress)`, generatedAt: now.toISOString(), generatedBy: auth.user?.email || null,
     permalink: location.href,
     point: { lat, lon, utmM: [ue, un], utmFt: [uf.e, uf.n], elevFt: elev?.ft ?? null, elevSrc: elev?.src || null,
       hucs: hucs.map((h) => ({ level: h.level.label, code: h.code, name: h.name, sqmi: h.sqmi })),

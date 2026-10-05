@@ -1,5 +1,5 @@
 // Wiring: state, controls, data loads, URL sync.
-import { APP, BASEMAPS, HOME, WINDOWS } from "./config.js";
+import { APP, BASEMAPS, HOME, WINDOWS, versionInfo } from "./config.js";
 import { $, isoDate, addDays, on, once, debounce, emit } from "./util.js";
 import { initMap, loadTileManifest, isTiled, map, setBasemap, setLayerVisible, setQpeWindow, setTerrainVisible, setTerrainOpacity } from "./map.js";
 import { TERRAIN, terrainLegendHtml } from "./terrain.js";
@@ -25,7 +25,7 @@ import { initFema, setFemaEnabled, femaLegendHtml } from "./fema.js";
 import { initCrossings, setCrossingsEnabled, crossingsLegendHtml } from "./crossings.js";
 import { initWells, setWellsEnabled, wellsLegendHtml } from "./wells.js";
 import { LocateControl } from "./locate.js";
-import { renderSources } from "./sources.js";
+import { renderSources, wipNoteHtml } from "./sources.js";
 import { initWlssd } from "./wlssd.js";
 import { MeasureControl } from "./measure.js";
 import { CompareControl } from "./compare.js";
@@ -326,7 +326,13 @@ async function checkBuild() {
   } catch { return false; }
 }
 
+// Version and work-in-progress notice: footer label and the top of the help guide
+function showVersion() {
+  const v = versionInfo(); const f = $("foot-wip"); if (f) f.textContent = v.label;
+  const g = $("wip-guide"); if (g) g.innerHTML = wipNoteHtml();
+}
 async function boot() {
+  showVersion();
   if (await checkBuild()) return;
   buildControls();
   await loadTileManifest(); // which overlay groups draw from vector tiles (a missing manifest means GeoJSON snapshots)

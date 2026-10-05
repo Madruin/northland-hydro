@@ -4,8 +4,8 @@
 export const APP = {
   name: "Northland Eco",
   userAgent: "northland-hydro (valeromatias@gmail.com)", // NWS asks for a contact UA
-  version: "0.1.0",
-  build: "20261005-1618-89c0ec5",
+  version: "0.2.0", // shared beta with TSA3 staff and partners (2026-10-05)
+  build: "20261005-1639-04c872d",
 };
 
 // Working extent: MN SWCD TSA3 counties plus a margin (W, S, E, N)
@@ -122,3 +122,10 @@ export const BASEMAPS = {
   img1991: { group: "Imagery by year", label: "1991 USGS black & white", style: imagery("doq", "USGS 1991 DOQ via MnGeo") },
 };
 
+
+// "Work in progress" label with the version and the date of the last release (from the build stamp, UTC date)
+export function versionInfo() {
+  const m = /^(\d{4})(\d{2})(\d{2})/.exec(APP.build || "");
+  const updated = m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], 12)).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : null;
+  return { version: APP.version, updated, label: `Work in progress · v${APP.version}${updated ? ` · updated ${updated}` : ""}` };
+}
