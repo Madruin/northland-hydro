@@ -48,6 +48,18 @@ async function refresh() {
   renderList();
 }
 
+// Password box with an eye button that shows or hides what was typed
+const EYE = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const EYE_OFF = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.6 5.1A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-2.4 3.3M6.6 6.6A16.6 16.6 0 0 0 2 12s3.5 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/><path d="M3 3l18 18"/></svg>`;
+const pwBox = (attrs) => `<span class="pw-wrap"><input type="password" ${attrs} /><button type="button" class="pw-eye" aria-label="Show password" title="Show password" aria-pressed="false">${EYE}</button></span>`;
+function wireEyes(root) {
+  root.querySelectorAll(".pw-eye").forEach((b) => b.onclick = () => {
+    const i = b.previousElementSibling; const show = i.type === "password";
+    i.type = show ? "text" : "password"; b.innerHTML = show ? EYE_OFF : EYE; b.setAttribute("aria-pressed", String(show));
+    b.title = show ? "Hide password" : "Show password"; b.setAttribute("aria-label", b.title); i.focus();
+  });
+}
+
 // ---------- views ----------
 function renderSignIn() {
   const c = $("tab-projects");
@@ -58,12 +70,13 @@ function renderSignIn() {
       <div id="pj-msg" class="small"></div>
       <div id="pj-otp" ${pendingEmail ? "" : "hidden"}><label>Code from the email<input id="pj-code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="6 digits" /></label><div class="actions"><button type="button" class="btn primary" id="pj-verify">Sign in with code</button></div></div>
       <details id="pj-pw-wrap" ${pendingEmail ? "" : "open"}><summary class="small" style="cursor:pointer">Or sign in with a password</summary>
-        <label>Password<input id="pj-pw" name="password" type="password" autocomplete="current-password" /></label>
+        <label>Password${pwBox('id="pj-pw" name="password" autocomplete="current-password"')}</label>
         <div class="actions"><button type="button" class="btn" id="pj-pw-go">Sign in with password</button></div></details>
     </form>
     <div class="small">Use the code, not the link: work mailboxes often pre-open links for security scanning, which uses them up before you can click. Access is limited to emails on the team allowlist; ask Matías to add yours. Partner agency staff see the projects they have been added to.</div>`;
   // A real <form> scopes the browser's password autofill to these fields (without one, the whole page counts as
   // the login form and the search box gets offered the saved username). Enter runs the step you are on.
+  wireEyes(c);
   $("pj-login").onsubmit = (e) => { e.preventDefault(); const a = document.activeElement?.id; (a === "pj-code" ? $("pj-verify") : a === "pj-pw" ? $("pj-pw-go") : $("pj-send")).click(); };
   $("pj-send").onclick = async () => {
     const email = $("pj-email").value.trim();
@@ -295,11 +308,12 @@ function renderAccount() {
   const c = $("tab-projects");
   c.innerHTML = `<div class="actions"><button class="btn" id="pj-back">‹ All projects</button></div><h2>Account</h2>
     <div class="muted">${escapeHtml(user.email)}</div>
-    <form class="form" id="acct-form"><input type="email" name="username" autocomplete="username" value="${escapeHtml(user.email)}" hidden readonly /><label>New password <span class="small">(8+ characters)</span><input id="acct-pw" name="new-password" type="password" autocomplete="new-password" /></label>
-      <label>Repeat<input id="acct-pw2" type="password" autocomplete="new-password" /></label>
+    <form class="form" id="acct-form"><input type="email" name="username" autocomplete="username" value="${escapeHtml(user.email)}" hidden readonly /><label>New password <span class="small">(8+ characters)</span>${pwBox('id="acct-pw" name="new-password" autocomplete="new-password"')}</label>
+      <label>Repeat${pwBox('id="acct-pw2" autocomplete="new-password"')}</label>
       <div class="actions"><button type="button" class="btn primary" id="acct-save">Set password</button></div><div id="acct-msg" class="small"></div></form>
     <div class="small">A password lets you sign in without waiting for an email. Emailed codes keep working too.</div>`;
   $("pj-back").onclick = () => renderList();
+  wireEyes(c);
   $("acct-form").onsubmit = (e) => { e.preventDefault(); $("acct-save").click(); };
   $("acct-save").onclick = async () => {
     const a = $("acct-pw").value, b = $("acct-pw2").value;
