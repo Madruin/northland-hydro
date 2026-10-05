@@ -13,6 +13,13 @@ if (!doc) root.innerHTML = `<p>No report data found. Open Northland Eco, choose 
 else if (doc.style === "simple") renderSimple(doc);
 else render(doc);
 
+document.getElementById("btn-docx").onclick = async (e) => {
+  if (!doc) return; const b = e.currentTarget; const label = b.textContent; b.disabled = true; b.textContent = "Building Word file…";
+  const base = `${doc.style === "simple" ? "watershed_summary" : "site_report"}_${(doc.project?.name || `${f(doc.point.lat, 4)}_${f(doc.point.lon, 4)}`).replace(/[^a-z0-9.-]+/gi, "_")}_${(doc.generatedAt || "").slice(0, 10)}`;
+  try { const { downloadDocx } = await import("./report-docx.js"); await downloadDocx(root, base + ".docx"); }
+  catch (err) { alert("Word export failed: " + err.message); console.error(err); }
+  finally { b.disabled = false; b.textContent = label; }
+};
 document.getElementById("btn-json").onclick = () => {
   const blob = new Blob([JSON.stringify(doc, null, 1)], { type: "application/json" });
   const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `hydrology_${(doc.project?.name || "point").replace(/[^a-z0-9]+/gi, "_")}_${doc.window.endDate}.json`; a.click();
@@ -160,44 +167,51 @@ function curveTable(c, da, full) {
 }
 function kindLabel(k) { return { stream: "Stream restoration", culvert: "Culvert / fish passage", shoreline: "Shoreline / bluff", stormwater: "Stormwater", dam: "Dam / outlet", other: "Other" }[k] || k; }
 
-// Simplified report for landowners: one page, plain language, every number explained.
+// Simplified report: the site facts, the watershed map, and one table of values with units and numbered sources.
 function renderSimple(d) {
   document.title = `Watershed summary${d.project ? " — " + d.project.name : ""} — Northland Eco`;
-  const q = (code) => { for (const sg of d.watershed?.flows || []) for (const rr of sg.regressionRegions || []) for (const r of rr.results || []) if (r.code === code) return r; return null; };
+  const q = (code) => { for (const sg of d.watershed?.flows || []) for (const rr of sg.regressionRegions || []) for (const r of rr.results || []) if (r.code === code) return { ...r, region: rr.name }; return null; };
   const pk100 = q("PK1AEP");
   const ws = d.watershed;
   const slope = ws?.bc?.find((b) => b.code === "BSLDEM10M");
   const curve = d.regional?.chosen; const row = curve?.rows?.find((r) => r.type === "C") || curve?.rows?.[0];
-  const acres = ws ? Number((ws.da * 640).toPrecision(3)) : null;
   const huc = (lvl) => d.point.hucs?.find((h) => (h.level || "").startsWith(lvl));
-  const h12 = huc("HUC-12") || d.point.hucs?.[d.point.hucs.length - 1], h8 = huc("HUC-8") || d.point.hucs?.[0];
-  const gpm = pk100 ? Number((pk100.value * 448.8).toPrecision(2)) : null;
+  const h12 = huc("HUC-12"), h8 = huc("HUC-8");
+  const region = pk100?.region?.match(/Peakflow_([A-Z])_/i)?.[1];
   const s = d.soils;
-  const SOIL_PLAIN = { A: "sandy or gravelly soils where rain soaks in quickly", B: "loamy soils where rain soaks in at a moderate rate", C: "finer soils where rain soaks in slowly", D: "clay soils, wet soils or soil over shallow bedrock, where little rain soaks in" };
-  const card = (title, value, unit, text) => `<div class="card"><div class="card-h">${title}</div><div class="card-v">${value}<span class="card-u">${unit}</span></div><p>${text}</p></div>`;
-  const cards = [];
-  if (ws) cards.push(card("Drainage area", f(ws.da, 2), " square miles", `About ${n(acres)} acres of land drain to this spot: rain or snowmelt anywhere inside the outlined area on the map flows downhill through the stream to the site.`));
-  if (pk100) cards.push(card("100-year flood flow", n(pk100.value), " cubic feet per second", `A flood this large has about a <b>1-in-100 chance of happening in any given year</b>. It is not a flood that comes once every 100 years; it can happen in back-to-back years. One cubic foot per second is about 450 gallons per minute, so this flow is roughly ${n(gpm)} gallons per minute.${pk100.intervalBounds ? ` Because it is estimated from similar streams, the true value is likely between ${n(pk100.intervalBounds.lower)} and ${n(pk100.intervalBounds.upper)} cubic feet per second.` : ""}`));
-  if (row) cards.push(card("Bankfull channel width", f(row.width, 1), " feet", `The width of the stream when it runs full to the top of its banks, just before water spills onto the floodplain. Streams typically reach this level every year or two, and it sets the size of the channel. This is an estimate from surveys of similar streams in the region${row.depth != null ? ` (about ${f(row.depth, 1)} ft deep at that level)` : ""}; a field survey confirms it.`));
-  if (s) cards.push(card("Soils", `Group ${s.group}`, s.pct != null ? ` · ${s.pct}% of the watershed` : "", `Most of the watershed has soil group ${s.group}: ${SOIL_PLAIN[s.group] || s.note}. Soil groups run from A, where most rain soaks into the ground, to D, where most of it runs off into the stream. The watershed overall: ${s.split.filter((x) => x.pct > 0).map((x) => `${x.g} ${x.pct}%`).join(", ")}.${s.dual > 0.05 ? " Some of these soils are wet only because they are poorly drained; drained, they would absorb more." : ""}`));
-  if (slope) cards.push(card("Average land slope", f(slope.value, 1), " percent", `The average steepness of the land in the watershed. ${f(slope.value, 0)}% means about ${f(slope.value, 0)} feet of drop for every 100 feet across. Steeper land sends rain to the stream faster, which raises flood peaks.`));
+  const facts = [
+    ["Location", `${f(d.point.lat, 5)}, ${f(d.point.lon, 5)} (decimal degrees)`],
+    d.point.utmFt ? ["UTM 15N NAD83, US ft", `${n(d.point.utmFt[0])} E, ${n(d.point.utmFt[1])} N`] : null,
+    d.point.elevFt != null ? ["Ground elevation", `${f(d.point.elevFt, 1)} ft NAVD88`] : null,
+    h12 ? ["Subwatershed (HUC-12)", `${esc(h12.name)} · ${esc(h12.code)}`] : null,
+    h8 ? ["Basin (HUC-8)", `${esc(h8.name)} · ${esc(h8.code)}`] : null,
+    d.point.cover ? ["Land cover at the site", `${esc(d.point.cover.name)} (NLCD 2021)`] : null,
+    ["Prepared", `${dt(d.generatedAt)}${d.generatedBy ? ` · ${esc(d.generatedBy)}` : ""}`],
+  ].filter(Boolean);
+  // numbered sources, in order of first use
+  const refs = []; const ref = (key, text) => { let i = refs.findIndex((r) => r.key === key); if (i < 0) { refs.push({ key, text }); i = refs.length - 1; } return `[${i + 1}]`; };
+  const SS = () => ref("ss", `USGS StreamStats (streamstats.usgs.gov), basin delineation and characteristics${ws?.retrievedAt ? `, retrieved ${dt(ws.retrievedAt)}` : ""}.`);
+  const rows = [];
+  if (ws) rows.push(["Drainage area", f(ws.da, 2), "mi²", SS()]);
+  if (pk100) rows.push(["100-year (1% annual chance) peak flow", `${n(pk100.value)}${pk100.intervalBounds ? `<div class="sub">90% prediction interval ${n(pk100.intervalBounds.lower)}–${n(pk100.intervalBounds.upper)}</div>` : ""}`, "cfs",
+    SS() + " " + ref("sir", `Sanocki, C.A., and Levin, S.B., 2023, Techniques for estimating the magnitude and frequency of peak flows on small streams in Minnesota, excluding the Rainy River basin, based on data through water year 2019: USGS Scientific Investigations Report 2023-5079${region ? `; regression region ${region}` : ""}.`)]);
+  if (row) rows.push(["Bankfull channel width", f(row.width, 1), "ft", ref("curve", `TSA3 regional curve: ${esc(curve.curveName)}${curve.sourceFile ? ` (${esc(curve.sourceFile)}${curve.sourceModified ? `, ${esc(curve.sourceModified)}` : ""})` : ""}${curve.rows.length > 1 ? `; Rosgen ${esc(row.type)} channel` : ""}.`)]);
+  if (s) rows.push(["Hydrologic soil group (dominant)", `${s.group} · ${esc(s.note)}<div class="sub">${s.pct != null ? `${s.pct}% of the watershed; ` : ""}A ${s.split[0].pct}% · B ${s.split[1].pct}% · C ${s.split[2].pct}% · D ${s.split[3].pct}%</div>`, "–", ref("ssurgo", "USDA-NRCS Soil Survey Geographic Database (SSURGO) via Soil Data Access; dominant component's group, area-weighted over the watershed (dual groups counted as undrained).")]);
+  if (slope) rows.push(["Mean basin slope", f(slope.value, 1), "percent", SS()]);
+  const other = [];
+  if (d.point.cover) other.push("Land cover: USGS/MRLC National Land Cover Database 2021.");
+  if (d.point.elevFt != null) other.push(`Ground elevation: MnTOPO lidar (${esc(d.point.elevSrc || "MN DNR")}).`);
+  if (h12) other.push("Watershed names and codes: USGS Watershed Boundary Dataset.");
+  other.push("Map: © OpenFreeMap, OpenMapTiles, OpenStreetMap contributors; watershed boundary from USGS StreamStats.");
   root.innerHTML = `
     <h1>Watershed summary${d.project ? `: ${esc(d.project.name)}` : ""}</h1>
-    <div class="meta simple-meta">
-      <div><b>Location:</b> ${f(d.point.lat, 5)}° N, ${f(Math.abs(d.point.lon), 5)}° W${d.project?.location_note ? ` (${esc(d.project.location_note)})` : ""}${d.point.elevFt != null ? ` · ground elevation about ${n(d.point.elevFt)} ft above sea level` : ""}</div>
-      ${h12 ? `<div><b>Watershed:</b> ${esc(h12.name)}${h8 && h8 !== h12 ? `, part of the ${esc(h8.name)} basin` : ""}</div>` : ""}
-      ${d.point.cover ? `<div><b>Land cover at the site:</b> ${esc(d.point.cover.name.toLowerCase())}</div>` : ""}
-      <div><b>Prepared:</b> ${date(d.generatedAt)}${d.generatedBy ? ` by ${esc(d.generatedBy)}` : ""}, MN SWCD Technical Service Area 3</div>
-    </div>
-    ${d.mapImage ? `<img class="map" src="${d.mapImage}" alt="Map of the watershed" /><div class="small">${d.mapMode === "watershed" ? "The shaded, outlined area is the watershed: all the land that drains to the site (blue dot)." : "Map of the site (blue dot)."}</div>` : ""}
-    <div class="cards">${cards.join("")}</div>
-    <h2 class="simple-h2">Where these numbers come from</h2>
-    <ul class="simple-src">
-      <li><b>Drainage area, slope and the 100-year flood flow:</b> USGS StreamStats, the U.S. Geological Survey's online tool, which traces the watershed from elevation data and estimates flood flows with equations fitted to stream gauges across Minnesota (Sanocki and Levin, USGS Scientific Investigations Report 2023-5079).</li>
-      ${row ? `<li><b>Bankfull channel width:</b> TSA3 regional curves, built from surveys of stream channels in northeastern Minnesota (${esc(curve.curveName)}).</li>` : ""}
-      ${s ? `<li><b>Soils:</b> USDA Natural Resources Conservation Service soil survey (SSURGO), averaged over the watershed.</li>` : ""}
-      ${d.point.cover ? `<li><b>Land cover:</b> USGS National Land Cover Database, 2021.</li>` : ""}
-      <li><b>Map:</b> © OpenFreeMap, OpenMapTiles and OpenStreetMap contributors; watershed from USGS StreamStats.</li>
-    </ul>
-    <p class="small">These are planning estimates from public data, not a survey or a regulatory determination; your conservation district can explain how they apply to a project. Northland Eco (northland.eco), MN SWCD Technical Service Area 3 · matiasvalero@tsa3.org.</p>`;
+    <table class="kv"><tbody>${facts.map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join("")}</tbody></table>
+    ${d.mapImage ? `<img class="map" src="${d.mapImage}" alt="Map" /><div class="small">${d.mapMode === "watershed" ? "Delineated watershed (outlined) and site (blue dot)." : "Map view at the site (blue dot)."}</div>` : ""}
+    <h2>Watershed characteristics</h2>
+    <table class="vals"><thead><tr><th>Parameter</th><th class="num">Value</th><th>Units</th><th>Source</th></tr></thead>
+      <tbody>${rows.map(([p, v, u, src]) => `<tr><td>${p}</td><td class="num">${v}</td><td>${u}</td><td>${src}</td></tr>`).join("")}</tbody></table>
+    <h2>Sources</h2>
+    <ol class="sources">${refs.map((r) => `<li>${r.text}</li>`).join("")}</ol>
+    <p class="small">${other.join(" ")}</p>
+    <p class="small">Planning-level estimates from public data; not a survey or regulatory determination. Northland Eco (northland.eco) · MN SWCD Technical Service Area 3 · matiasvalero@tsa3.org</p>`;
 }

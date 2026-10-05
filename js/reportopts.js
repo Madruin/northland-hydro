@@ -54,7 +54,7 @@ export function chooseReportOptions({ lon, lat, ws }) {
         <h4>Report type</h4>
         <div class="rpt-style">
           <label><input type="radio" name="rpt-style" value="detailed"> <span><b>Detailed</b> · choose the sections below; tables, sources and methods for engineers and agencies</span></label>
-          <label><input type="radio" name="rpt-style" value="simple" ${ws?.da && !ws.manual ? "" : "disabled"}> <span><b>Simplified for landowners</b> · one page in plain language: the watershed map, drainage area, 100-year flood flow, bankfull channel width, soils and slope, each explained${ws?.da && !ws.manual ? "" : ` <span class="small">(delineate the watershed first)</span>`}</span></label>
+          <label><input type="radio" name="rpt-style" value="simple" ${ws?.da && !ws.manual ? "" : "disabled"}> <span><b>Simplified</b> · one page: site facts, the watershed map, and a table of drainage area, 100-year peak flow, bankfull width, soil group and basin slope with their sources${ws?.da && !ws.manual ? "" : ` <span class="small">(delineate the watershed first)</span>`}</span></label>
         </div>
         <h4>Map on the first page</h4>
         <div class="rpt-map">

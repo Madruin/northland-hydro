@@ -1,5 +1,5 @@
 {
- "build": "20261005-1546-1f37aff",
+ "build": "20261005-1601-2c88dc3",
  "files": [
   "css/app.css",
   "css/report.css",
@@ -45,6 +45,7 @@
   "js/qpelegend.js",
   "js/recent.js",
   "js/regional.js",
+  "js/report-docx.js",
   "js/report-view.js",
   "js/report.js",
   "js/reportopts.js",

@@ -61,15 +61,12 @@ ol.sources li { margin: 2px 0; }
 .sec .asof { font-size: 8pt; color: var(--muted); font-style: italic; margin-top: 2px; }
 .sec details > summary { font-weight: 600; font-size: 9.5pt; list-style: none; }
 
-/* Simplified (landowner) report */
-.simple-meta { font-size: 10.5pt; color: var(--ink); line-height: 1.5; }
-.simple-meta b { color: var(--muted); font-weight: 600; }
-.cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0; }
-.card { border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 4px; padding: 8px 12px; page-break-inside: avoid; }
-.card-h { font-size: 9pt; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); }
-.card-v { font-size: 20pt; font-weight: 700; line-height: 1.15; }
-.card-u { font-size: 10pt; font-weight: 400; color: var(--muted); }
-.card p { margin: 4px 0 0; font-size: 9.5pt; line-height: 1.4; }
-.simple-h2 { margin-top: 14px; }
-.simple-src { font-size: 9.5pt; padding-left: 18px; margin: 4px 0; }
-.simple-src li { margin: 3px 0; }
+/* Simplified report: facts table, map, values table */
+table.kv { width: auto; min-width: 60%; font-size: 10pt; margin: 6px 0 10px; }
+table.kv th { border: none; padding: 1px 14px 1px 0; color: var(--muted); font-weight: 600; white-space: nowrap; vertical-align: top; }
+table.kv td { border: none; padding: 1px 0; }
+table.vals { font-size: 10.5pt; }
+table.vals th { background: var(--band); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+table.vals td { padding: 5px 6px; vertical-align: top; }
+table.vals td.num { font-size: 12pt; font-weight: 700; white-space: normal; }
+table.vals .sub { font-size: 8.5pt; font-weight: 400; color: var(--muted); }
