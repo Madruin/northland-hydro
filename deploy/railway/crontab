@@ -1,0 +1,7 @@
+# Times are UTC (same as the old GitHub Actions schedules)
+# WLSSD rain gauges, hourly
+12 * * * * /app/run_job.sh wlssd
+# Layer snapshots on the 1st (~4 AM Central), then the vector tiles
+17 9 1 * * /app/run_job.sh snapshots
+# Source freshness check on the 2nd
+41 10 2 * * /app/run_job.sh freshness

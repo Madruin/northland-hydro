@@ -1,0 +1,30 @@
+{
+	admin off
+	auto_https off
+}
+
+:{$PORT:8080} {
+	# Data the scheduled jobs refresh: served from the volume when present, else from the copy in the image
+	@live {
+		path /data/wlssd.json /data/freshness.json /data/layers/* /data/tiles/*
+		file {
+			root /vol
+			try_files {path}
+		}
+	}
+	@compressible not path /data/tiles/*
+	encode @compressible zstd gzip
+	header /data/tiles/* Cache-Control "public, max-age=3600"
+	header /data/wlssd.json Cache-Control "no-cache"
+	header /data/freshness.json Cache-Control "no-cache"
+	header /version.json Cache-Control "no-cache"
+
+	handle @live {
+		root * /vol
+		file_server
+	}
+	handle {
+		root * /srv
+		file_server
+	}
+}

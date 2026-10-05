@@ -1,5 +1,5 @@
 {
- "build": "20260929-1848-4ae0376",
+ "build": "20261005-1523-677137d",
  "files": [
   "css/app.css",
   "css/report.css",
@@ -47,6 +47,7 @@
   "js/regional.js",
   "js/report-view.js",
   "js/report.js",
+  "js/reportopts.js",
   "js/runoff.js",
   "js/search.js",
   "js/soils.js",

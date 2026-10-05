@@ -291,6 +291,8 @@ function starImage(size = 32) {
 }
 let basinFeatures = [];
 function basinGeo() { return { type: "FeatureCollection", features: basinFeatures }; }
+// Draw a basin outline without moving the map (the report dialog frames it itself)
+export function drawBasin(f) { basinFeatures = f ? [f.type === "Feature" ? f : { type: "Feature", geometry: f, properties: {} }] : []; if (map && map.getSource("basin")) map.getSource("basin").setData(basinGeo()); }
 export function setBasin(polygonFeature, pourpointFeature) {
   basinFeatures = polygonFeature ? [polygonFeature] : [];
   if (map && map.getSource("basin")) map.getSource("basin").setData(basinGeo());

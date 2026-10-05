@@ -169,8 +169,8 @@ export function openProject(id) {
     try {
       let analysis = null;
       try { const list = await db.listAnalyses(p.id); if (list[0]) analysis = await db.getAnalysis(list[0].id); } catch {}
-      await openReport({ lon: p.lon, lat: p.lat, project: p, analysis, onStatus: (t) => (m.textContent = t) });
-      m.textContent = analysis ? "" : "No saved watershed analysis; report covers rainfall, gauges, forecast and design storms.";
+      const built = await openReport({ lon: p.lon, lat: p.lat, project: p, analysis, onStatus: (t) => (m.textContent = t) });
+      m.textContent = built && !analysis ? "No saved watershed analysis; the report covers rainfall, gauges, forecast and design storms." : "";
     } catch (e) { m.textContent = "Report failed: " + e.message; }
   };
   c.querySelectorAll("tr[data-sid]").forEach((tr) => tr.addEventListener("click", () => emit("select:station", { sid: tr.dataset.sid })));

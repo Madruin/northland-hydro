@@ -10,7 +10,7 @@ import * as nws from "./api/nws.js";
 import * as atlas from "./api/atlas14.js";
 import { loadCurves, compute, curves, suggestCurve } from "./regional.js";
 import { getLiveState, analysisToState } from "./watershed.js";
-import { snapshot } from "./map.js";
+import { chooseReportOptions } from "./reportopts.js";
 import { authState } from "./projects.js";
 import { APP, ENDPOINTS } from "./config.js";
 import { toUtm, utmFeet } from "./coords.js";
@@ -30,7 +30,8 @@ function maxRun(rows, n) {
 }
 
 // Build the report document. `analysis` (optional) is a saved hydro_project_analyses row; otherwise live watershed state is used if present.
-export async function buildReport({ lon, lat, project = null, analysis = null, onStatus = () => {}, mapImage: preShot }) {
+export async function buildReport({ lon, lat, project = null, analysis = null, onStatus = () => {}, mapImage = null, mapMode = "view", include = null }) {
+  const has = (k) => !include || include.includes(k); // which sections the user chose (all when called without a choice)
   const endDate = precipWindow.endDate, days = precipWindow.days;
   const auth = authState();
   const now = new Date();
@@ -40,7 +41,7 @@ export async function buildReport({ lon, lat, project = null, analysis = null, o
   await Promise.all([atlas.loadAtlas14(), loadCurves()]);
   const a14 = atlas.nearest(lat, lon);
   let prism = null, normals = null, wx = null, pointAlerts = [];
-  try {
+  if (has("rain-prism")) try {
     const sdate = addDays(endDate, -364);
     const [daily, nn] = await Promise.all([acis.gridDaily({ lon, lat, sdate, edate: endDate }), acis.normalsNear({ lon, lat, endDate, days: 30 })]);
     const valid = daily.filter((r) => r.pcpn != null);
@@ -54,8 +55,8 @@ export async function buildReport({ lon, lat, project = null, analysis = null, o
       daily90: daily.filter((r) => r.date >= addDays(endDate, -89)) };
     normals = nn.map((s) => ({ ...s, km: haversineKm(lat, lon, s.lat, s.lon) })).filter((s) => s.total != null && s.missing <= 3).sort((a, b) => a.km - b.km)[0] || null;
   } catch (e) { console.warn("report: ACIS grid failed", e); }
-  onStatus("Collecting forecast…");
-  try {
+  if (has("forecast")) onStatus("Collecting forecast…");
+  if (has("forecast")) try {
     const p = await nws.pointInfo(lat, lon);
     const [periods, qpf, al] = await Promise.all([nws.forecast(p), nws.gridQpf(p), nws.activeAlerts({ point: [lat, lon] }).catch(() => [])]);
     const sum = (h) => qpf.values.filter((v) => v.start.getTime() < Date.now() + h * 3600e3 && v.start.getTime() + v.hours * 3600e3 > Date.now()).reduce((s, v) => s + v.inches, 0);
@@ -73,16 +74,15 @@ export async function buildReport({ lon, lat, project = null, analysis = null, o
   onStatus("Site location details…");
   const [elev, hucs, cover] = await Promise.all([pointElevation(lon, lat).catch(() => null), hucsAt(lon, lat).catch(() => []), landCoverAt(lon, lat).catch(() => null)]);
   const [ue, un] = toUtm(lon, lat); const uf = utmFeet(lon, lat);
-  onStatus("Capturing map…");
-  const mapImage = preShot !== undefined ? preShot : await snapshot();
-  const sections = captureSections(lon, lat);
+  const sections = captureSections(lon, lat).filter((s) => has(s.id));
   const doc = {
     app: `${APP.name} ${APP.version}`, generatedAt: now.toISOString(), generatedBy: auth.user?.email || null,
     permalink: location.href,
     point: { lat, lon, utmM: [ue, un], utmFt: [uf.e, uf.n], elevFt: elev?.ft ?? null, elevSrc: elev?.src || null,
       hucs: hucs.map((h) => ({ level: h.level.label, code: h.code, name: h.name, sqmi: h.sqmi })),
       cover: cover ? { code: cover.code, name: cover.name, tr55: cover.tr55, year: NLCD_YEAR } : null },
-    watershedExtras: captureWatershedExtras(lon, lat),
+    watershedExtras: captureWatershedExtras(lon, lat).filter((s) => has(s.id)),
+    include: include || null, mapMode,
     project: project ? { id: project.id, name: project.name, kind: project.kind, status: project.status, county: project.county, swcd: project.swcd, notes: project.notes, location_note: project.location_note } : null,
     window: { endDate, days, startDate: addDays(endDate, -(days - 1)) },
     stations: near.map((s) => ({ name: s.name, network: s.network, id: s.ids?.["10"] ? "CoCoRaHS " + s.ids["10"] : s.sid, mi: kmToMi(s.km), total: s.total, flag: s.totalFlag, missing: s.missing, normal: s.normal, max1: s.max1, max1Date: s.max1Date, lat: s.lat, lon: s.lon })),
@@ -126,7 +126,8 @@ function captureWatershedExtras(lon, lat) {
   return out;
 }
 // The Point panel's site-condition sections, as rendered (charts, buttons and spinners stripped), for the printed report.
-const REPORT_SECTIONS = ["pt-lake", "pt-crossing", "pt-pwi", "pt-impaired", "pt-fema", "pt-mpca", "pt-easement", "pt-species", "pt-wetland", "pt-parcel", "pt-soils", "pt-wells"];
+// Same order as the Point panel rows (and the report dialog)
+const REPORT_SECTIONS = ["pt-fema", "pt-pwi", "pt-wetland", "pt-impaired", "pt-lake", "pt-crossing", "pt-species", "pt-mpca", "pt-easement", "pt-parcel", "pt-soils", "pt-wells"];
 function captureSections(lon, lat) {
   const c = document.getElementById("tab-point");
   if (!c || c.dataset.pt !== `${lon.toFixed(5)},${lat.toFixed(5)}`) return [];
@@ -143,17 +144,17 @@ function captureSections(lon, lat) {
   return out;
 }
 
+// Print site report: the options dialog picks the sections and the first-page map (and opens the report tab inside
+// its Build click); the report is then built and written to that tab. Returns false when the user cancels.
 export async function openReport(args) {
-  // Snapshot the map first (one frame, while this page is still visible), then open the tab while the click
-  // still counts as a user gesture: building the report takes 5–15 s and a window.open after that is blocked
-  // as a pop-up, and once the new tab has focus this page stops rendering. The tab shows a holding message.
-  args.onStatus?.("Capturing map…");
-  const mapImage = await snapshot();
-  const w = window.open("", "_blank");
-  if (w) { try { w.document.write('<!doctype html><title>Building report…</title><body style="font:15px system-ui;padding:40px;color:#334">Building the site report… this tab fills in when it is ready (usually 5–15 seconds).</body>'); } catch {} }
+  const ws = args.analysis ? analysisToState(args.analysis) : getLiveState(args.lon, args.lat);
+  const opts = await chooseReportOptions({ lon: args.lon, lat: args.lat, ws });
+  if (!opts) return false;
+  const w = opts.win;
   let doc;
-  try { doc = await buildReport({ ...args, mapImage }); } catch (e) { w?.close(); throw e; }
-  try { localStorage.setItem("nh-report", JSON.stringify(doc)); } catch (e) { w?.close(); alert("Report too large for this browser's storage: " + e.message); return; }
+  try { doc = await buildReport({ ...args, mapImage: opts.mapImage, mapMode: opts.mapMode, include: opts.include }); } catch (e) { w?.close(); throw e; }
+  try { localStorage.setItem("nh-report", JSON.stringify(doc)); } catch (e) { w?.close(); alert("Report too large for this browser's storage: " + e.message); return false; }
   if (w && !w.closed) w.location.href = new URL("report.html", location.href).href;
   else if (!window.open("report.html", "_blank")) throw new Error("the browser blocked the report tab; allow pop-ups for this site and try again");
+  return true;
 }
