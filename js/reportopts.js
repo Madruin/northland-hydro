@@ -37,6 +37,34 @@ function availability(ws, lon, lat) {
   return avail;
 }
 const bboxOf = (g) => { let w = 180, s = 90, e = -180, n = -90; const walk = (c) => { if (typeof c[0] === "number") { w = Math.min(w, c[0]); e = Math.max(e, c[0]); s = Math.min(s, c[1]); n = Math.max(n, c[1]); } else c.forEach(walk); }; walk(g.coordinates); return [[w, s], [e, n]]; };
+// Report maps always carry a scale bar (bottom left). The on-screen scale control is HTML, not part of the canvas,
+// so the bar is drawn onto the captured image, measured from the map at the moment of capture (imperial units,
+// like the on-screen bar: feet below half a mile, miles above).
+async function shotWithScale() {
+  const c = map.getCanvas(), cont = map.getContainer();
+  const ratio = c.width / (cont.clientWidth || c.width);                       // canvas pixels per CSS pixel
+  const y = cont.clientHeight - 30;
+  const a = map.unproject([20, y]), b = map.unproject([120, y]);                  // 100 CSS px along the bottom edge
+  const R = 6371008.8, rad = Math.PI / 180, dLat = (b.lat - a.lat) * rad, dLon = (b.lng - a.lng) * rad;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) ** 2;
+  const mPerCss = (2 * R * Math.asin(Math.sqrt(h))) / 100;
+  const src = await snapshot(); if (!src || !mPerCss) return src;
+  const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+  const cv = document.createElement("canvas"); cv.width = img.width; cv.height = img.height; const g = cv.getContext("2d"); g.drawImage(img, 0, 0);
+  const maxFt = mPerCss * 150 * 3.28084;                                           // bar at most ~150 CSS px long
+  let ft, label;
+  if (maxFt >= 2640) { const mi = [0.5, 1, 2, 5, 10, 20, 50, 100].filter((v) => v * 5280 <= maxFt).pop() || 0.5; ft = mi * 5280; label = `${mi} mi`; }
+  else { const f = [10, 20, 50, 100, 200, 300, 500, 1000, 2000].filter((v) => v <= maxFt).pop() || 10; ft = f; label = `${f.toLocaleString()} ft`; }
+  const len = (ft / 3.28084 / mPerCss) * ratio, s = ratio;                          // bar length in image pixels
+  const x0 = 16 * s, barH = 7 * s, yc = img.height - 18 * s;                      // bar, then its label to the right
+  g.font = `600 ${12 * s}px system-ui, sans-serif`; const tw = g.measureText(label).width;
+  g.fillStyle = "rgba(255,255,255,0.88)"; g.fillRect(x0 - 7 * s, yc - barH / 2 - 7 * s, len + tw + 22 * s, barH + 14 * s);
+  g.fillStyle = "#111"; g.fillRect(x0, yc - barH / 2, len / 2, barH);               // alternating black/white halves
+  g.fillStyle = "#fff"; g.fillRect(x0 + len / 2, yc - barH / 2, len / 2, barH);
+  g.strokeStyle = "#111"; g.lineWidth = 1.2 * s; g.strokeRect(x0, yc - barH / 2, len, barH);
+  g.fillStyle = "#111"; g.textBaseline = "middle"; g.fillText(label, x0 + len + 8 * s, yc + 0.5 * s);
+  return cv.toDataURL("image/jpeg", 0.9);
+}
 const idle = (ms = 8000) => new Promise((r) => { const t = setTimeout(r, ms); map.once("idle", () => { clearTimeout(t); r(); }); });
 
 export function chooseReportOptions({ lon, lat, ws }) {
@@ -106,13 +134,13 @@ export function chooseReportOptions({ lon, lat, ws }) {
     };
     // Capture both map images: the current view now, then the whole basin (fit, wait for tiles, capture, restore)
     (async () => {
-      shots.view = await snapshot();
+      shots.view = await shotWithScale();
       if (basin && document.body.contains(box)) {
         $("rpt-prep").textContent = "Preparing the watershed map…";
         const v = { center: map.getCenter(), zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() };
         // The watershed map shows the basin and the site; rain-station dots and gauge symbols are hidden for it
         const hide = ["stations-circle", "stations-label", "gauges-circle", "ov-wlssd"].filter((l) => map.getLayer(l) && map.getLayoutProperty(l, "visibility") !== "none");
-        try { hide.forEach((l) => map.setLayoutProperty(l, "visibility", "none")); drawBasin(basin); map.fitBounds(bboxOf(basin.geometry || basin), { padding: 50, animate: false, maxZoom: 15 }); await idle(); shots.watershed = await snapshot(); }
+        try { hide.forEach((l) => map.setLayoutProperty(l, "visibility", "none")); drawBasin(basin); map.fitBounds(bboxOf(basin.geometry || basin), { padding: 50, animate: false, maxZoom: 15 }); await idle(); shots.watershed = await shotWithScale(); }
         finally { hide.forEach((l) => map.setLayoutProperty(l, "visibility", "visible")); map.jumpTo(v); }
       }
       ready = true; if (!document.body.contains(box)) return;
