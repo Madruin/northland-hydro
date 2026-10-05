@@ -11,6 +11,7 @@ import { renderSavedAnalysis, summarizeAnalysis } from "./watershed.js";
 import { openReport } from "./report.js";
 import { visit } from "./nav.js";
 import { renderFieldRecords, renderPartners } from "./fieldrecords.js";
+import { SWCDS, swcdAt, swcdCounty } from "./swcd.js";
 
 export let projects = [];
 export function authState() { return { user, member, projects }; }
@@ -21,6 +22,7 @@ let pendingEmail = null;
 
 const KINDS = { stream: "Stream restoration", culvert: "Culvert / fish passage", shoreline: "Shoreline / bluff", stormwater: "Stormwater", dam: "Dam / outlet", other: "Other" };
 const STATUSES = { active: "Active", design: "Design", construction: "Construction", monitoring: "Monitoring", on_hold: "On hold", complete: "Complete" };
+const INSPECT_IN = 0.5;
 const STATUS_COLORS = { active: "#38bdf8", design: "#a78bfa", construction: "#f59e0b", monitoring: "#22c55e", on_hold: "#94a3b8", complete: "#64748b" };
 
 export async function initProjects() {
@@ -100,7 +102,9 @@ function projectLive(p) {
   const totals = chosen.map((s) => s.total).filter((v) => v != null);
   const max1 = Math.max(-1, ...chosen.map((s) => s.max1 ?? s.total ?? -1));
   const g = p.gauge_ids?.length ? p.gauge_ids.map(gaugeById).filter(Boolean) : (p.lat != null ? gauges.map((x) => ({ ...x, km: haversineKm(p.lat, p.lon, x.lat, x.lon) })).sort((a, b) => a.km - b.km).slice(0, 1) : []);
-  const alert = p.rain_alert_in != null && max1 >= p.rain_alert_in;
+  // Construction projects are flagged after more than 0.5" in a day: the MPCA construction stormwater permit requires a
+  // site inspection within 24 hours of that much rain.
+  const alert = p.status === "construction" && max1 > INSPECT_IN;
   return { stations: chosen, meanTotal: totals.length ? totals.reduce((a, b) => a + b, 0) / totals.length : null, maxTotal: totals.length ? Math.max(...totals) : null, max1: max1 >= 0 ? max1 : null, gauges: g, alert, days: w.days, endDate: w.endDate };
 }
 
@@ -130,7 +134,7 @@ function card(p) {
   const live = projectLive(p);
   const g = live.gauges[0];
   return `<div class="pcard ${live.alert ? "alert-on" : ""}" data-id="${p.id}">
-    <div class="pcard-head"><span class="dot" style="background:${STATUS_COLORS[p.status] || "#999"}"></span><b>${escapeHtml(p.name)}</b>${live.alert ? `<span class="pill class" style="background:#b91c1c">rain alert</span>` : ""}</div>
+    <div class="pcard-head"><span class="dot" style="background:${STATUS_COLORS[p.status] || "#999"}"></span><b>${escapeHtml(p.name)}</b>${live.alert ? `<span class="pill class" style="background:#b91c1c" title="More than ${INSPECT_IN}&quot; of rain in a day: the construction stormwater permit calls for an inspection within 24 hours">inspect: rain</span>` : ""}</div>
     <div class="small">${escapeHtml(KINDS[p.kind] || p.kind)}${p.county ? " · " + escapeHtml(p.county) : ""}${p.lat == null ? " · <i>no location</i>" : ""}</div>
     <div class="pcard-stats">
       <span>${live.maxTotal != null ? `<b>${fmt(live.maxTotal)}"</b> rain` : "<i>no stations</i>"}</span>
@@ -153,7 +157,7 @@ export function openProject(id) {
     ${p.notes ? `<div class="notice">${escapeHtml(p.notes)}</div>` : ""}
     ${p.tags?.length ? `<div>${p.tags.map((t) => `<span class="pill">${escapeHtml(t)}</span>`).join("")}</div>` : ""}
     <div class="stat-row">
-      <div class="stat ${live.alert ? "bad" : ""}"><div class="v">${live.maxTotal != null ? fmt(live.maxTotal) + '"' : "–"}</div><div class="l">${live.days === 1 ? "rain " + fmtDate(live.endDate) : live.days + "-day rain (max of stations)"}</div><div class="s">${p.rain_alert_in != null ? `alert at ${fmt(p.rain_alert_in)}" in a day` : "no alert threshold"}</div></div>
+      <div class="stat ${live.alert ? "bad" : ""}"><div class="v">${live.maxTotal != null ? fmt(live.maxTotal) + '"' : "–"}</div><div class="l">${live.days === 1 ? "rain " + fmtDate(live.endDate) : live.days + "-day rain (max of stations)"}</div><div class="s">${p.status === "construction" ? (live.alert ? `over ${INSPECT_IN}" in a day: stormwater permit inspection due within 24 h` : `construction: flagged after ${INSPECT_IN}" in a day`) : ""}</div></div>
       <div class="stat"><div class="v">${live.gauges[0] && live.gauges[0].flow != null ? fmtNum(live.gauges[0].flow, live.gauges[0].flow < 10 ? 1 : 0) : "–"}</div><div class="l">cfs at ${live.gauges[0] ? escapeHtml(live.gauges[0].name.split(",")[0]) : "gauge"}</div><div class="s">${live.gauges[0] ? FLOW_CLASSES[live.gauges[0].flowClass].label : ""}</div></div>
     </div>
     <h3>Linked stations</h3>
@@ -209,31 +213,27 @@ function openEditor(p) {
   editing = { ...p };
   showProjectsTab();
   const c = $("tab-projects");
-  const nearS = editing.lat != null ? precipStations.map((s) => ({ ...s, km: haversineKm(editing.lat, editing.lon, s.lat, s.lon) })).sort((a, b) => a.km - b.km).slice(0, 6) : [];
-  const nearG = editing.lat != null ? gauges.map((g) => ({ ...g, km: haversineKm(editing.lat, editing.lon, g.lat, g.lon) })).sort((a, b) => a.km - b.km).slice(0, 6) : [];
+  const nearS = editing.lat != null ? precipStations.map((s) => ({ ...s, km: haversineKm(editing.lat, editing.lon, s.lat, s.lon) })).sort((a, b) => a.km - b.km).filter((s, i) => i < 6 || editing.station_ids?.includes(s.sid)) : [];
+  const nearG = editing.lat != null ? gauges.map((g) => ({ ...g, km: haversineKm(editing.lat, editing.lon, g.lat, g.lon) })).sort((a, b) => a.km - b.km).filter((g, i) => i < 6 || editing.gauge_ids?.includes(g.id)) : [];
   const opt = (obj, cur) => Object.entries(obj).map(([k, v]) => `<option value="${k}" ${k === cur ? "selected" : ""}>${v}</option>`).join("");
-  const counties = COUNTIES.filter((x) => x.tsa3).map((x) => x.name);
+  const swcds = SWCDS.includes(editing.swcd) || !editing.swcd ? SWCDS : [...SWCDS, editing.swcd];
   c.innerHTML = `<h2>${editing.id ? "Edit project" : "New project"}</h2>
     <div class="form">
+      <div class="actions"><button class="btn ${editing.lat == null ? "primary" : ""}" id="f-pick">📍 ${editing.lat == null ? "Pick location on map" : "Move location"}</button><span id="f-pick-msg" class="small">${editing.lat == null ? "Tap the site: district, county, coordinates and nearby stations and gauges fill in." : ""}</span></div>
       <label>Name<input id="f-name" value="${escapeHtml(editing.name || "")}" /></label>
       <div class="row2">
         <label>Kind<select id="f-kind">${opt(KINDS, editing.kind || "stream")}</select></label>
         <label>Status<select id="f-status">${opt(STATUSES, editing.status || "active")}</select></label>
       </div>
-      <div class="row2">
-        <label>County<input id="f-county" list="county-list" value="${escapeHtml(editing.county || "")}" /><datalist id="county-list">${counties.map((n) => `<option value="${n}">`).join("")}</datalist></label>
-        <label>SWCD<input id="f-swcd" value="${escapeHtml(editing.swcd || "")}" /></label>
-      </div>
+      <label>SWCD<select id="f-swcd"><option value="">Choose…</option>${swcds.map((s) => `<option ${s === editing.swcd ? "selected" : ""}>${escapeHtml(s)}</option>`).join("")}</select></label>
       <div class="row2">
         <label>Latitude<input id="f-lat" type="number" step="0.0001" value="${editing.lat ?? ""}" /></label>
         <label>Longitude<input id="f-lon" type="number" step="0.0001" value="${editing.lon ?? ""}" /></label>
       </div>
-      <div class="actions"><button class="btn" id="f-pick">📍 Pick location on map</button><span id="f-pick-msg" class="small"></span></div>
       <label>Location note<input id="f-locnote" value="${escapeHtml(editing.location_note || "")}" placeholder="e.g. approximate, verify" /></label>
-      <label>Rain alert threshold, 1-day inches<input id="f-alert" type="number" step="0.1" value="${editing.rain_alert_in ?? ""}" placeholder="e.g. 1.0" /></label>
-      <label>Stations to watch <span class="small">(nearest first; none checked = 3 nearest reporting)</span></label>
+      <label>Stations to watch <span class="small">(nearest first; the 3 nearest reporting are checked when the location is set)</span></label>
       <div class="checks">${nearS.map((s) => `<label class="chk"><input type="checkbox" name="stn" value="${escapeHtml(s.sid)}" ${editing.station_ids?.includes(s.sid) ? "checked" : ""}/> ${escapeHtml(s.name)} <span class="small">${fmt(kmToMi(s.km), 1)} mi</span></label>`).join("") || "<span class='small'>Set a location first.</span>"}</div>
-      <label>Gauges to watch <span class="small">(none checked = nearest)</span></label>
+      <label>Gauges to watch <span class="small">(nearest checked when the location is set)</span></label>
       <div class="checks">${nearG.map((g) => `<label class="chk"><input type="checkbox" name="gag" value="${escapeHtml(g.id)}" ${editing.gauge_ids?.includes(g.id) ? "checked" : ""}/> ${escapeHtml(g.name)} <span class="small">${fmt(kmToMi(g.km), 1)} mi</span></label>`).join("") || "<span class='small'>Set a location first.</span>"}</div>
       <label>Tags <span class="small">(comma separated)</span><input id="f-tags" value="${escapeHtml((editing.tags || []).join(", "))}" /></label>
       <label>Notes<textarea id="f-notes" rows="4">${escapeHtml(editing.notes || "")}</textarea></label>
@@ -241,12 +241,12 @@ function openEditor(p) {
       <div id="f-msg" class="small"></div>
     </div>`;
   $("f-pick").onclick = () => {
-    $("f-pick-msg").textContent = "Click the map…";
-    setPickMode(({ lon, lat }) => {
-      editing.lat = Number(lat.toFixed(5)); editing.lon = Number(lon.toFixed(5));
-      readForm(); openEditor(editing); $("f-pick-msg").textContent = "Location set. Re-check stations/gauges below.";
-    });
+    $("f-pick-msg").textContent = "Tap the map at the site…";
+    if (window.matchMedia("(max-width: 900px)").matches) { const pn = $("panel"); pn.dataset.sheet = "peek"; pn.style.height = ""; pn.classList.remove("open"); } // show the map on a phone
+    setPickMode(({ lon, lat }) => { readForm(); setLocation(lon, lat); });
   };
+  for (const id of ["f-lat", "f-lon"]) $(id).onchange = () => { readForm(); if (editing.lat != null && editing.lon != null) setLocation(editing.lon, editing.lat); };
+  if (editing.lat != null && !editing.swcd) swcdAt(editing.lon, editing.lat).then((s) => { if (s && editing && !$("f-swcd").value) { $("f-swcd").value = s; } }).catch(() => {});
   $("f-cancel").onclick = () => { const id = editing?.id; editing = null; setPickMode(null); id ? openProject(id) : renderList(); };
   $("f-save").onclick = async () => {
     readForm();
@@ -266,13 +266,23 @@ function openEditor(p) {
     catch (e) { $("f-msg").textContent = "Delete failed: " + e.message; }
   };
 }
+// A new location fills in the district, county and the nearest stations and gauges (the form can still change them)
+async function setLocation(lon, lat) {
+  editing.lat = Number(lat.toFixed(5)); editing.lon = Number(lon.toFixed(5));
+  const s = await swcdAt(editing.lon, editing.lat).catch(() => null);
+  editing.swcd = s || editing.swcd; editing.county = swcdCounty(editing.swcd) || editing.county;
+  editing.station_ids = precipStations.filter((x) => !x.missingAll).map((x) => ({ sid: x.sid, km: haversineKm(editing.lat, editing.lon, x.lat, x.lon) })).sort((a, b) => a.km - b.km).slice(0, 3).map((x) => x.sid);
+  editing.gauge_ids = gauges.map((g) => ({ id: g.id, km: haversineKm(editing.lat, editing.lon, g.lat, g.lon) })).sort((a, b) => a.km - b.km).slice(0, 1).map((g) => g.id);
+  openEditor(editing);
+  $("f-pick-msg").textContent = s ? `Location set in ${s}${editing.county ? ` (${editing.county} County)` : ""}; nearest stations and gauge checked below.` : "Location set; it is outside the TSA 3 districts, so choose the SWCD by hand.";
+}
 function readForm() {
   const num = (id) => { const v = $(id).value.trim(); return v === "" ? null : Number(v); };
   Object.assign(editing, {
     name: $("f-name").value.trim(), kind: $("f-kind").value, status: $("f-status").value,
-    county: $("f-county").value.trim() || null, swcd: $("f-swcd").value.trim() || null,
+    swcd: $("f-swcd").value || null, county: swcdCounty($("f-swcd").value) || editing.county || null,
     lat: num("f-lat"), lon: num("f-lon"), location_note: $("f-locnote").value.trim() || null,
-    rain_alert_in: num("f-alert"), notes: $("f-notes").value.trim() || null,
+    notes: $("f-notes").value.trim() || null,
     tags: $("f-tags").value.split(",").map((t) => t.trim()).filter(Boolean),
     station_ids: [...document.querySelectorAll('input[name=stn]:checked')].map((i) => i.value),
     gauge_ids: [...document.querySelectorAll('input[name=gag]:checked')].map((i) => i.value),
@@ -314,8 +324,8 @@ async function renderMembers() {
 }
 
 function exportCsv() {
-  const rows = [["name", "kind", "status", "county", "swcd", "lat", "lon", "location_note", "rain_alert_in", "gauge_ids", "station_ids", "tags", "notes", "updated_at", "updated_by"]];
-  for (const p of projects) rows.push([p.name, p.kind, p.status, p.county, p.swcd, p.lat, p.lon, p.location_note, p.rain_alert_in, (p.gauge_ids || []).join(";"), (p.station_ids || []).join(";"), (p.tags || []).join(";"), p.notes, p.updated_at, p.updated_by]);
+  const rows = [["name", "kind", "status", "county", "swcd", "lat", "lon", "location_note", "gauge_ids", "station_ids", "tags", "notes", "updated_at", "updated_by"]];
+  for (const p of projects) rows.push([p.name, p.kind, p.status, p.county, p.swcd, p.lat, p.lon, p.location_note, (p.gauge_ids || []).join(";"), (p.station_ids || []).join(";"), (p.tags || []).join(";"), p.notes, p.updated_at, p.updated_by]);
   import("./util.js").then((u) => u.downloadCSV("tsa3_projects.csv", rows));
 }
 
