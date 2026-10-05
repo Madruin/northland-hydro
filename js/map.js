@@ -77,8 +77,8 @@ export function initMap({ center = HOME.center, zoom = HOME.zoom, basemap = "lig
     }
     if (pickCallback) { const cb = pickCallback; pickCallback = null; map.getCanvas().style.cursor = ""; cb({ lon: e.lngLat.lng, lat: e.lngLat.lat }); return; }
     const pad = 6, box = [[e.point.x - pad, e.point.y - pad], [e.point.x + pad, e.point.y + pad]];
-    const field = map.queryRenderedFeatures(box, { layers: ["field-photo", "field-pts", "field-trk"].filter((l) => map.getLayer(l)) });
-    if (field.length) { emit("select:field", { id: field[0].properties.id, lngLat: e.lngLat }); return; }
+    const field = map.queryRenderedFeatures(box, { layers: ["field-photo", "field-pts", "field-trk", "team-photo", "team-pts", "team-trk"].filter((l) => map.getLayer(l)) });
+    if (field.length) { emit(field[0].layer.id.startsWith("team-") ? "select:team" : "select:field", { id: field[0].properties.id, lngLat: e.lngLat }); return; }
     const feats = map.queryRenderedFeatures(e.point, { layers: ["projects-symbol", "stations-circle", "gauges-circle"].filter((l) => map.getLayer(l)) });
     if (feats.length) {
       const f = feats[0];
@@ -89,7 +89,7 @@ export function initMap({ center = HOME.center, zoom = HOME.zoom, basemap = "lig
       emit("select:point", { lon: e.lngLat.lng, lat: e.lngLat.lat });
     }
   });
-  for (const layer of ["stations-circle", "gauges-circle", "projects-symbol", "field-pts", "field-photo", "field-trk"]) {
+  for (const layer of ["stations-circle", "gauges-circle", "projects-symbol", "field-pts", "field-photo", "field-trk", "team-pts", "team-photo", "team-trk"]) {
     map.on("mouseenter", layer, () => (map.getCanvas().style.cursor = "pointer"));
     map.on("mouseleave", layer, () => (map.getCanvas().style.cursor = ""));
   }

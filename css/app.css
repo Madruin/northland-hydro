@@ -512,3 +512,21 @@ details.sec.error .sec-s { color: #fca5a5; }
 .wip-note a { color: var(--accent); }
 /* keep every footer item on the footer's single line (taller inline items pushed the text below the clip) */
 #attrib > * { vertical-align: middle; }
+
+/* Field notes team sync and project field records */
+.fd-sync { border: 1px solid var(--line); background: var(--bg3); border-radius: 6px; padding: 8px 10px; margin: 8px 0; display: grid; gap: 6px; }
+.fd-sync label.small { display: grid; gap: 3px; }
+.fd-sync select, .fd-visit { width: 100%; background: var(--bg2); color: var(--fg); border: 1px solid var(--line); border-radius: 4px; padding: 6px; font-size: 13px; }
+.fd-sync .btn { justify-self: start; }
+.fd-sync .chk { display: flex; gap: 6px; align-items: center; }
+.fd-sync-hint { margin: 6px 0; }
+.fd-badge { display: inline-block; margin-right: 4px; color: var(--fg2); }
+.fd-badge.ok { color: #38bdf8; }
+.fr-visit { border-top: 1px solid var(--line); padding: 6px 0; }
+.fr-vhead { font-size: 13px; }
+.fr-vnote { font-size: 12.5px; color: var(--fg2); margin: 2px 0 4px; white-space: pre-wrap; }
+.fr-row { display: flex; gap: 8px; align-items: flex-start; padding: 4px 0; }
+.fr-thumb { width: 48px; height: 48px; object-fit: cover; border-radius: 4px; cursor: zoom-in; flex: none; }
+.fr-ico { width: 48px; text-align: center; font-size: 18px; flex: none; }
+.fr-main { flex: 1; min-width: 0; font-size: 13px; }
+.pt-form label { display: grid; gap: 3px; }

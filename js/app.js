@@ -30,6 +30,7 @@ import { initWlssd } from "./wlssd.js";
 import { MeasureControl } from "./measure.js";
 import { CompareControl } from "./compare.js";
 import { initField, FieldControl } from "./field.js";
+import { initTeamLayer } from "./fieldrecords.js";
 import { initEgg } from "./egg.js";
 import { setHideUnclassified, setShowRetired } from "./gauges.js";
 import { setGaugeFilter, setGaugeRetired } from "./map.js";
@@ -347,6 +348,7 @@ async function boot() {
   const fitLegend = () => { const ctl = document.querySelector(".maplibregl-ctrl-top-left"), wrap = $("map-wrap"); if (ctl && wrap) wrap.style.setProperty("--ctl-h", Math.round(ctl.getBoundingClientRect().bottom - wrap.getBoundingClientRect().top + 10) + "px"); };
   fitLegend(); window.addEventListener("resize", debounce(fitLegend, 150)); map.once("load", fitLegend);
   initField();
+  initTeamLayer();
   initEgg();
   // Cached stations are drawn immediately by loadPrecip; render the Region panel from them too, then replace when fresh data lands.
   on("precip:loaded", ({ stale }) => { if (!stale) return; setStatus("Showing the last cached observations while fresh data loads…", false, true); renderLegend(); renderRegion({ quiet: !!state.selection && state.selection.type !== "region" }); });

@@ -175,14 +175,21 @@ For the future CAD export: the second-generation DEM is also available as 0.5 m 
 
 The rectangle drawn in lon/lat is snapped to a north-up, whole-meter rectangle in UTM so every product shares the same grid. Coordinates and elevations use 1 m = 3937/1200 US survey feet. Verified: the ImageServer returns exactly the requested UTM extent and cell count, so the world file, ASCII grid and contours line up with the GeoTIFF.
 
-## Field notes (points, tracks, photos on the device)
+## Field notes (points, tracks, photos; shared with a team project)
 
-The **Field** tab (also the pin button in the map's left tool column) is built for a phone on site. Everything is stored in the browser's IndexedDB (`nh-field`: `items` for points, tracks and photo metadata; `blobs` for the photo JPEGs), nothing is uploaded, and `navigator.storage.persist()` is requested on the first save. Syncing to team projects is the planned second phase.
+The **Field** tab (also the pin button in the map's left tool column) is built for a phone on site. Everything is stored in the browser's IndexedDB first (`nh-field`: `items` for points, tracks and photo metadata; `blobs` for the photo JPEGs), and `navigator.storage.persist()` is requested on the first save. When signed in, **Upload to team project** (projects listed nearest to the map first) uploads every new note to that project; see Team field records below.
 
 - **Point at my location** watches GPS for up to 8 s (or until three fixes and one at ±4 m or better), drops fixes worse than twice the best, and averages the rest weighted by 1/accuracy². The stated accuracy is the best single fix, because phone GPS errors are correlated and averaging does not shrink them. **Tap to add point** uses the map's pick mode.
 - **Tracks**: `watchPosition` with high accuracy; fixes worse than ±50 m are skipped, and a new vertex needs to be at least 3 m, or half the accuracy, from the last. A gap over 60 s (screen locked, app switched; browsers stop location in the background) starts a new segment. The Wake Lock API keeps the screen on and is re-acquired when the page becomes visible. Each fix is written to IndexedDB as it arrives, so a crash loses nothing; an interrupted track can be continued with ▶. A track that ends within 30 m of its start reports the enclosed area (UTM shoelace). A banner over the map shows recording status and pick-mode instructions while the sheet is collapsed.
 - **Photos** from the gallery (`<input type=file multiple>`): exifr 7.1.3 (loaded on first use) reads GPS latitude/longitude, altitude, `GPSImgDirection` and `DateTimeOriginal`. Don't pass exifr's `pick` option: it stops exifr deriving `latitude`/`longitude`. Each photo is stored as a 1600 px JPEG plus a 360 px thumbnail. Photos without GPS (iOS's photo picker can strip location; the Files picker keeps it) are listed with a **Place** button.
 - **Exports**: KMZ (doc.kml with Points / Tracks / Photos folders, photos embedded under `files/` and shown in the balloons); CAD ZIP (`field_points_PNEZD.csv` for Civil 3D's "PNEZD (comma delimited)" import, `field.dxf` with FIELD_POINTS, FIELD_PHOTOS and FIELD_TRACKS layers, README) in NAD83 UTM 15N US survey feet; CSV of every point, photo and track vertex with UTM feet and lat/lon; GPX 1.1. Point and photo elevations are lidar ground (MnTOPO, NAVD88 ft) fetched at export time and cached on the item; 0 in the PNEZD file where no lidar exists. Track vertices are 2D in CAD.
+
+### Team field records (phase 2, 2026-10-05)
+
+- **Who sees what**: TSA3 staff on the `hydro_members` allowlist see every project's records. On a project page, a member can give a **partner** (agency staff) access by email (`hydro_project_partners`); the partner signs in on the Projects tab with an emailed code and sees a read-only list of only those projects, with their field records, and can add their own notes and photos. Partners can't see other projects, saved analyses or members, or edit projects. Enforced by RLS through `hydro_can_see_project()` (`supabase/migrations/20261005_field_records.sql`).
+- **Sync** (`js/field.js`): a note tagged with a project gets a client-made UUID (`rid`) and the day's visit (one `hydro_field_visits` row per project, day and person, carrying the **visit note**). Uploads run 1.5 s after a change, when the phone comes back online, and every minute after a failure; tracks upload once stopped. Photos go to the private `hydro-field` bucket as `<project>/<rid>.jpg` (1600 px, ~0.4 MB) and `_thumb.jpg`; originals stay with the photographer / team drive. Rows show ⟳ waiting or ☁ uploaded. Deleting an uploaded note deletes it from the project too (queued as a tombstone if offline); **Clear this device** removes only the device copies.
+- **Team layer** (`js/fieldrecords.js`): everyone else's records draw under the device's own (yellow/purple with a blue ring, dashed pink tracks); the popup shows who, when, the project and the photo (signed URL). Toggle with "Show team field records on the map".
+- **Project page → Field records**: visits with their notes, each record with time, accuracy and thumbnail; **Show on map**; delete (members, or the record's author); **Download for shared drive (ZIP)** with `field_records.csv` (lat/lon and UTM 15N US ft), `visits.csv`, `field_records.kml` (opens in Google Earth next to `photos/`), the photos named by date, and a README. The shared drive stays the official record; export at the end of a project.
 
 ## Vector tiles (regional overlays)
 
@@ -246,6 +253,8 @@ js/wells.js           County Well Index wells/borings layer, driller-log point s
 js/basinsoils.js      basin-wide HSG breakdown and composite CN
 js/nav.js             panel history (back/breadcrumbs) and header-tooltip glossary
 js/lakes.js, js/api/dnrlakes.js   DNR LakeFinder levels, OHW, hydrograph, dams inventory outlets
+js/field.js           Field tab: device notes (IndexedDB), GPS averaging, tracks, EXIF photos, exports, team sync
+js/fieldrecords.js    team field records map layer, project Field records section, partner access, shared-drive ZIP
 js/export.js          AOI export: imagery + world file, DEM GeoTIFF/ASCII, DXF contours (UTM 15N US ft)
 tools/build_regional_curves.py, data/regional_curves.json
 js/api/*.js           one thin client per upstream API (incl. supabase.js)

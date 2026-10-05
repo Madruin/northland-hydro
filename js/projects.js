@@ -1,4 +1,5 @@
-// Team project watch list: Supabase-backed, shared by allowlisted members, pinned on the map.
+// Team project watch list: Supabase-backed, shared by allowlisted members, pinned on the map. Partner agency staff
+// (added per project by email) get a read-only list of just their projects, with field records.
 import { COUNTIES } from "./config.js";
 import { $, escapeHtml, fmt, fmtNum, fmtDate, haversineKm, kmToMi, emit, on } from "./util.js";
 import * as db from "./api/supabase.js";
@@ -9,6 +10,7 @@ import { FLOW_CLASSES } from "./config.js";
 import { renderSavedAnalysis, summarizeAnalysis } from "./watershed.js";
 import { openReport } from "./report.js";
 import { visit } from "./nav.js";
+import { renderFieldRecords, renderPartners } from "./fieldrecords.js";
 
 export let projects = [];
 export function authState() { return { user, member, projects }; }
@@ -34,12 +36,13 @@ export async function initProjects() {
   on("select:project", (p) => openProject(p.id));
 }
 
+const announce = () => emit("projects:state", { user, member, projects });
 async function refresh() {
-  if (!user) { projects = []; setProjects(toFC()); renderSignIn(); return; }
+  if (!user) { projects = []; member = false; setProjects(toFC()); announce(); renderSignIn(); return; }
   member = await db.isMember();
-  if (!member) { projects = []; setProjects(toFC()); renderNotMember(); return; }
-  try { projects = await db.listProjects(); } catch (e) { $("tab-projects").innerHTML = `<div class="notice">${escapeHtml(e.message)}</div>`; return; }
-  setProjects(toFC());
+  try { projects = await db.listProjects(); } catch (e) { projects = []; if (member) { $("tab-projects").innerHTML = `<div class="notice">${escapeHtml(e.message)}</div>`; announce(); return; } }
+  setProjects(toFC()); announce();
+  if (!member && !projects.length) { renderNotMember(); return; }
   renderList();
 }
 
@@ -56,7 +59,7 @@ function renderSignIn() {
         <label>Password<input id="pj-pw" name="password" type="password" autocomplete="current-password" /></label>
         <div class="actions"><button type="button" class="btn" id="pj-pw-go">Sign in with password</button></div></details>
     </form>
-    <div class="small">Use the code, not the link: work mailboxes often pre-open links for security scanning, which uses them up before you can click. Access is limited to emails on the team allowlist; ask Matías to add yours.</div>`;
+    <div class="small">Use the code, not the link: work mailboxes often pre-open links for security scanning, which uses them up before you can click. Access is limited to emails on the team allowlist; ask Matías to add yours. Partner agency staff see the projects they have been added to.</div>`;
   // A real <form> scopes the browser's password autofill to these fields (without one, the whole page counts as
   // the login form and the search box gets offered the saved username). Enter runs the step you are on.
   $("pj-login").onsubmit = (e) => { e.preventDefault(); const a = document.activeElement?.id; (a === "pj-code" ? $("pj-verify") : a === "pj-pw" ? $("pj-pw-go") : $("pj-send")).click(); };
@@ -85,7 +88,7 @@ function renderSignIn() {
   $("pj-pw")?.addEventListener("keydown", (e) => { if (e.key === "Enter") $("pj-pw-go").click(); });
 }
 function renderNotMember() {
-  $("tab-projects").innerHTML = `<h2>Team projects</h2><div class="notice">Signed in as ${escapeHtml(user.email)}, but that address is not on the team allowlist yet.</div>
+  $("tab-projects").innerHTML = `<h2>Team projects</h2><div class="notice">Signed in as ${escapeHtml(user.email)}, but that address is not on the team allowlist and hasn't been added to a project as a partner yet.</div>
     <div class="actions"><button class="btn" id="pj-out">Sign out</button></div>`;
   $("pj-out").onclick = () => db.signOut();
 }
@@ -102,7 +105,7 @@ function projectLive(p) {
 }
 
 function renderList() {
-  if (!user || !member) return;
+  if (!user || (!member && !projects.length)) return;
   const c = $("tab-projects");
   visit("projects", "", "Projects", () => { showProjectsTab(); renderList(); });
   const w = precipWindow;
@@ -110,15 +113,17 @@ function renderList() {
   for (const p of projects) (groups[p.status] ||= []).push(p);
   const order = ["active", "construction", "design", "monitoring", "on_hold", "complete"];
   c.innerHTML = `<h2>Team projects <span class="pill">${projects.length}</span></h2>
-    <div class="muted">${escapeHtml(user.email)} · <a href="#" id="pj-out">sign out</a> · <a href="#" id="pj-members">members</a> · <a href="#" id="pj-account">password</a></div>
-    <div class="actions"><button class="btn primary" id="pj-new">+ Add project</button><button class="btn" id="pj-csv">Export CSV</button></div>
+    <div class="muted">${escapeHtml(user.email)} · <a href="#" id="pj-out">sign out</a>${member ? ` · <a href="#" id="pj-members">members</a>` : ""} · <a href="#" id="pj-account">password</a></div>
+    ${member ? `<div class="actions"><button class="btn primary" id="pj-new">+ Add project</button><button class="btn" id="pj-csv">Export CSV</button></div>` : `<div class="notice">Partner access: these are the projects you have been added to. You can view them and add field notes and photos from the Field tab.</div>`}
     <div class="small">Rain totals are ${w.days === 1 ? "for " + fmtDate(w.endDate) : w.days + "-day totals ending " + fmtDate(w.endDate)} at each project's linked stations (or the 3 nearest reporting).</div>
     ${order.filter((s) => groups[s]).map((s) => `<h3>${STATUSES[s]} <span class="pill">${groups[s].length}</span></h3>${groups[s].map(card).join("")}`).join("")}`;
   $("pj-out").onclick = (e) => { e.preventDefault(); db.signOut(); };
-  $("pj-new").onclick = () => openEditor({ status: "active", kind: "stream", gauge_ids: [], station_ids: [], tags: [] });
-  $("pj-members").onclick = (e) => { e.preventDefault(); renderMembers(); };
+  if (member) {
+    $("pj-new").onclick = () => openEditor({ status: "active", kind: "stream", gauge_ids: [], station_ids: [], tags: [] });
+    $("pj-members").onclick = (e) => { e.preventDefault(); renderMembers(); };
+    $("pj-csv").onclick = () => exportCsv();
+  }
   $("pj-account").onclick = (e) => { e.preventDefault(); renderAccount(); };
-  $("pj-csv").onclick = () => exportCsv();
   c.querySelectorAll(".pcard").forEach((el) => el.addEventListener("click", () => openProject(el.dataset.id)));
 }
 function card(p) {
@@ -141,7 +146,7 @@ export function openProject(id) {
   visit("project", id, p.name, () => openProject(id));
   const live = projectLive(p);
   const c = $("tab-projects");
-  c.innerHTML = `<div class="actions"><button class="btn" id="pj-back">‹ All projects</button><button class="btn" id="pj-edit">Edit</button><button class="btn" id="pj-report" ${p.lat == null ? "disabled" : ""}>🖨 Print report</button><span id="pj-report-msg" class="small"></span></div>
+  c.innerHTML = `<div class="actions"><button class="btn" id="pj-back">‹ All projects</button>${member ? `<button class="btn" id="pj-edit">Edit</button>` : ""}<button class="btn" id="pj-report" ${p.lat == null ? "disabled" : ""}>🖨 Print report</button><span id="pj-report-msg" class="small"></span></div>
     <h2><span class="dot" style="background:${STATUS_COLORS[p.status]}"></span> ${escapeHtml(p.name)}</h2>
     <div class="muted">${escapeHtml(KINDS[p.kind] || p.kind)} · ${STATUSES[p.status] || p.status}${p.county ? " · " + escapeHtml(p.county) + " County" : ""}${p.swcd ? " · " + escapeHtml(p.swcd) : ""}</div>
     <div class="small">${p.lat != null ? `${fmt(p.lat, 4)}, ${fmt(p.lon, 4)}` : "No location set"}${p.location_note ? " · " + escapeHtml(p.location_note) : ""}</div>
@@ -155,15 +160,19 @@ export function openProject(id) {
     ${live.stations.length ? `<table class="data"><thead><tr><th>Station</th><th class="num">mi</th><th class="num">in</th><th class="num">max 1-day</th></tr></thead><tbody>${live.stations.map((s) => `<tr class="clickable" data-sid="${escapeHtml(s.sid)}"><td>${escapeHtml(s.name)}</td><td class="num">${s.km != null ? fmt(kmToMi(s.km), 1) : "–"}</td><td class="num">${fmt(s.total)}</td><td class="num">${fmt(s.max1 ?? s.total)}</td></tr>`).join("")}</tbody></table>` : `<div class="notice">Set a location to see nearby stations.</div>`}
     <h3>Linked gauges</h3>
     ${live.gauges.length ? `<table class="data"><thead><tr><th>Gauge</th><th class="num">cfs</th><th class="num">ft</th><th>Class</th></tr></thead><tbody>${live.gauges.map((g) => `<tr class="clickable" data-gid="${escapeHtml(g.id)}"><td>${escapeHtml(g.name)}</td><td class="num">${fmtNum(g.flow, g.flow < 10 ? 1 : 0)}</td><td class="num">${fmt(g.stage)}</td><td><span class="pill class" style="background:${g.color}">${FLOW_CLASSES[g.flowClass].label.split(" (")[0]}</span></td></tr>`).join("")}</tbody></table>` : `<div class="notice">No gauge linked.</div>`}
-    <h3>Saved watershed analyses</h3>
-    <div id="pj-analyses"><div class="spinner">Loading…</div></div>
+    <h3>Field records</h3>
+    <div id="pj-field"></div>
+    ${member ? `<h3>Saved watershed analyses</h3>
+    <div id="pj-analyses"><div class="spinner">Loading…</div></div>` : ""}
     <div class="actions"><button class="btn" id="pj-point">Analyze watershed at this location</button></div>
     <div id="pj-analysis-view"></div>
+    ${member ? `<h3>Partner access</h3><div id="pj-partners"><div class="spinner">Loading…</div></div>` : ""}
     <div class="small">Created ${p.created_at?.slice(0, 10)} by ${escapeHtml(p.created_by || "?")} · updated ${p.updated_at?.slice(0, 10)} by ${escapeHtml(p.updated_by || "?")}</div>`;
   $("pj-back").onclick = () => renderList();
-  $("pj-edit").onclick = () => openEditor(p);
+  const me = user.email.toLowerCase();
+  if (member) { $("pj-edit").onclick = () => openEditor(p); renderAnalyses(p); renderPartners(p, $("pj-partners"), me); }
   $("pj-point").onclick = () => { if (p.lat != null) emit("select:point", { lon: p.lon, lat: p.lat }); };
-  renderAnalyses(p);
+  renderFieldRecords(p, $("pj-field"), { member, me });
   $("pj-report").onclick = async () => {
     const m = $("pj-report-msg");
     try {
@@ -246,14 +255,14 @@ function openEditor(p) {
     try {
       const saved = await db.upsertProject(editing);
       editing = null; setPickMode(null);
-      projects = await db.listProjects(); setProjects(toFC());
+      projects = await db.listProjects(); setProjects(toFC()); announce();
       openProject(saved.id);
     } catch (e) { $("f-msg").textContent = "Save failed: " + e.message; }
   };
   const del = $("f-delete");
   if (del) del.onclick = async () => {
     if (!confirm(`Delete "${editing.name}"? This cannot be undone.`)) return;
-    try { await db.deleteProject(editing.id); editing = null; projects = await db.listProjects(); setProjects(toFC()); renderList(); }
+    try { await db.deleteProject(editing.id); editing = null; projects = await db.listProjects(); setProjects(toFC()); announce(); renderList(); }
     catch (e) { $("f-msg").textContent = "Delete failed: " + e.message; }
   };
 }

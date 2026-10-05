@@ -1,8 +1,9 @@
-// Field notes on this device: GPS points (averaged fixes), route tracks (start/stop, screen kept awake), and geotagged
-// photos (location and compass direction read from the photo's EXIF, e.g. Solocator). Everything is kept in this
-// browser's IndexedDB (nothing leaves the phone) and exports to Google Earth (KMZ with photos), GPX, CSV and Civil 3D
+// Field notes: GPS points (averaged fixes), route tracks (start/stop, screen kept awake), and geotagged photos (location
+// and compass direction read from the photo's EXIF, e.g. Solocator). Kept in this browser's IndexedDB; when a team
+// project is chosen they also upload to it (see team sync below). Exports to Google Earth (KMZ with photos), GPX, CSV and Civil 3D
 // (PNEZD points, DXF in UTM 15N NAD83 US survey feet with lidar ground elevations, NAVD88).
-import { $, escapeHtml, fmt, fmtNum, haversineKm, on } from "./util.js";
+import { $, escapeHtml, fmt, fmtNum, haversineKm, kmToMi, on, emit } from "./util.js";
+import * as sbx from "./api/supabase.js";
 import { map, setPickMode } from "./map.js";
 import { showTab } from "./panels.js";
 import { toUtm, utmFeet, FT_PER_M } from "./coords.js";
@@ -28,9 +29,119 @@ const get = (name, id) => store(name, "readonly", (s) => s.get(id));
 
 let items = []; const thumbs = {}; // id → object URL
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-function saveQuiet(it) { put("items", it).then(draw).catch((e) => msg("Could not save: " + e.message, true)); }
-async function save(it) { const i = items.findIndex((x) => x.id === it.id); if (i >= 0) items[i] = it; else items.push(it); await put("items", it); draw(); render(); askPersist(); }
-async function remove(id) { items = items.filter((x) => x.id !== id); await del("items", id); await del("blobs", id).catch(() => {}); if (thumbs[id]) { URL.revokeObjectURL(thumbs[id]); delete thumbs[id]; } draw(); render(); }
+function saveQuiet(it) { touch(it); put("items", it).then(draw).catch((e) => msg("Could not save: " + e.message, true)); }
+async function save(it) { const i = items.findIndex((x) => x.id === it.id); if (i >= 0) items[i] = it; else { items.push(it); const pid = syncProject(); if (pid && !it.projectId) tag(it, pid); } touch(it); await put("items", it); draw(); render(); askPersist(); }
+async function remove(id, localOnly = false) { // a note already uploaded is deleted from the team project too, unless only clearing the device
+  const it = items.find((x) => x.id === id);
+  if (it?.remote && !localOnly) { lsSet(LS.tomb, [...lsGet(LS.tomb, []), { rid: it.rid, projectId: it.projectId, photo: !!it.photoUp }]); scheduleSync(); }
+  items = items.filter((x) => x.id !== id); await del("items", id); await del("blobs", id).catch(() => {}); if (thumbs[id]) { URL.revokeObjectURL(thumbs[id]); delete thumbs[id]; } draw(); render(); }
+// ---------- team sync (Field notes phase 2) ----------
+// Notes tagged with a team project upload to Supabase (hydro_field_items / hydro_field_visits; photos to the private
+// hydro-field bucket) whenever there is signal. The device copy stays the working copy. Each record gets a UUID made
+// here, so a retry after a dropped connection updates the same row instead of duplicating it. One visit per project
+// per day per person carries the day's note.
+let ctx = { user: null, member: false, projects: [] };
+const LS = { proj: "nh-field-project", visits: "nh-field-visits", tomb: "nh-field-tomb", team: "nh-field-team" };
+const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+const uuid = () => crypto.randomUUID();
+export const dayOf = (t) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+const myEmail = () => ctx.user?.email?.toLowerCase() || null;
+const syncProject = () => { const id = lsGet(LS.proj, null); return ctx.projects.some((p) => p.id === id) ? id : null; };
+export const teamOn = () => !!ctx.user && lsGet(LS.team, true);
+export function setTeam(v) { lsSet(LS.team, !!v); const b = $("fd-team"); if (b) b.checked = !!v; emit("field:team", !!v); }
+export const localRids = () => new Set(items.map((i) => i.rid).filter(Boolean));
+function visitFor(pid, day, create = true) {
+  const vs = lsGet(LS.visits, {}); const k = `${pid}|${day}`;
+  if (!vs[k] && create) { vs[k] = { id: uuid(), project_id: pid, visit_date: day, note: "", by: myEmail(), dirty: true }; lsSet(LS.visits, vs); }
+  return vs[k] || null;
+}
+function tag(it, pid) { it.projectId = pid; it.rid ||= uuid(); it.by ||= myEmail(); it.visitId = visitFor(pid, dayOf(it.t)).id; it.dirty = true; }
+function touch(it) { if (!it.projectId) return; it.dirty = true; it.rev = (it.rev || 0) + 1; scheduleSync(); }
+let syncing = false, syncTimer = null, syncErr = null, lastSync = null;
+function scheduleSync(ms = 1500) { clearTimeout(syncTimer); syncTimer = setTimeout(syncNow, ms); }
+const photoPaths = (pid, rid) => [`${pid}/${rid}.jpg`, `${pid}/${rid}_thumb.jpg`];
+function rowFor(it, me, ph) {
+  return { id: it.rid, project_id: it.projectId, visit_id: it.visitId || null, kind: it.type, name: it.name || null, note: it.note || null,
+    lon: it.lon ?? null, lat: it.lat ?? null, acc: it.acc ?? null, alt: it.alt ?? null, dir: it.dir ?? null, taken_at: new Date(it.t).toISOString(),
+    geom: it.type === "track" ? it.segs : null, photo_file: it.file || null, photo_path: ph?.[0] || null, thumb_path: ph?.[1] || null, created_by: it.by || me, updated_by: me };
+}
+async function syncNow() {
+  if (syncing || !ctx.user) return;
+  if (!navigator.onLine) { syncState(); return; }
+  syncing = true; syncState();
+  const me = myEmail(); let changed = false;
+  try {
+    const tomb = lsGet(LS.tomb, []);
+    if (tomb.length) {
+      await sbx.deleteFieldItems(tomb.map((t) => t.rid));
+      await sbx.removeFieldPhotos(tomb.filter((t) => t.photo).flatMap((t) => photoPaths(t.projectId, t.rid))).catch(() => {});
+      lsSet(LS.tomb, lsGet(LS.tomb, []).filter((t) => !tomb.some((x) => x.rid === t.rid))); changed = true;
+    }
+    const pending = items.filter((i) => i.projectId && i.dirty && !i.open);
+    const need = new Set(pending.map((i) => i.visitId));
+    const vrows = Object.values(lsGet(LS.visits, {})).filter((v) => v.dirty || need.has(v.id));
+    if (vrows.length) {
+      await sbx.upsertVisits(vrows.map((v) => ({ id: v.id, project_id: v.project_id, visit_date: v.visit_date, note: v.note || null, created_by: v.by || me, updated_by: me })));
+      const now = lsGet(LS.visits, {}); for (const v of vrows) { const k = `${v.project_id}|${v.visit_date}`; if (now[k] && now[k].note === v.note) now[k].dirty = false; } lsSet(LS.visits, now); changed = true;
+    }
+    for (let k = 0; k < pending.length; k += 50) {
+      const batch = pending.slice(k, k + 50); const rows = []; const revs = new Map();
+      for (const it of batch) {
+        revs.set(it, it.rev || 0);
+        const ph = it.type === "photo" ? photoPaths(it.projectId, it.rid) : null;
+        if (ph && !it.photoUp) { const b = await get("blobs", it.id); if (b?.full) { await sbx.uploadFieldPhoto(ph[0], b.full); if (b.thumb) await sbx.uploadFieldPhoto(ph[1], b.thumb); it.photoUp = true; await put("items", it); } }
+        rows.push(rowFor(it, me, it.photoUp ? ph : null));
+      }
+      await sbx.upsertFieldItems(rows);
+      for (const it of batch) { it.remote = true; if ((it.rev || 0) === revs.get(it)) it.dirty = false; await put("items", it); }
+      changed = true; syncState();
+    }
+    syncErr = null; lastSync = Date.now();
+  } catch (e) { syncErr = e.message || String(e); scheduleSync(60000); }
+  finally { syncing = false; syncState(); if (changed) emit("field:synced"); }
+}
+function waitingCount() { return items.filter((i) => i.projectId && i.dirty).length + lsGet(LS.tomb, []).length; }
+function syncLine() {
+  const up = items.filter((i) => i.projectId).length, w = waitingCount();
+  if (!up && !w) return "";
+  if (syncing) return `Uploading… ${w} waiting.`;
+  if (!ctx.user) return `${w} waiting; sign in on the Projects tab to upload.`;
+  if (!navigator.onLine && w) return `Offline: ${w} waiting; uploads when you have signal.`;
+  if (syncErr && w) return `<span class="fd-err">Upload failed (${escapeHtml(syncErr)}); retrying every minute.</span>`;
+  if (w) return `${w} waiting to upload…`;
+  return `All ${up} uploaded${lastSync ? ` · last ${new Date(lastSync).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}.`;
+}
+const badge = (it) => !it.projectId ? "" : it.dirty ? `<span class="fd-badge" title="Waiting to upload to ${escapeHtml(projName(it.projectId))}">⟳</span>` : `<span class="fd-badge ok" title="Uploaded to ${escapeHtml(projName(it.projectId))}">☁</span>`;
+const projName = (id) => ctx.projects.find((p) => p.id === id)?.name || "team project";
+function syncState() {
+  const el = $("fd-sync-status"); if (el) el.innerHTML = syncLine();
+  for (const it of items) { const b = document.querySelector(`.fd-row[data-id="${it.id}"] .fd-bslot`); if (b) b.innerHTML = badge(it); }
+}
+function syncHtml() {
+  if (!ctx.user) return `<div class="small fd-sync-hint">Sign in on the Projects tab to share notes and photos with a team project.</div>`;
+  if (!ctx.projects.length) return "";
+  const pid = syncProject(); const c = map.getCenter();
+  const list = ctx.projects.map((p) => ({ p, d: p.lat != null ? haversineKm(c.lat, c.lng, p.lat, p.lon) : Infinity })).sort((a, b) => a.d - b.d);
+  const v = pid ? visitFor(pid, dayOf(Date.now()), false) : null;
+  const loose = items.filter((i) => !i.projectId).length;
+  return `<div class="fd-sync">
+    <label class="small">Upload to team project<select id="fd-proj"><option value="">None (keep on this device only)</option>${list.map(({ p, d }, i) => `<option value="${p.id}" ${p.id === pid ? "selected" : ""}>${escapeHtml(p.name)}${isFinite(d) ? ` · ${fmt(kmToMi(d), 1)} mi${i === 0 ? " (nearest to map)" : ""}` : ""}</option>`).join("")}</select></label>
+    ${pid ? `<input id="fd-visit" class="fd-visit" value="${escapeHtml(v?.note || "")}" placeholder="Today's visit note: purpose, who was there, conditions" aria-label="Visit note">
+    ${loose ? `<button class="btn" id="fd-adopt">Upload ${loose} device-only note${loose === 1 ? "" : "s"} to this project</button>` : ""}` : ""}
+    <div id="fd-sync-status" class="small">${syncLine()}</div>
+    <label class="chk small"><input type="checkbox" id="fd-team" ${teamOn() ? "checked" : ""}> Show team field records on the map</label>
+  </div>`;
+}
+function wireSync() {
+  $("fd-proj")?.addEventListener("change", (e) => { lsSet(LS.proj, e.target.value || null); render(); });
+  $("fd-visit")?.addEventListener("change", (e) => {
+    const pid = syncProject(); if (!pid) return; const day = dayOf(Date.now()); visitFor(pid, day);
+    const vs = lsGet(LS.visits, {}); vs[`${pid}|${day}`].note = e.target.value.trim(); vs[`${pid}|${day}`].dirty = true; lsSet(LS.visits, vs); scheduleSync();
+  });
+  $("fd-adopt")?.addEventListener("click", async () => { const pid = syncProject(); if (!pid) return; for (const it of items.filter((i) => !i.projectId)) { tag(it, pid); await put("items", it); } render(); scheduleSync(0); });
+  $("fd-team")?.addEventListener("change", (e) => setTeam(e.target.checked));
+}
 let persistAsked = false;
 function askPersist() { if (persistAsked) return; persistAsked = true; navigator.storage?.persist?.().catch(() => {}); }
 
@@ -105,7 +216,7 @@ function tapToPlace(existing) {
 
 // ---------- tracks ----------
 let rec = null; // { it, watch, lock, last }
-const trackLen = (it) => (it.segs || []).reduce((sum, s) => { let d = 0; for (let i = 1; i < s.length; i++) d += haversineKm(s[i - 1][1], s[i - 1][0], s[i][1], s[i][0]) * 1000; return sum + d; }, 0);
+export const trackLen = (it) => (it.segs || []).reduce((sum, s) => { let d = 0; for (let i = 1; i < s.length; i++) d += haversineKm(s[i - 1][1], s[i - 1][0], s[i][1], s[i][0]) * 1000; return sum + d; }, 0);
 function trackArea(it) { // acres, only when the track ends within 30 m of its start (a walked boundary)
   const pts = (it.segs || []).flat(); if (pts.length < 4) return null;
   const a = pts[0], b = pts[pts.length - 1]; if (haversineKm(a[1], a[0], b[1], b[0]) * 1000 > 30) return null;
@@ -147,7 +258,7 @@ async function stopTrack() {
 function liveDraw() { if (!rec) return; map.getSource("field-live")?.setData({ type: "FeatureCollection", features: rec.it.segs.filter((s) => s.length > 1).map((s) => ({ type: "Feature", geometry: { type: "LineString", coordinates: s.map((p) => [p[0], p[1]]) }, properties: {} })) }); draw(); }
 
 // ---------- photos ----------
-function loadScript(src, globalName) {
+export function loadScript(src, globalName) {
   if (window[globalName]) return Promise.resolve();
   return new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => rej(new Error("failed to load " + src)); document.head.appendChild(s); });
 }
@@ -177,8 +288,8 @@ async function addPhotos(files) {
 }
 
 // ---------- exports ----------
-const stamp = () => new Date().toISOString().slice(0, 10).replace(/-/g, "");
-function download(blob, name) { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
+export const stamp = () => new Date().toISOString().slice(0, 10).replace(/-/g, "");
+export function download(blob, name) { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
 const xml = (s) => String(s ?? "").replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c]));
 const iso = (t) => new Date(t).toISOString();
 const c7 = (v) => (+v).toFixed(7);
@@ -186,23 +297,23 @@ async function withElevations() { // lidar ground elevation (NAVD88 ft) for poin
   const need = items.filter((i) => i.type !== "track" && i.lon != null && i.elevFt == null);
   for (let k = 0; k < need.length; k += 4) await Promise.all(need.slice(k, k + 4).map(async (it) => { const e = await pointElevation(it.lon, it.lat).catch(() => null); if (e) { it.elevFt = Math.round(e.ft * 100) / 100; it.elevSrc = e.src; await put("items", it); } }));
 }
-function kml(photoPath) {
-  const pts = items.filter((i) => i.type === "point" && i.lon != null), trks = items.filter((i) => i.type === "track"), phs = items.filter((i) => i.type === "photo" && i.lon != null);
+export function kmlFor(list, photoHref, title = `Northland Eco field notes ${stamp()}`) { // photoHref(it) → path of the photo inside the KMZ/ZIP, or null
+  const pts = list.filter((i) => i.type === "point" && i.lon != null), trks = list.filter((i) => i.type === "track"), phs = list.filter((i) => i.type === "photo" && i.lon != null);
   const pm = (it, inner, extra = "") => `<Placemark><name>${xml(it.name)}</name><TimeStamp><when>${iso(it.t)}</when></TimeStamp>${extra}${inner}</Placemark>`;
   return `<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>Northland Eco field notes ${stamp()}</name>
+<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${xml(title)}</name>
 <Style id="pt"><IconStyle><color>ff15ccfa</color><Icon><href>http://maps.google.com/mapfiles/kml/paddle/ylw-circle.png</href></Icon></IconStyle></Style>
 <Style id="ph"><IconStyle><color>fff755a8</color><Icon><href>http://maps.google.com/mapfiles/kml/shapes/camera.png</href></Icon></IconStyle></Style>
 <Style id="tk"><LineStyle><color>ff5e3ff4</color><width>3</width></LineStyle></Style>
-<Folder><name>Points</name>${pts.map((it) => pm(it, `<Point><coordinates>${c7(it.lon)},${c7(it.lat)}</coordinates></Point>`, `<styleUrl>#pt</styleUrl><description>${xml([it.note, it.acc ? `GPS ±${Math.round(it.acc * 3.281)} ft` : it.src, it.elevFt != null ? `ground ${it.elevFt} ft NAVD88 (lidar)` : ""].filter(Boolean).join(" · "))}</description>`)).join("\n")}</Folder>
+<Folder><name>Points</name>${pts.map((it) => pm(it, `<Point><coordinates>${c7(it.lon)},${c7(it.lat)}</coordinates></Point>`, `<styleUrl>#pt</styleUrl><description>${xml([it.note, it.by, it.acc ? `GPS ±${Math.round(it.acc * 3.281)} ft` : it.src, it.elevFt != null ? `ground ${it.elevFt} ft NAVD88 (lidar)` : ""].filter(Boolean).join(" · "))}</description>`)).join("\n")}</Folder>
 <Folder><name>Tracks</name>${trks.map((it) => pm(it, `<MultiGeometry>${it.segs.filter((s) => s.length > 1).map((s) => `<LineString><tessellate>1</tessellate><coordinates>${s.map((p) => `${p[0]},${p[1]}`).join(" ")}</coordinates></LineString>`).join("")}</MultiGeometry>`, `<styleUrl>#tk</styleUrl><description>${xml(`${fmt(trackLen(it) / 1609.344, 2)} mi${trackArea(it) ? `, encloses ${fmt(trackArea(it), 2)} ac` : ""}${it.note ? " · " + it.note : ""}`)}</description>`)).join("\n")}</Folder>
-<Folder><name>Photos</name>${phs.map((it) => pm(it, `<Point><coordinates>${c7(it.lon)},${c7(it.lat)}</coordinates></Point>`, `<styleUrl>#ph</styleUrl><description><![CDATA[${photoPath ? `<img src="${photoPath}${it.id}.jpg" width="480"/><br/>` : ""}${xml([it.note, it.dir != null ? `facing ${Math.round(it.dir)}°` : "", it.file].filter(Boolean).join(" · "))}]]></description>`)).join("\n")}</Folder>
+<Folder><name>Photos</name>${phs.map((it) => pm(it, `<Point><coordinates>${c7(it.lon)},${c7(it.lat)}</coordinates></Point>`, `<styleUrl>#ph</styleUrl><description><![CDATA[${photoHref?.(it) ? `<img src="${photoHref(it)}" width="480"/><br/>` : ""}${xml([it.note, it.by, it.dir != null ? `facing ${Math.round(it.dir)}°` : "", it.file].filter(Boolean).join(" · "))}]]></description>`)).join("\n")}</Folder>
 </Document></kml>`;
 }
 async function exportKmz() {
   msg("Building Google Earth file…"); await withElevations();
   await loadScript("https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js", "fflate");
-  const files = { "doc.kml": fflate.strToU8(kml("files/")) };
+  const files = { "doc.kml": fflate.strToU8(kmlFor(items, (it) => `files/${it.id}.jpg`)) };
   for (const it of items.filter((i) => i.type === "photo" && i.lon != null)) { const b = await get("blobs", it.id); if (b?.full) files[`files/${it.id}.jpg`] = new Uint8Array(await b.full.arrayBuffer()); }
   download(new Blob([fflate.zipSync(files, { level: 0 })], { type: "application/vnd.google-earth.kmz" }), `northland-field-${stamp()}.kmz`); exported();
 }
@@ -256,11 +367,12 @@ function render() {
   const row = (it) => `<div class="fd-row" data-id="${it.id}">
       ${it.type === "photo" && thumbs[it.id] ? `<img class="fd-thumb" src="${thumbs[it.id]}" alt="">` : `<span class="fd-ico">${it.type === "track" ? "〰" : "📍"}</span>`}
       <div class="fd-main"><input class="fd-name" value="${escapeHtml(it.name)}" aria-label="Name">
-        <div class="small">${new Date(it.t).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}${it.type === "track" ? ` · ${fmt(trackLen(it) / 1609.344, 2)} mi${trackArea(it) ? ` · ${fmt(trackArea(it), 2)} ac enclosed` : ""}${it.segs.length > 1 ? ` · ${it.segs.length} segments` : ""}` : it.lon != null ? ` · ${it.lat.toFixed(5)}, ${it.lon.toFixed(5)}${it.acc ? ` · ±${fmtNum(it.acc * 3.281)} ft` : ""}${it.dir != null ? ` · facing ${Math.round(it.dir)}°` : ""}` : ` · <b>no location</b>`}</div>
+        <div class="small"><span class="fd-bslot">${badge(it)}</span>${new Date(it.t).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}${it.type === "track" ? ` · ${fmt(trackLen(it) / 1609.344, 2)} mi${trackArea(it) ? ` · ${fmt(trackArea(it), 2)} ac enclosed` : ""}${it.segs.length > 1 ? ` · ${it.segs.length} segments` : ""}` : it.lon != null ? ` · ${it.lat.toFixed(5)}, ${it.lon.toFixed(5)}${it.acc ? ` · ±${fmtNum(it.acc * 3.281)} ft` : ""}${it.dir != null ? ` · facing ${Math.round(it.dir)}°` : ""}` : ` · <b>no location</b>`}</div>
         <input class="fd-note" value="${escapeHtml(it.note || "")}" placeholder="note" aria-label="Note"></div>
       <div class="fd-btns">${it.lon != null || it.type === "track" ? `<button class="chip fd-go" title="Show on map">Map</button>` : `<button class="chip fd-place" title="Place on map">Place</button>`}${it.type === "track" && !rec ? `<button class="chip fd-resume" title="Continue recording this track">▶</button>` : ""}<button class="chip fd-del" title="Delete">✕</button></div></div>`;
   c.innerHTML = `<h2>Field notes</h2>
-    <div class="small">Saved on this device only; nothing is uploaded. Export to Google Earth, GPX or CAD when you are back. ${/iPhone|iPad/.test(navigator.userAgent) ? "On iPhone, add northland.eco to the Home Screen (Share → Add to Home Screen) so Safari does not clear these after a week unused." : ""}</div>
+    <div class="small">Saved on this device${ctx.user && syncProject() ? `, and uploaded to <b>${escapeHtml(projName(syncProject()))}</b> for the team (works offline; uploads when there is signal)` : " only"}. Export to Google Earth, GPX or CAD when you are back. ${/iPhone|iPad/.test(navigator.userAgent) ? "On iPhone, add northland.eco to the Home Screen (Share → Add to Home Screen) so Safari does not clear these after a week unused." : ""}</div>
+    ${syncHtml()}
     <div class="fd-actions">
       <button class="btn primary" id="fd-here">📍 Point at my location</button>
       <button class="btn" id="fd-tap">✚ Tap to add point</button>
@@ -278,7 +390,7 @@ function render() {
     ${pts.length ? `<h3>Points (${pts.length})</h3>${pts.map(row).join("")}` : ""}
     ${trks.length ? `<h3>Tracks (${trks.length})</h3>${trks.map(row).join("")}` : ""}
     ${phs.length ? `<h3>Photos (${phs.length})</h3>${phs.map(row).join("")}` : ""}
-    ${items.length ? `<div class="fd-actions" style="margin-top:12px"><button class="btn" id="fd-clear">Delete all field notes…</button></div>` : `<div class="hint">Drop a point, record a track while walking a site, or add photos from your gallery. Solocator photos carry location and compass direction; they appear as purple dots.</div>`}`;
+    ${items.length ? `<div class="fd-actions" style="margin-top:12px"><button class="btn" id="fd-clear">Clear this device…</button></div>` : `<div class="hint">Drop a point, record a track while walking a site, or add photos from your gallery. Solocator photos carry location and compass direction; they appear as purple dots.</div>`}`;
   $("fd-here").onclick = dropPointHere; $("fd-tap").onclick = () => tapToPlace(null);
   $("fd-start")?.addEventListener("click", () => startTrack()); $("fd-stop")?.addEventListener("click", stopTrack);
   $("fd-files").onchange = (e) => addPhotos(e.target.files).catch((err) => msg("Photos failed: " + err.message, true)).finally(() => (e.target.value = ""));
@@ -286,12 +398,17 @@ function render() {
   $("fd-cad")?.addEventListener("click", () => exportCad().catch((e) => msg("Export failed: " + e.message, true)));
   $("fd-csv")?.addEventListener("click", () => exportCsv().catch((e) => msg("Export failed: " + e.message, true)));
   $("fd-gpx")?.addEventListener("click", () => exportGpx().catch((e) => msg("Export failed: " + e.message, true)));
-  $("fd-clear")?.addEventListener("click", async () => { if (!confirm(`Delete all ${items.length} field notes from this device? Export first if you need them.`)) return; for (const it of [...items]) await remove(it.id); msg("All field notes deleted."); });
+  $("fd-clear")?.addEventListener("click", async () => {
+    const up = items.filter((i) => i.remote && !i.dirty).length, lost = items.length - up;
+    if (!confirm(`Remove all ${items.length} field notes from this device?${up ? ` ${up} already uploaded stay in the team project.` : ""}${lost ? ` ${lost} not uploaded will be lost; export first if you need them.` : ""}`)) return;
+    for (const it of [...items]) await remove(it.id, true); msg("This device is cleared.");
+  });
+  wireSync();
   c.querySelectorAll(".fd-row").forEach((r) => {
     const it = items.find((i) => i.id === r.dataset.id); if (!it) return;
     r.querySelector(".fd-name").onchange = (e) => { it.name = e.target.value.trim() || it.name; saveQuiet(it); };
     r.querySelector(".fd-note").onchange = (e) => { it.note = e.target.value.trim(); saveQuiet(it); };
-    r.querySelector(".fd-del").onclick = () => { if (confirm(`Delete ${it.name}?`)) remove(it.id); };
+    r.querySelector(".fd-del").onclick = () => { if (confirm(it.remote ? `Delete ${it.name} from this device and from ${projName(it.projectId)}?` : `Delete ${it.name}?`)) remove(it.id); };
     r.querySelector(".fd-place")?.addEventListener("click", () => tapToPlace(it));
     r.querySelector(".fd-resume")?.addEventListener("click", () => startTrack(it.id));
     r.querySelector(".fd-go")?.addEventListener("click", () => zoomTo(it));
@@ -341,6 +458,8 @@ export async function initField() {
     const blobs = await all("blobs"); for (const b of blobs) if (b.thumb) thumbs[b.id] = URL.createObjectURL(b.thumb);
   } catch (e) { console.warn("field storage unavailable", e); items = []; }
   on("select:field", ({ id, lngLat }) => showPopup(id, lngLat));
+  on("projects:state", (s) => { ctx = s; render(); emit("field:team", teamOn()); if (s.user) scheduleSync(500); });
+  window.addEventListener("online", () => scheduleSync(0)); window.addEventListener("offline", syncState);
   map.on("style.load", ensureLayers); if (map.isStyleLoaded()) ensureLayers(); else map.once("load", ensureLayers);
   render();
 }

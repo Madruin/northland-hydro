@@ -79,3 +79,54 @@ export async function addMember(email, display_name) {
   const { error } = await sb().from("hydro_members").insert({ email: email.trim().toLowerCase(), display_name });
   if (error) throw error;
 }
+
+// ---- Field records (visits, items, partner access, photos in the private hydro-field bucket) ----
+export async function listPartners(projectId) {
+  const { data, error } = await sb().from("hydro_project_partners").select("email,added_by,added_at").eq("project_id", projectId).order("email");
+  if (error) throw error; return data;
+}
+export async function addPartner(projectId, email, addedBy = null) {
+  const { error } = await sb().from("hydro_project_partners").insert({ project_id: projectId, email: email.trim().toLowerCase(), added_by: addedBy });
+  if (error) throw error;
+}
+export async function removePartner(projectId, email) {
+  const { error } = await sb().from("hydro_project_partners").delete().eq("project_id", projectId).eq("email", email);
+  if (error) throw error;
+}
+export async function upsertVisits(rows) {
+  if (!rows.length) return; const { error } = await sb().from("hydro_field_visits").upsert(rows, { onConflict: "id" });
+  if (error) throw error;
+}
+export async function upsertFieldItems(rows) {
+  if (!rows.length) return; const { error } = await sb().from("hydro_field_items").upsert(rows, { onConflict: "id" });
+  if (error) throw error;
+}
+export async function deleteFieldItems(ids) {
+  if (!ids.length) return; const { error } = await sb().from("hydro_field_items").delete().in("id", ids);
+  if (error) throw error;
+}
+export async function listFieldItems(projectId = null) {
+  let q = sb().from("hydro_field_items").select("id,project_id,visit_id,kind,name,note,lon,lat,acc,alt,dir,taken_at,geom,photo_file,photo_path,thumb_path,created_by,created_at").order("taken_at", { ascending: false }).limit(5000);
+  if (projectId) q = q.eq("project_id", projectId);
+  const { data, error } = await q; if (error) throw error; return data;
+}
+export async function listVisits(projectId) {
+  const { data, error } = await sb().from("hydro_field_visits").select("*").eq("project_id", projectId).order("visit_date", { ascending: false });
+  if (error) throw error; return data;
+}
+export async function uploadFieldPhoto(path, blob) {
+  const { error } = await sb().storage.from("hydro-field").upload(path, blob, { contentType: "image/jpeg", upsert: true });
+  if (error) throw error;
+}
+export async function removeFieldPhotos(paths) {
+  if (!paths.length) return; const { error } = await sb().storage.from("hydro-field").remove(paths);
+  if (error) throw error;
+}
+export async function signedPhotoUrls(paths, seconds = 3600) {
+  if (!paths.length) return {}; const { data, error } = await sb().storage.from("hydro-field").createSignedUrls(paths, seconds);
+  if (error) throw error; return Object.fromEntries((data || []).filter((d) => d.signedUrl).map((d) => [d.path, d.signedUrl]));
+}
+export async function downloadFieldPhoto(path) {
+  const { data, error } = await sb().storage.from("hydro-field").download(path);
+  if (error) throw error; return data;
+}
