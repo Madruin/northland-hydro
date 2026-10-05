@@ -213,5 +213,5 @@ function renderSimple(d) {
     <h2>Sources</h2>
     <ol class="sources">${refs.map((r) => `<li>${r.text}</li>`).join("")}</ol>
     <p class="small">${other.join(" ")}</p>
-    <p class="small">Planning-level estimates from public data; not a survey or regulatory determination. Northland Eco (northland.eco) · MN SWCD Technical Service Area 3 · matiasvalero@tsa3.org</p>`;
+    <p class="small">Planning-level estimates from public data; not a survey or regulatory determination. Northland Eco (northland.eco), an independent project by Matías Valero · matiasvalero@tsa3.org</p>`;
 }
