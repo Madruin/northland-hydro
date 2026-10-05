@@ -34,7 +34,7 @@ async function save(it) { const i = items.findIndex((x) => x.id === it.id); if (
 async function remove(id, localOnly = false) { // a note already uploaded is deleted from the team project too, unless only clearing the device
   const it = items.find((x) => x.id === id);
   if (it?.remote && !localOnly) { lsSet(LS.tomb, [...lsGet(LS.tomb, []), { rid: it.rid, projectId: it.projectId, photo: !!it.photoUp }]); scheduleSync(); }
-  items = items.filter((x) => x.id !== id); await del("items", id); await del("blobs", id).catch(() => {}); if (thumbs[id]) { URL.revokeObjectURL(thumbs[id]); delete thumbs[id]; } draw(); render(); }
+  items = items.filter((x) => x.id !== id); await del("items", id); await del("blobs", id).catch(() => {}); if (thumbs[id]) { URL.revokeObjectURL(thumbs[id]); delete thumbs[id]; } draw(); render(); emit("field:local"); } // the team layer shows uploaded notes no longer on this device
 // ---------- team sync (Field notes phase 2) ----------
 // Notes tagged with a team project upload to Supabase (hydro_field_items / hydro_field_visits; photos to the private
 // hydro-field bucket) whenever there is signal. The device copy stays the working copy. Each record gets a UUID made
@@ -110,7 +110,7 @@ function syncLine() {
   if (!navigator.onLine && w) return `Offline: ${w} waiting; uploads when you have signal.`;
   if (syncErr && w) return `<span class="fd-err">Upload failed (${escapeHtml(syncErr)}); retrying every minute.</span>`;
   if (w) return `${w} waiting to upload…`;
-  return `All ${up} uploaded${lastSync ? ` · last ${new Date(lastSync).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}.`;
+  return `${up === 1 ? "Uploaded" : `All ${up} uploaded`}${lastSync ? ` · last ${new Date(lastSync).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}.`;
 }
 const badge = (it) => !it.projectId ? "" : it.dirty ? `<span class="fd-badge" title="Waiting to upload to ${escapeHtml(projName(it.projectId))}">⟳</span>` : `<span class="fd-badge ok" title="Uploaded to ${escapeHtml(projName(it.projectId))}">☁</span>`;
 const projName = (id) => ctx.projects.find((p) => p.id === id)?.name || "team project";

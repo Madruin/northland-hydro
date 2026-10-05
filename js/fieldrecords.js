@@ -25,6 +25,7 @@ function toItem(r) {
 function fcTeam() {
   if (!teamOn()) return EMPTY;
   const mine = localRids(); const f = [];
+  try { for (const t of JSON.parse(localStorage.getItem("nh-field-tomb") || "[]")) mine.add(t.rid); } catch {} // deleted here, not yet removed upstream
   for (const it of rows) {
     if (mine.has(it.id)) continue; // already drawn by the device layer
     if (it.type === "track") { const segs = it.segs.filter((s) => s.length > 1); if (segs.length) f.push({ type: "Feature", geometry: { type: "MultiLineString", coordinates: segs.map((s) => s.map((p) => [p[0], p[1]])) }, properties: { id: it.id, kind: "track" } }); }
@@ -76,6 +77,7 @@ export function initTeamLayer() {
   on("projects:state", (s) => { ctx = s; if (!s.user) { rows = []; draw(); } else load(); });
   on("field:team", () => load());
   on("field:synced", () => load());
+  on("field:local", draw);
   on("select:team", showPopup);
 }
 
@@ -90,14 +92,14 @@ export async function renderFieldRecords(p, box, { member, me }) {
   const groups = visits.map((v) => ({ v, items: list.filter((i) => i.visitId === v.id) }));
   const loose = list.filter((i) => !visits.some((v) => v.id === i.visitId));
   if (loose.length) groups.push({ v: null, items: loose });
-  const n = (k) => list.filter((i) => i.type === k).length;
+  const n = (k, word) => { const c = list.filter((i) => i.type === k).length; return `${c} ${word}${c === 1 ? "" : "s"}`; };
   const canDel = (it) => member || (me && it.by === me);
   const row = (it) => `<div class="fr-row" data-id="${it.id}">
       ${it.thumb_path && urls[it.thumb_path] ? `<img class="fr-thumb" src="${escapeHtml(urls[it.thumb_path])}" alt="" title="View photo">` : `<span class="fr-ico">${ICON[it.type] || ""}</span>`}
       <div class="fr-main"><a href="#" class="fr-go">${escapeHtml(it.name || it.type)}</a> <span class="small">${new Date(it.t).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}${it.type === "track" ? ` · ${fmt(trackLen(it) / 1609.344, 2)} mi` : it.lon == null ? " · no location" : ""}${it.acc ? ` · ±${fmtNum(it.acc * 3.281)} ft` : ""}${it.dir != null ? ` · facing ${Math.round(it.dir)}°` : ""}</span>
         ${it.note ? `<div class="small">${escapeHtml(it.note)}</div>` : ""}</div>
       ${canDel(it) ? `<button class="chip fr-del" title="Delete from the project">✕</button>` : ""}</div>`;
-  box.innerHTML = `<div class="small">${n("point")} points · ${n("track")} tracks · ${n("photo")} photos · ${visits.length} visit${visits.length === 1 ? "" : "s"}</div>
+  box.innerHTML = `<div class="small">${n("point", "point")} · ${n("track", "track")} · ${n("photo", "photo")} · ${visits.length} visit${visits.length === 1 ? "" : "s"}</div>
     <div class="actions"><button class="btn" id="fr-map">Show on map</button><button class="btn" id="fr-zip" title="Notes CSV, Google Earth KML and the photos, for the shared drive">Download for shared drive (ZIP)</button><span id="fr-msg" class="small"></span></div>
     ${groups.map(({ v, items }) => `<div class="fr-visit"><div class="fr-vhead">${v ? `<b>${fmtDate(v.visit_date, { weekday: "short", month: "short", day: "numeric", year: "numeric" })}</b> · ${escapeHtml(who(v.created_by))}` : "<b>Not linked to a visit</b>"} <span class="small">${items.length} record${items.length === 1 ? "" : "s"}</span></div>
       ${v?.note ? `<div class="fr-vnote">${escapeHtml(v.note)}</div>` : ""}${items.map(row).join("")}</div>`).join("")}`;
@@ -150,7 +152,7 @@ async function exportZip(p, visits, list) {
     "photos/            resized copies (about 1600 px) named by date and name. Originals stay with the photographer / team drive.", "",
     "GPS positions are phone-grade (accuracy per record in the CSV), not survey control.", ""].join("\r\n"));
   download(new Blob([fflate.zipSync(files, { level: 0 })], { type: "application/zip" }), `${root.slice(0, -1)}.zip`);
-  m.textContent = `Downloaded ${list.length} records${ph.length ? ` and ${ph.length - failed} photos` : ""}${failed ? ` (${failed} photos could not be fetched)` : ""}.`;
+  m.textContent = `Downloaded ${list.length} records${ph.length ? ` and ${ph.length - failed} photo${ph.length - failed === 1 ? "" : "s"}` : ""}${failed ? ` (${failed} photos could not be fetched)` : ""}.`;
 }
 
 export async function renderPartners(p, box, me) {
