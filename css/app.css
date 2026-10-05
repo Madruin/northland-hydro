@@ -502,3 +502,5 @@ details.sec.error .sec-s { color: #fca5a5; }
 .rpt-foot .small { margin-right: auto; color: #fca5a5; }
 @media (max-width: 900px) { .rpt-prev { flex-basis: 100%; } }
 .rpt-prev img[hidden] { display: none; }
+.rpt-style { display: flex; flex-direction: column; gap: 6px; } .rpt-style label { display: flex; gap: 8px; align-items: baseline; cursor: pointer; }
+#rpt-detail[hidden] { display: none; }

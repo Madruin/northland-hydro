@@ -51,6 +51,11 @@ export function chooseReportOptions({ lon, lat, ws }) {
     box.innerHTML = `<div class="modal-box rpt-box">
       <div class="modal-head"><b>Site report</b><button type="button" id="rpt-x" title="Cancel">✕</button></div>
       <div class="modal-body">
+        <h4>Report type</h4>
+        <div class="rpt-style">
+          <label><input type="radio" name="rpt-style" value="detailed"> <span><b>Detailed</b> · choose the sections below; tables, sources and methods for engineers and agencies</span></label>
+          <label><input type="radio" name="rpt-style" value="simple" ${ws?.da && !ws.manual ? "" : "disabled"}> <span><b>Simplified for landowners</b> · one page in plain language: the watershed map, drainage area, 100-year flood flow, bankfull channel width, soils and slope, each explained${ws?.da && !ws.manual ? "" : ` <span class="small">(delineate the watershed first)</span>`}</span></label>
+        </div>
         <h4>Map on the first page</h4>
         <div class="rpt-map">
           <div class="rpt-map-opts">
@@ -60,10 +65,12 @@ export function chooseReportOptions({ lon, lat, ws }) {
           </div>
           <div class="rpt-prev"><img id="rpt-img" alt="Map preview" hidden><span id="rpt-prep" class="small">Preparing the map…</span></div>
         </div>
+        <div id="rpt-detail">
         <h4>Include</h4>
         <div class="rpt-presets">Presets: <button type="button" class="chip" data-p="partner" title="Plain-language site summary for partners and landowners">Partner summary</button> <button type="button" class="chip" data-p="engineering">Engineering</button> <button type="button" class="chip" data-p="everything">Everything</button> <button type="button" class="chip" data-p="none">None</button></div>
         <div class="rpt-groups">${REPORT_GROUPS.map(([g, items]) => { const ok = items.filter(([id]) => avail[id]);
           return `<fieldset class="rpt-group"><legend>${escapeHtml(g)}</legend>${ok.length ? ok.map(([id, label]) => `<label><input type="checkbox" value="${id}"> ${escapeHtml(label)}</label>`).join("") : `<div class="small">${escapeHtml(GROUP_NOTE[g] || "Nothing available here.")}</div>`}</fieldset>`; }).join("")}</div>
+        </div>
       </div>
       <div class="rpt-foot"><span id="rpt-msg" class="small"></span><button type="button" class="btn" id="rpt-cancel">Cancel</button><button type="button" class="btn primary" id="rpt-go" disabled>Build report</button></div>
     </div>`;
@@ -72,10 +79,15 @@ export function chooseReportOptions({ lon, lat, ws }) {
     const sync = () => boxes.forEach((b) => (b.checked = chosen.has(b.value)));
     const read = () => { chosen = new Set(boxes.filter((b) => b.checked).map((b) => b.value)); };
     const mode = () => box.querySelector('input[name="rpt-map"]:checked')?.value || "view";
+    const style = () => box.querySelector('input[name="rpt-style"]:checked')?.value || "detailed";
+    const canSimple = !!(ws?.da && !ws.manual);
+    box.querySelector(`input[name="rpt-style"][value="${saved?.style === "simple" && canSimple ? "simple" : "detailed"}"]`).checked = true;
+    const showStyle = () => { $("rpt-detail").hidden = style() === "simple"; };
     const preview = () => { const img = $("rpt-img"), src = shots[mode()] || shots.view; if (src) { img.src = src; img.hidden = false; $("rpt-prep").hidden = true; } };
     const close = (result) => { document.removeEventListener("keydown", onKey); box.remove(); resolve(result); };
     const onKey = (e) => { if (e.key === "Escape") close(null); };
-    sync();
+    sync(); showStyle();
+    box.querySelectorAll('input[name="rpt-style"]').forEach((r) => (r.onchange = showStyle));
     box.querySelectorAll(".rpt-presets [data-p]").forEach((b) => (b.onclick = () => { chosen = new Set(b.dataset.p === "none" ? [] : PRESETS[b.dataset.p]); sync(); }));
     boxes.forEach((b) => (b.onchange = read));
     box.querySelectorAll('input[name="rpt-map"]').forEach((r) => (r.onchange = preview));
@@ -83,14 +95,14 @@ export function chooseReportOptions({ lon, lat, ws }) {
     box.onclick = (e) => { if (e.target === box) close(null); };
     document.addEventListener("keydown", onKey);
     $("rpt-go").onclick = () => {
-      read(); const include = [...chosen].filter((id) => avail[id]);
+      read(); const st = style(); const include = st === "simple" ? ["simple"] : [...chosen].filter((id) => avail[id]);
       if (!include.length) { $("rpt-msg").textContent = "Pick at least one section."; return; }
-      try { localStorage.setItem(KEY, JSON.stringify({ include: [...chosen] })); } catch {}
+      try { localStorage.setItem(KEY, JSON.stringify({ include: [...chosen], style: st })); } catch {}
       // Open the tab now, inside this click; the report fills it in when it is built
       const win = window.open("", "_blank");
       if (win) { try { win.document.write('<!doctype html><title>Building report…</title><body style="font:15px system-ui;padding:40px;color:#334">Building the site report… this tab fills in when it is ready (usually 5–15 seconds).</body>'); } catch {} }
       const m = mode();
-      close({ include, mapMode: m, mapImage: shots[m] || shots.view, win });
+      close({ include, style: st, mapMode: m, mapImage: shots[m] || shots.view, win });
     };
     // Capture both map images: the current view now, then the whole basin (fit, wait for tiles, capture, restore)
     (async () => {
@@ -98,8 +110,10 @@ export function chooseReportOptions({ lon, lat, ws }) {
       if (basin && document.body.contains(box)) {
         $("rpt-prep").textContent = "Preparing the watershed map…";
         const v = { center: map.getCenter(), zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() };
-        try { drawBasin(basin); map.fitBounds(bboxOf(basin.geometry || basin), { padding: 50, animate: false, maxZoom: 15 }); await idle(); shots.watershed = await snapshot(); }
-        finally { map.jumpTo(v); }
+        // The watershed map shows the basin and the site; rain-station dots and gauge symbols are hidden for it
+        const hide = ["stations-circle", "stations-label", "gauges-circle", "ov-wlssd"].filter((l) => map.getLayer(l) && map.getLayoutProperty(l, "visibility") !== "none");
+        try { hide.forEach((l) => map.setLayoutProperty(l, "visibility", "none")); drawBasin(basin); map.fitBounds(bboxOf(basin.geometry || basin), { padding: 50, animate: false, maxZoom: 15 }); await idle(); shots.watershed = await snapshot(); }
+        finally { hide.forEach((l) => map.setLayoutProperty(l, "visibility", "visible")); map.jumpTo(v); }
       }
       ready = true; if (!document.body.contains(box)) return;
       $("rpt-go").disabled = false; preview();

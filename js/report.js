@@ -17,6 +17,8 @@ import { toUtm, utmFeet } from "./coords.js";
 import { pointElevation } from "./elevation.js";
 import { hucsAt } from "./huc.js";
 import { landCoverAt, NLCD_YEAR } from "./landcover.js";
+import { basinHsg } from "./basinsoils.js";
+import { HSG_NOTE } from "./soils.js";
 
 function maxRun(rows, n) {
   let best = null;
@@ -30,7 +32,7 @@ function maxRun(rows, n) {
 }
 
 // Build the report document. `analysis` (optional) is a saved hydro_project_analyses row; otherwise live watershed state is used if present.
-export async function buildReport({ lon, lat, project = null, analysis = null, onStatus = () => {}, mapImage = null, mapMode = "view", include = null }) {
+export async function buildReport({ lon, lat, project = null, analysis = null, onStatus = () => {}, mapImage = null, mapMode = "view", include = null, style = "detailed" }) {
   const has = (k) => !include || include.includes(k); // which sections the user chose (all when called without a choice)
   const endDate = precipWindow.endDate, days = precipWindow.days;
   const auth = authState();
@@ -75,6 +77,16 @@ export async function buildReport({ lon, lat, project = null, analysis = null, o
   const [elev, hucs, cover] = await Promise.all([pointElevation(lon, lat).catch(() => null), hucsAt(lon, lat).catch(() => []), landCoverAt(lon, lat).catch(() => null)]);
   const [ue, un] = toUtm(lon, lat); const uf = utmFeet(lon, lat);
   const sections = captureSections(lon, lat).filter((s) => has(s.id));
+  // Simplified report: the basin's dominant hydrologic soil group (area-weighted SSURGO, cached from the Point panel)
+  let soils = null;
+  if (style === "simple") {
+    try {
+      if (ws?.basin && !ws.manual) { const r = await basinHsg(ws.basin.geometry || ws.basin); const e = r.eff; const rated = 1 - e.unrated;
+        const top = ["A", "B", "C", "D"].sort((x, y) => e[y] - e[x])[0];
+        soils = { source: "basin", group: top, pct: rated > 0 ? Math.round((100 * e[top]) / rated) : null, note: HSG_NOTE[top], split: ["A", "B", "C", "D"].map((g) => ({ g, pct: rated > 0 ? Math.round((100 * e[g]) / rated) : 0 })), dual: r.groups.filter((g) => g.hsg && g.hsg.includes("/")).reduce((s, g) => s + g.frac, 0) };
+      }
+    } catch (e) { console.warn("report: basin soils failed", e); }
+  }
   const doc = {
     app: `${APP.name} ${APP.version}`, generatedAt: now.toISOString(), generatedBy: auth.user?.email || null,
     permalink: location.href,
@@ -82,7 +94,7 @@ export async function buildReport({ lon, lat, project = null, analysis = null, o
       hucs: hucs.map((h) => ({ level: h.level.label, code: h.code, name: h.name, sqmi: h.sqmi })),
       cover: cover ? { code: cover.code, name: cover.name, tr55: cover.tr55, year: NLCD_YEAR } : null },
     watershedExtras: captureWatershedExtras(lon, lat).filter((s) => has(s.id)),
-    include: include || null, mapMode,
+    include: include || null, mapMode, style, soils,
     project: project ? { id: project.id, name: project.name, kind: project.kind, status: project.status, county: project.county, swcd: project.swcd, notes: project.notes, location_note: project.location_note } : null,
     window: { endDate, days, startDate: addDays(endDate, -(days - 1)) },
     stations: near.map((s) => ({ name: s.name, network: s.network, id: s.ids?.["10"] ? "CoCoRaHS " + s.ids["10"] : s.sid, mi: kmToMi(s.km), total: s.total, flag: s.totalFlag, missing: s.missing, normal: s.normal, max1: s.max1, max1Date: s.max1Date, lat: s.lat, lon: s.lon })),
@@ -152,7 +164,7 @@ export async function openReport(args) {
   if (!opts) return false;
   const w = opts.win;
   let doc;
-  try { doc = await buildReport({ ...args, mapImage: opts.mapImage, mapMode: opts.mapMode, include: opts.include }); } catch (e) { w?.close(); throw e; }
+  try { doc = await buildReport({ ...args, mapImage: opts.mapImage, mapMode: opts.mapMode, include: opts.include, style: opts.style }); } catch (e) { w?.close(); throw e; }
   try { localStorage.setItem("nh-report", JSON.stringify(doc)); } catch (e) { w?.close(); alert("Report too large for this browser's storage: " + e.message); return false; }
   if (w && !w.closed) w.location.href = new URL("report.html", location.href).href;
   else if (!window.open("report.html", "_blank")) throw new Error("the browser blocked the report tab; allow pop-ups for this site and try again");
