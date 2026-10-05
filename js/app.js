@@ -326,7 +326,7 @@ async function checkBuild() {
   } catch { return false; }
 }
 
-// Version and work-in-progress notice: footer label and the top of the help guide
+// Version and site-in-development notice: footer label and the top of the help guide
 function showVersion() {
   const v = versionInfo(); const f = $("foot-wip"); if (f) f.textContent = v.label;
   const g = $("wip-guide"); if (g) g.innerHTML = wipNoteHtml();

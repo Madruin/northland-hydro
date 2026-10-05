@@ -99,10 +99,10 @@ async function applyFreshness(el) {
     sp.className = `fresh fresh-${r.status}`; sp.title = r.detail; sp.textContent = `${r.label.replace(/ (County )?parcels$/, "")}: ${r.asOf || (r.lastGood ? `last seen ${r.lastGood}` : "check failed")}`;
   }
 }
-// Work-in-progress notice shown at the top of both help tabs
+// Site-in-development notice shown at the top of both help tabs
 export function wipNoteHtml() {
   const v = versionInfo();
-  return `<div class="wip-note"><b>Work in progress.</b> Northland Eco is under active development by MN SWCD Technical Service Area 3 and is shared for testing and feedback. Version ${escapeHtml(v.version)}${v.updated ? `, last updated ${escapeHtml(v.updated)}` : ""}. Features, layout and data sources may change; please report problems or ideas to <a href="mailto:matiasvalero@tsa3.org">matiasvalero@tsa3.org</a>.</div>`;
+  return `<div class="wip-note"><b>Site in development.</b> Northland Eco is being built by MN SWCD Technical Service Area 3 and is shared for testing and feedback. Version ${escapeHtml(v.version)}${v.updated ? `, last updated ${escapeHtml(v.updated)}` : ""}. Features, layout and data sources may change; please report problems or ideas to <a href="mailto:matiasvalero@tsa3.org">matiasvalero@tsa3.org</a>.</div>`;
 }
 export function renderSources(el) {
   el.innerHTML = `${wipNoteHtml()}<p>Everything on the map comes from the public services below. The regional layers (FEMA flood hazard, PWI, impaired waters and TMDL areas, easements, trout, karst, contamination and trails) are drawn from vector tiles (PMTiles) rebuilt monthly from ~1 m agency geometry, so they are accurate at every zoom; zoomed in, the site asks the agency service for the features in view and outlines anything newer than the tiles with a dashed line. Watershed boundaries and crossing inventories are monthly snapshots; everything else is fetched live. Each Point panel section and the printed report name the source and retrieval time of what they show.</p><p class="small" id="fresh-head">Checking source freshness…</p>
