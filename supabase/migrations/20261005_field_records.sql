@@ -102,3 +102,20 @@ create policy hydro_field_photos_delete on storage.objects for delete to authent
 -- signed-out visitors never need the visibility check
 revoke execute on function public.hydro_can_see_project(uuid) from public, anon;
 grant execute on function public.hydro_can_see_project(uuid) to authenticated;
+
+-- 2026-10-05 follow-up: a partner sees only their own access row, not the other partners' emails
+drop policy if exists hydro_partners_select on public.hydro_project_partners;
+create policy hydro_partners_select on public.hydro_project_partners for select to authenticated
+  using (public.is_hydro_member() or email = lower(coalesce(auth.jwt() ->> 'email', '')));
+
+-- 2026-10-05 follow-up: the author is stamped from the login on insert and can't be rewritten by a later edit
+create or replace function public.hydro_touch_updated_at()
+returns trigger language plpgsql set search_path to 'public' as $function$
+begin
+  new.updated_at = now();
+  new.updated_by = coalesce(auth.jwt() ->> 'email', new.updated_by);
+  if tg_op = 'INSERT' then new.created_by = coalesce(auth.jwt() ->> 'email', new.created_by);
+  else new.created_by = old.created_by; new.created_at = old.created_at; end if;
+  return new;
+end;
+$function$;

@@ -48,6 +48,9 @@ export async function upsertProject(p) {
   return data;
 }
 export async function deleteProject(id) {
+  // field photos live in the bucket under <project id>/ and are not removed by the table cascade
+  const st = sb().storage.from("hydro-field");
+  for (;;) { const { data } = await st.list(id, { limit: 1000 }); const paths = (data || []).filter((f) => f.id).map((f) => `${id}/${f.name}`); if (!paths.length) break; const { data: gone, error } = await st.remove(paths); if (error) throw error; if (!gone?.length) break; }
   const { error } = await sb().from("hydro_projects").delete().eq("id", id);
   if (error) throw error;
 }

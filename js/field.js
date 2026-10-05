@@ -71,16 +71,17 @@ async function syncNow() {
   if (!navigator.onLine) { syncState(); return; }
   syncing = true; syncState();
   const me = myEmail(); let changed = false;
+  const canSee = (pid) => ctx.projects.some((p) => p.id === pid); // notes for a project this account can no longer see wait instead of failing every minute
   try {
-    const tomb = lsGet(LS.tomb, []);
+    const tomb = lsGet(LS.tomb, []).filter((t) => canSee(t.projectId));
     if (tomb.length) {
       await sbx.deleteFieldItems(tomb.map((t) => t.rid));
       await sbx.removeFieldPhotos(tomb.filter((t) => t.photo).flatMap((t) => photoPaths(t.projectId, t.rid))).catch(() => {});
       lsSet(LS.tomb, lsGet(LS.tomb, []).filter((t) => !tomb.some((x) => x.rid === t.rid))); changed = true;
     }
-    const pending = items.filter((i) => i.projectId && i.dirty && !i.open);
+    const pending = items.filter((i) => i.projectId && i.dirty && !i.open && canSee(i.projectId));
     const need = new Set(pending.map((i) => i.visitId));
-    const vrows = Object.values(lsGet(LS.visits, {})).filter((v) => v.dirty || need.has(v.id));
+    const vrows = Object.values(lsGet(LS.visits, {})).filter((v) => (v.dirty || need.has(v.id)) && canSee(v.project_id));
     if (vrows.length) {
       await sbx.upsertVisits(vrows.map((v) => ({ id: v.id, project_id: v.project_id, visit_date: v.visit_date, note: v.note || null, created_by: v.by || me, updated_by: me })));
       const now = lsGet(LS.visits, {}); for (const v of vrows) { const k = `${v.project_id}|${v.visit_date}`; if (now[k] && now[k].note === v.note) now[k].dirty = false; } lsSet(LS.visits, now); changed = true;
@@ -105,6 +106,8 @@ function waitingCount() { return items.filter((i) => i.projectId && i.dirty).len
 function syncLine() {
   const up = items.filter((i) => i.projectId).length, w = waitingCount();
   if (!up && !w) return "";
+  const stuck = ctx.user ? items.filter((i) => i.projectId && i.dirty && !ctx.projects.some((p) => p.id === i.projectId)).length : 0;
+  if (stuck) return `<span class="fd-err">${stuck} note${stuck === 1 ? "" : "s"} can't upload: ${stuck === 1 ? "its project is" : "their project is"} no longer shared with ${escapeHtml(ctx.user.email)}. ${stuck === 1 ? "It stays" : "They stay"} on this device; export to keep a copy.</span>`;
   if (syncing) return `Uploading… ${w} waiting.`;
   if (!ctx.user) return `${w} waiting; sign in on the Projects tab to upload.`;
   if (!navigator.onLine && w) return `Offline: ${w} waiting; uploads when you have signal.`;
@@ -112,7 +115,7 @@ function syncLine() {
   if (w) return `${w} waiting to upload…`;
   return `${up === 1 ? "Uploaded" : `All ${up} uploaded`}${lastSync ? ` · last ${new Date(lastSync).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : ""}.`;
 }
-const badge = (it) => !it.projectId ? "" : it.dirty ? `<span class="fd-badge" title="Waiting to upload to ${escapeHtml(projName(it.projectId))}">⟳</span>` : `<span class="fd-badge ok" title="Uploaded to ${escapeHtml(projName(it.projectId))}">☁</span>`;
+const badge = (it) => !it.projectId ? "" : it.dirty && ctx.user && !ctx.projects.some((p) => p.id === it.projectId) ? `<span class="fd-badge" title="Can't upload: project no longer shared with you">⚠</span>` : it.dirty ? `<span class="fd-badge" title="Waiting to upload to ${escapeHtml(projName(it.projectId))}">⟳</span>` : `<span class="fd-badge ok" title="Uploaded to ${escapeHtml(projName(it.projectId))}">☁</span>`;
 const projName = (id) => ctx.projects.find((p) => p.id === id)?.name || "team project";
 function syncState() {
   const el = $("fd-sync-status"); if (el) el.innerHTML = syncLine();
