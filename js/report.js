@@ -81,9 +81,11 @@ export async function buildReport({ lon, lat, project = null, analysis = null, o
   let soils = null;
   if (style === "simple") {
     try {
-      if (ws?.basin && !ws.manual) { const r = await basinHsg(ws.basin.geometry || ws.basin); const e = r.eff; const rated = 1 - e.unrated;
-        const top = ["A", "B", "C", "D"].sort((x, y) => e[y] - e[x])[0];
-        soils = { source: "basin", group: top, pct: rated > 0 ? Math.round((100 * e[top]) / rated) : null, note: HSG_NOTE[top], split: ["A", "B", "C", "D"].map((g) => ({ g, pct: rated > 0 ? Math.round((100 * e[g]) / rated) : 0 })), dual: r.groups.filter((g) => g.hsg && g.hsg.includes("/")).reduce((s, g) => s + g.frac, 0) };
+      if (ws?.basin && !ws.manual) { const r = await basinHsg(ws.basin.geometry || ws.basin); // component-weighted mix
+        const mix = r.groups.map((g) => ({ g: g.hsg || "not rated", pct: Math.round(100 * g.frac) })).filter((x) => x.pct > 0);
+        const top = r.groups.find((g) => g.hsg);
+        soils = { source: "basin", method: r.method, mix, group: top?.hsg || null, note: top ? HSG_NOTE[top.hsg] || HSG_NOTE[top.hsg.split("/")[1]] : null,
+          effD: Math.round(100 * r.eff.D), dominant: r.dominant?.groups?.map((g) => ({ g: g.hsg || "not rated", pct: Math.round(100 * g.frac) })) || null };
       }
     } catch (e) { console.warn("report: basin soils failed", e); }
   }
