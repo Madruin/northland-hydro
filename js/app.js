@@ -189,7 +189,10 @@ function buildControls() {
   document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", openSheet));
   ["select:station", "select:gauge", "select:point", "select:project"].forEach((e) => on(e, openSheet));
   // menus are position:fixed on phones; place them under their button
-  const placeMenu = (btn, menu) => { if (!mobile()) return; const r = btn.getBoundingClientRect(); menu.style.top = `${Math.round(r.bottom + 6)}px`; };
+  // Menus fit the window: on phones they sit under their button; everywhere they scroll inside the space left below
+  const fitMenu = (menu) => { if (menu.hidden) return; menu.style.maxHeight = ""; const top = menu.getBoundingClientRect().top; menu.style.maxHeight = `${Math.max(160, Math.floor(Math.min(window.innerHeight - top - 12, mobile() ? window.innerHeight * 0.6 : Infinity)))}px`; };
+  const placeMenu = (btn, menu) => { if (mobile()) { const r = btn.getBoundingClientRect(); menu.style.top = `${Math.round(r.bottom + 6)}px`; } requestAnimationFrame(() => fitMenu(menu)); };
+  window.addEventListener("resize", () => document.querySelectorAll(".menu:not([hidden])").forEach(fitMenu));
   $("tg-terrain").addEventListener("click", () => placeMenu($("tg-terrain"), $("terrain-menu")));
   $("btn-layers").addEventListener("click", () => placeMenu($("btn-layers"), $("layers-menu")));
   $("ctl-search").addEventListener("focus", () => { $("ctl-search").classList.add("open"); placeMenu($("ctl-search"), $("search-results")); });

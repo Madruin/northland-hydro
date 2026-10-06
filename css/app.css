@@ -160,7 +160,7 @@ table.data sub { font-size: 9px; }
 
 /* terrain menu */
 .menu-wrap { position: relative; }
-.menu { position: absolute; top: 34px; left: 0; z-index: 40; width: 320px; background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; box-shadow: 0 10px 30px rgba(0,0,0,.45); font-size: 12px; color: var(--fg); text-transform: none; letter-spacing: 0; }
+.menu { position: absolute; top: 34px; left: 0; z-index: 40; width: 320px; overflow-y: auto; overscroll-behavior: contain; background: var(--bg2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; box-shadow: 0 10px 30px rgba(0,0,0,.45); font-size: 12px; color: var(--fg); text-transform: none; letter-spacing: 0; }
 .menu-title { font-weight: 600; margin-bottom: 6px; }
 .menu-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; cursor: pointer; text-transform: none; letter-spacing: 0; font-size: 12px; color: var(--fg); }
 .menu-row input[type=checkbox] { margin: 0; }
