@@ -31,11 +31,16 @@ import { MeasureControl } from "./measure.js";
 import { CompareControl } from "./compare.js";
 import { initField, FieldControl } from "./field.js";
 import { initTeamLayer } from "./fieldrecords.js";
-import { initSatellite, satLegendHtml, satCount, satUrlState } from "./satellite.js";
+import { initSatellite, satLegendHtml, satCount, satUrlState, satAllOff } from "./satellite.js";
+import { initMapMenu } from "./mapmenu.js";
+import { maybeShowWhatsNew, changesHtml } from "./changes.js";
 import { initEgg } from "./egg.js";
 import { setHideUnclassified, setShowRetired } from "./gauges.js";
 import { setGaugeFilter, setGaugeRetired } from "./map.js";
 
+// Opening the site without a link comes back to the last view and layers (never the last date or selection)
+const VIEW_KEY = "nh-last-view";
+if (!location.hash.replace(/^#/, "")) try { const v = localStorage.getItem(VIEW_KEY); if (v) history.replaceState(null, "", "#" + v); } catch {}
 const state = {
   endDate: isoDate(), days: 1, zoom: HOME.zoom, center: HOME.center, basemap: "light",
   layers: { contam: false, trails: false, huc: false, landcover: false, stations: true, gauges: true, qpe: false, streams: false, soils: false, parcels: false, trout: false, karst: false, wetlands: false, fema: false, crossings: false, wells: false, pwi: false, impaired: false, easements: false }, qpeWindow: "24h", selection: null, terrain: {}, terrainOpacity: 0.6,
@@ -49,7 +54,10 @@ let firstLoadDone = false, pointShown = false; // pointShown: boot already opene
 let normalStatus = "", zoomHint = null;
 function setStatus(msg, isError = false, hint = false) { if (!hint) { normalStatus = msg; zoomHint = null; } $("status-text").textContent = msg; $("status").classList.toggle("error", isError); }
 const whenMap = (fn) => (map ? fn() : once("map:ready", fn));
-function syncUrl() { writeUrl(state); }
+function syncUrl() {
+  writeUrl(state);
+  try { const h = new URLSearchParams(location.hash.replace(/^#/, "")); h.delete("d"); h.delete("sel"); localStorage.setItem(VIEW_KEY, h.toString()); } catch {}
+}
 
 function buildControls() {
   const win = $("ctl-window");
@@ -112,7 +120,11 @@ function buildControls() {
   $("tg-terrain").addEventListener("click", (e) => { e.stopPropagation(); const open = $("terrain-menu").hidden; closeMenus(); $("terrain-menu").hidden = !open; });
   $("btn-layers").addEventListener("click", (e) => { e.stopPropagation(); const open = $("layers-menu").hidden; closeMenus(); $("layers-menu").hidden = !open; updateLayerRows(); });
   document.addEventListener("click", (e) => { if (!e.target.closest(".menu-wrap")) closeMenus(); });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeMenus(); });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { const open = [...document.querySelectorAll(".menu-wrap .menu")].find((m) => !m.hidden); closeMenus(); if (open?.contains(document.activeElement)) open.closest(".menu-wrap").querySelector("button")?.focus(); } // keep keyboard focus on the button
+    if ((e.key === "l" || e.key === "L") && !e.ctrlKey && !e.metaKey && !e.altKey && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) { e.preventDefault(); $("btn-layers").click(); if (!$("layers-menu").hidden) $("layers-filter").focus(); }
+  });
+  $("layers-off").addEventListener("click", (e) => { e.stopPropagation(); for (const k of MENU_LAYERS) if (state.layers[k]) toggleLayer(k, false); satAllOff(); });
   whenMap(() => {
     map.on("moveend", () => { if (!$("layers-menu").hidden) updateLayerRows(); if (zoomHint && map.getZoom() >= zoomHint.mz - 0.01) setStatus(normalStatus); });
     map.on("click", () => dismissHint());
@@ -215,6 +227,8 @@ function closeMenus() { document.querySelectorAll(".menu-wrap .menu").forEach((m
 function updateLayersButton() {
   const n = MENU_LAYERS.filter((k) => state.layers[k]).length + satCount();
   $("btn-layers").classList.toggle("on", n > 0);
+  const off = $("layers-off"); if (off) off.hidden = n === 0;
+  document.querySelectorAll(".layer-group").forEach((g) => { const c = g.querySelectorAll(".layer-row.on").length; const el = g.querySelector(".group-name"); if (el) el.dataset.on = c ? `${c} on` : ""; });
   $("btn-layers").textContent = n ? `Layers (${n}) ▾` : "Layers ▾";
 }
 function updateLayerRows() {
@@ -335,7 +349,7 @@ async function checkBuild() {
 // Version and site-in-development notice: footer label and the top of the help guide
 function showVersion() {
   const v = versionInfo(); const f = $("foot-wip"); if (f) f.textContent = v.label;
-  const g = $("wip-guide"); if (g) g.innerHTML = wipNoteHtml();
+  const g = $("wip-guide"); if (g) g.innerHTML = wipNoteHtml() + `<details class="changes-box"><summary>Recent changes</summary>${changesHtml()}</details>`;
 }
 async function boot() {
   showVersion();
@@ -360,6 +374,24 @@ async function boot() {
   const syncPressed = (r) => r.setAttribute("aria-pressed", String(r.classList.contains("on")));
   document.querySelectorAll(".layer-row").forEach((r) => { syncPressed(r); new MutationObserver(() => syncPressed(r)).observe(r, { attributes: true, attributeFilter: ["class"] }); });
   initEgg();
+  whenMap(initMapMenu);
+  // Report a problem: an email with the exact view attached
+  $("report-problem").addEventListener("click", (e) => {
+    e.preventDefault(); syncUrl();
+    const body = `What happened or what would help:\n\n\n---\nView: ${location.href}\nNorthland Eco ${APP.version} (${APP.build || "dev"})\nBrowser: ${navigator.userAgent}\nScreen: ${innerWidth}×${innerHeight}`;
+    location.href = `mailto:matiasvalero@tsa3.org?subject=${encodeURIComponent("Northland Eco: problem or idea")}&body=${encodeURIComponent(body)}`;
+  });
+  // Offline (in the field): say what still works
+  const offline = () => { let b = $("offline-banner"); if (navigator.onLine) { b?.remove(); return; } if (!b) { b = document.createElement("div"); b.id = "offline-banner"; b.className = "floating"; b.setAttribute("role", "status"); $("map-wrap").append(b); } b.textContent = "Offline: new map tiles and live data won't load. Field notes and photos keep saving on this device and upload when you're back in signal."; };
+  window.addEventListener("online", offline); window.addEventListener("offline", offline); offline();
+  // Filter the Layers menu by name or description
+  $("layers-filter").addEventListener("input", (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    document.querySelectorAll("#layers-menu .layer-group").forEach((g) => { let any = false;
+      g.querySelectorAll(".layer-row").forEach((r) => { const hit = !q || r.textContent.toLowerCase().includes(q); (r.closest(".lr-with-select") || r).hidden = !hit; any ||= hit; });
+      g.hidden = !any; });
+  });
+  $("layers-filter").addEventListener("keydown", (e) => { if (e.key === "Enter") { const r = [...document.querySelectorAll("#layers-menu .layer-row")].find((x) => !x.closest("[hidden]")); r?.focus(); } });
   // Cached stations are drawn immediately by loadPrecip; render the Region panel from them too, then replace when fresh data lands.
   on("precip:loaded", ({ stale }) => { if (!stale) return; setStatus("Showing the last cached observations while fresh data loads…", false, true); renderLegend(); renderRegion({ quiet: !!state.selection && state.selection.type !== "region" }); });
   setLayerVisible("huc", !!state.layers.huc); setLayerVisible("landcover", !!state.layers.landcover); if (state.layers.huc) whenMap(() => setHucEnabled(true)); setLayerVisible("stations", state.layers.stations); setLayerVisible("gauges", state.layers.gauges); setLayerVisible("qpe", state.layers.qpe); setLayerVisible("streams", !!state.layers.streams); setLayerVisible("soils", !!state.layers.soils); setLayerVisible("parcels", !!state.layers.parcels); setLayerVisible("trout", !!state.layers.trout); setLayerVisible("karst", !!state.layers.karst); setLayerVisible("wetlands", !!state.layers.wetlands); setLayerVisible("fema", !!state.layers.fema); setLayerVisible("crossings", !!state.layers.crossings); setLayerVisible("wells", !!state.layers.wells); for (const k of ["pwi", "impaired", "easements", "trails", "contam"]) setLayerVisible(k, !!state.layers[k]);
@@ -373,7 +405,9 @@ async function boot() {
   track("lake level", loadLake());
   const gaugesP = track("gauges", loadGauges()).catch((e) => { console.warn(e); return []; });
   // First visit: show the welcome dialog now, not after the station query (ACIS can take 20-30 s cold).
-  try { if (localStorage.getItem("nh-visited") !== "1") { localStorage.setItem("nh-visited", "1"); $("help").hidden = false; } } catch {}
+  let returning = true;
+  try { if (localStorage.getItem("nh-visited") !== "1") { returning = false; localStorage.setItem("nh-visited", "1"); $("help").hidden = false; } } catch {}
+  maybeShowWhatsNew(returning);
   // A shared link to a point or gauge opens right away; station rainfall fills in when ACIS answers.
   // refreshPrecipNow sets the date window synchronously, so the point's PRISM and forecast sections can start now.
   const precipP = refreshPrecipNow();

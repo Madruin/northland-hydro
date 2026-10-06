@@ -144,6 +144,7 @@ function wireSync() {
   });
   $("fd-adopt")?.addEventListener("click", async () => { const pid = syncProject(); if (!pid) return; for (const it of items.filter((i) => !i.projectId)) { tag(it, pid); await put("items", it); } render(); scheduleSync(0); });
   $("fd-team")?.addEventListener("change", (e) => setTeam(e.target.checked));
+  $("fd-initials")?.addEventListener("change", (e) => { try { localStorage.setItem("nh-field-initials", e.target.value.replace(/[^A-Za-z0-9]/g, "").toUpperCase()); } catch {} e.target.value = initials(); });
 }
 let persistAsked = false;
 function askPersist() { if (persistAsked) return; persistAsked = true; navigator.storage?.persist?.().catch(() => {}); }
@@ -197,7 +198,9 @@ function averagedFix(seconds = 8, good = 4, onProgress = () => {}) {
     const timer = setTimeout(finish, seconds * 1000);
   });
 }
-const nextName = (type, prefix) => `${prefix}${items.filter((i) => i.type === type).length + 1}`;
+// Names like P3 or Track 2, with the person's initials in front when set (two people's "P1" stay distinct in a project)
+const initials = () => { try { return (localStorage.getItem("nh-field-initials") || "").trim(); } catch { return ""; } };
+const nextName = (type, prefix) => `${initials() ? initials() + "-" : ""}${prefix}${items.filter((i) => i.type === type).length + 1}`;
 async function dropPointHere() {
   msg("Averaging GPS fixes…");
   try {
@@ -205,6 +208,11 @@ async function dropPointHere() {
     const it = { id: uid(), type: "point", name: nextName("point", "P"), note: "", t: Date.now(), lon: f.lon, lat: f.lat, acc: f.acc, alt: f.alt, src: `GPS, ${f.n} fixes averaged` };
     await save(it); map.easeTo({ center: [f.lon, f.lat], zoom: Math.max(map.getZoom(), 16) }); msg(`Saved ${it.name} (±${fmtNum(f.acc * 3.281)} ft).`);
   } catch (e) { msg("Could not get a position: " + e.message, true); }
+}
+// A point at a given spot (the map's right-click / long-press menu)
+export async function addPointAt(lon, lat) {
+  const it = { id: uid(), type: "point", name: nextName("point", "P"), note: "", t: Date.now(), lon, lat, acc: null, src: "placed on the map" };
+  await save(it); msg(`Saved ${it.name}.`); openField(it.id);
 }
 function tapToPlace(existing) {
   msg(existing ? `Tap the map where "${existing.name}" was taken.` : "Tap the map to place a point.");
@@ -412,7 +420,7 @@ function render() {
     ${pts.length ? `<h3>Points (${pts.length})</h3>${pts.map(row).join("")}` : ""}
     ${trks.length ? `<h3>Tracks (${trks.length})</h3>${trks.map(row).join("")}` : ""}
     ${phs.length ? `<h3>Photos (${phs.length})</h3>${phs.map(row).join("")}` : ""}
-    ${items.length ? `<div class="fd-actions" style="margin-top:12px"><button class="btn" id="fd-clear">Clear this device…</button></div>` : `<div class="hint">Drop a point, record a track while walking a site, or add photos from your gallery. Solocator photos carry location and compass direction; they appear as purple dots.</div>`}`;
+    ${items.length ? `<div class="fd-actions" style="margin-top:12px"><button class="btn" id="fd-clear">Clear this device…</button></div><label class="small fd-initials">Your initials, added to new names so a crew's notes don't collide (MV-P1)<input id="fd-initials" maxlength="4" value="${escapeHtml(initials())}" placeholder="MV" autocomplete="off"></label>` : `<div class="hint">Drop a point, record a track while walking a site, or add photos from your gallery. Solocator photos carry location and compass direction; they appear as purple dots.</div><label class="small fd-initials">Your initials, added to new names so a crew's notes don't collide (MV-P1)<input id="fd-initials" maxlength="4" value="${escapeHtml(initials())}" placeholder="MV" autocomplete="off"></label>`}`;
   $("fd-here").onclick = dropPointHere; $("fd-tap").onclick = () => tapToPlace(null);
   $("fd-start")?.addEventListener("click", () => startTrack()); $("fd-stop")?.addEventListener("click", stopTrack);
   $("fd-cam")?.addEventListener("click", startCamFix);

@@ -191,6 +191,16 @@ The **Field** tab (also the pin button in the map's left tool column) is built f
 - **Team layer** (`js/fieldrecords.js`): everyone else's records draw under the device's own (yellow/purple with a blue ring, dashed pink tracks); the popup shows who, when, the project and the photo (signed URL). Toggle with "Show team field records on the map".
 - **Project page → Field records**: visits with their notes, each record with time, accuracy and thumbnail; **Show on map**; delete (members, or the record's author); **Download for shared drive (ZIP)** with `field_records.csv` (lat/lon and UTM 15N US ft), `visits.csv`, `field_records.kml` (opens in Google Earth next to `photos/`), the photos named by date, and a README. The shared drive stays the official record; export at the end of a project.
 
+## Small conveniences
+
+- **Right-click or long-press the map** (`js/mapmenu.js`): point info, add a field point, copy lat/lon or UTM 15N US ft, directions.
+- **Last view**: opening the site without a link restores the last map view and layers (`nh-last-view`; never the date or a selection).
+- **What's new** (`js/changes.js`): returning visitors see the newest entries once after an update; Help lists them all. Add an entry there with each release people will notice.
+- **Report a problem** (footer): a pre-filled email to matiasvalero@tsa3.org with the exact view link, version and browser.
+- **Offline banner** when the browser loses signal, saying field notes keep saving.
+- **Layers menu**: filter box, per-group "n on" counts, Turn all off; keyboard **L** opens it, **/** search, **?** help, **←/→** date, **Esc** closes (focus returns to the button).
+- Field point names can carry the person's initials (MV-P1), set in the Field tab.
+
 ## NASA satellite layers and Daymet climate
 
 The Layers menu's **Satellite (NASA)** group uses only services that need no login and allow browser requests (`js/satellite.js`; the audit of NASA's catalog behind the choice is `docs/earthdata_audit.md`):

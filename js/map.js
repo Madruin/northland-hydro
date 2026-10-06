@@ -67,6 +67,14 @@ export function initMap({ center = HOME.center, zoom = HOME.zoom, basemap = "lig
   // MapLibre opens the compact attribution on load until the first interaction; start it closed.
   map.once("load", () => { const a = document.querySelector(".maplibregl-ctrl-attrib"); if (a) { a.removeAttribute("open"); a.classList.remove("maplibregl-compact-show"); } });
   map.on("moveend", () => emit("map:moveend", { center: map.getCenter(), zoom: map.getZoom() }));
+  // MapLibre re-expands compact credits whenever a source adds one, and they run under the legend; keep them folded
+  // (ⓘ) unless the person opened them with that button
+  { const el = map.getContainer().querySelector(".maplibregl-ctrl-attrib"); let userOpen = false;
+    if (el) {
+      el.addEventListener("click", (e) => { if (e.target.closest(".maplibregl-ctrl-attrib-button")) userOpen = el.classList.contains("maplibregl-compact-show"); }); // runs after MapLibre's own toggle, before the observer
+      const fold = () => { if (!userOpen && el.classList.contains("maplibregl-compact-show")) el.classList.remove("maplibregl-compact-show"); };
+      new MutationObserver(fold).observe(el, { attributes: true, attributeFilter: ["class"] }); fold();
+    } }
   map.on("click", (e) => {
     if (document.body.classList.contains("measuring")) return;
     if (rect) {

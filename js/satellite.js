@@ -133,6 +133,7 @@ function setOn(k, on) {
 }
 const save = () => { try { localStorage.setItem("nh-sat", JSON.stringify({ on: Object.fromEntries(Object.entries(st).map(([k, v]) => [k, v.on])), dist: st.dist.year, fire: st.fire.days })); } catch {} };
 export const satCount = () => Object.values(st).filter((s) => s.on).length;
+export function satAllOff() { for (const k of Object.keys(st)) if (st[k].on) { st[k].on = false; $(`tg-sat-${k}`)?.classList.remove("on"); apply(k); } save(); onChange(); }
 // Shared-link form: hls:2026-10-02S,daily:2026-10-04,snow,dist:2025,fire:3 (empty = all off)
 let linked = null;
 export function satUrlState() {
