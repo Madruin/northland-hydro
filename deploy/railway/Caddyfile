@@ -26,6 +26,7 @@
 		reverse_proxy https://daymet.ornl.gov {
 			header_up Host daymet.ornl.gov
 			header_down -Set-Cookie
+			header_down -Cache-Control
 		}
 	}
 	handle @live {
