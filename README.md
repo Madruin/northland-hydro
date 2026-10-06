@@ -191,6 +191,18 @@ The **Field** tab (also the pin button in the map's left tool column) is built f
 - **Team layer** (`js/fieldrecords.js`): everyone else's records draw under the device's own (yellow/purple with a blue ring, dashed pink tracks); the popup shows who, when, the project and the photo (signed URL). Toggle with "Show team field records on the map".
 - **Project page → Field records**: visits with their notes, each record with time, accuracy and thumbnail; **Show on map**; delete (members, or the record's author); **Download for shared drive (ZIP)** with `field_records.csv` (lat/lon and UTM 15N US ft), `visits.csv`, `field_records.kml` (opens in Google Earth next to `photos/`), the photos named by date, and a README. The shared drive stays the official record; export at the end of a project.
 
+## NASA satellite layers and Daymet climate
+
+The Layers menu's **Satellite (NASA)** group uses only services that need no login and allow browser requests (`js/satellite.js`; the audit of NASA's catalog behind the choice is `docs/earthdata_audit.md`):
+
+- **Satellite imagery, 30 m**: HLS (Harmonized Landsat Sentinel-2) true color from GIBS WMTS (`HLS_S30_…`/`HLS_L30_Nadir_BRDF_Adjusted_Reflectance`, tiles to zoom 12 then stretched). The date list is the clear scenes (≤ 40% cloud, last 150 days) over the map center from NASA CMR granule search, re-searched after a pan of more than 40 km. The same scenes are offered on the right side of Compare for before/after swipes.
+- **Daily satellite, 375 m**: VIIRS NOAA-20 corrected-reflectance true color (zoom ≤ 9), last 14 days.
+- **Snow cover**: VIIRS NOAA-20 NDSI snow (zoom ≤ 8). GIBS paints water, night and fill opaque; a `nasakey://` MapLibre protocol fetches each tile and makes those colors transparent and clouds a faint gray.
+- **Vegetation loss**: OPERA DIST-ANN annual summaries (2023–2025), 30 m. Its "no disturbance" class is opaque near-black in GIBS and is keyed out the same way. (DIST-ALERT's daily composite only covers that day's passes, so it isn't offered.)
+- **Fire detections**: FIRMS VIIRS hot spots from NOAA-20, NOAA-21 and Suomi NPP. GIBS serves these as vector tiles only in other projections, so the site uses GIBS WMS (rendered PNG, `{bbox-epsg-3857}`), one image per UTC day for the chosen period.
+
+The point panel's **Climate and snowpack (Daymet)** row loads when opened (about 0.5 MB, 1980 to the last released year): 30-year mean annual precipitation, median and 1-in-10 peak snowpack (SWE), median melt-out date and its 10–90% range, freeze–thaw days per year, monthly normals, the wettest day and 3 days on record, and a chart of each winter's peak SWE (`js/daymet.js`). ORNL's single-pixel API sends no CORS header, so Caddy passes `/api/daymet/data` through (`deploy/railway/Caddyfile`); locally `tools/dev_server.py` does the same and also answers byte-range requests for PMTiles.
+
 ## Vector tiles (regional overlays)
 
 FEMA flood hazard, public waters, impaired waters/TMDL areas, easements, trout, karst, contamination and trails draw from PMTiles in `data/tiles/` at every zoom. `tools/build_tiles.py` (needs tippecanoe ≥ 2.17) fetches FEMA and MnGeo geometry at ~1 m and packs one file per group; the `Build vector tiles` workflow runs it after the monthly snapshot refresh (or by hand, optionally for named groups) and commits only groups whose input changed. Zoomed in, the map checks the live service and outlines anything newer than the tiles with a dashed line. If `data/tiles/manifest.json` is missing, the layers fall back to the GeoJSON snapshots.
@@ -254,6 +266,8 @@ js/basinsoils.js      basin-wide HSG breakdown and composite CN
 js/nav.js             panel history (back/breadcrumbs) and header-tooltip glossary
 js/lakes.js, js/api/dnrlakes.js   DNR LakeFinder levels, OHW, hydrograph, dams inventory outlets
 js/field.js           Field tab: device notes (IndexedDB), GPS averaging, tracks, EXIF photos, exports, team sync
+js/satellite.js       NASA satellite layers (GIBS, CMR scene search), nasakey:// color keying
+js/daymet.js          Daymet point climate and snowpack card
 js/fieldrecords.js    team field records map layer, project Field records section, partner access, shared-drive ZIP
 js/export.js          AOI export: imagery + world file, DEM GeoTIFF/ASCII, DXF contours (UTM 15N US ft)
 tools/build_regional_curves.py, data/regional_curves.json

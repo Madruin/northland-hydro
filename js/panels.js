@@ -35,6 +35,7 @@ import { distToGeomM } from "./util.js";
 import { landCoverAt, NLCD_YEAR } from "./landcover.js";
 import { visit } from "./nav.js";
 import { openReport } from "./report.js";
+import { renderClimateAt } from "./daymet.js";
 const countyName = (fips) => { const c = COUNTIES.find((x) => x.fips === String(fips)); return c ? c.name.replace(" (WI)", "") + " County" : fips ? "FIPS " + fips : ""; };
 
 const DUR24 = 9, DUR48 = 10, DUR72 = 11; // indexes into Atlas 14 duration list (24-hr, 2-day, 3-day)
@@ -273,7 +274,7 @@ const PT_GROUPS = [
   ["water", "Water and flooding", [["pt-watershed", "Watershed and peak flows"], ["pt-runoff", "Runoff and curve number"], ["pt-fema", "FEMA flood zone"], ["pt-pwi", "Public waters (PWI)"], ["pt-wetland", "Wetlands (NWI)"], ["pt-impaired", "Impaired waters and TMDLs"], ["pt-lake", "Lake or river"], ["pt-crossing", "Stream crossing"]]],
   ["screen", "Permitting screens", [["pt-species", "Listed species (USFWS IPaC)"], ["pt-mpca", "Contamination (MPCA)"], ["pt-easement", "Conservation easements"]]],
   ["land", "Land and subsurface", [["pt-parcel", "Parcel"], ["pt-soils", "Soils"], ["pt-wells", "Wells and depth to bedrock"]]],
-  ["wx", "Rain and weather", [["pt-precip", "Rainfall here (PRISM)"], ["pt-nearby", "Nearest observers and gauges"], ["pt-wx", "NWS forecast"], ["pt-soil", "Soil moisture (model)"], ["pt-a14", "Design storms (Atlas 14)"]]],
+  ["wx", "Rain and weather", [["pt-precip", "Rainfall here (PRISM)"], ["pt-nearby", "Nearest observers and gauges"], ["pt-wx", "NWS forecast"], ["pt-soil", "Soil moisture (model)"], ["pt-climate", "Climate and snowpack (Daymet)"], ["pt-a14", "Design storms (Atlas 14)"]]],
 ];
 const PT_SECTIONS = PT_GROUPS.flatMap(([, , s]) => s);
 const PT_OPEN_KEY = "nh-pt-open";
@@ -327,14 +328,15 @@ const SUMMARY = {
   "pt-nearby": (el) => { const r = el.querySelector("tbody tr"); return r ? cut(`${txt(r.cells[0])} ${txt(r.cells[1])} mi · ${txt(r.cells[2])} in`) : cut(firstLine(el)); },
   "pt-wx": (el) => { const q = statV(el, /QPF next 24/i), q3 = statV(el, /QPF next 72/i); return q ? `${q} next 24 h · ${q3} next 72 h` : cut(firstLine(el)); },
   "pt-soil": () => "Past 7 days and 7-day forecast",
+  "pt-climate": (el) => { const p = statV(el, /annual precip/i), w = statV(el, /peak snowpack/i), m = statV(el, /snowpack gone/i); return p ? [`${p} precip/yr`, w && `snowpack ${w} SWE`, m && m !== "–" && `melt-out ~${m}`].filter(Boolean).join(" · ") : cut(firstLine(el)); },
   "pt-a14": (el) => { const r = [...el.querySelectorAll("tbody tr")].find((x) => /^24-hr/.test(txt(x.cells[0]))); return r ? `24-hr: 10-yr ${txt(r.cells[4])}" · 100-yr ${txt(r.cells[7])}"` : cut(firstLine(el)); },
 };
 const NONE_TEXT = { "pt-runoff": "Delineate the watershed first", "pt-fema": "No FEMA data here", "pt-pwi": "No public water here", "pt-wetland": "No mapped wetland here", "pt-impaired": "No impaired water nearby", "pt-lake": "Not on a lake or river", "pt-crossing": "No mapped crossing within 260 ft",
-  "pt-species": "No listed species returned", "pt-mpca": "No MPCA sites within 500 ft", "pt-easement": "Not in a RIM or bank easement", "pt-parcel": "No parcel data here", "pt-soils": "No soil data", "pt-wells": "No wells nearby" };
+  "pt-species": "No listed species returned", "pt-mpca": "No MPCA sites within 500 ft", "pt-easement": "Not in a RIM or bank easement", "pt-parcel": "No parcel data here", "pt-soils": "No soil data", "pt-wells": "No wells nearby", "pt-climate": "Open to load 1980–2025 climate" };
 let navDone = {}, navObserver = null, navTimer = null, navRun = {}, ptCur = null;
 const FAILED = /failed|timed out|unavailable|error/i;
 function startPointNav(container) {
-  navDone = { "pt-precip": true, "pt-nearby": true, "pt-wx": true, "pt-soil": true, "pt-a14": true, "pt-watershed": true, "pt-runoff": true };
+  navDone = { "pt-precip": true, "pt-nearby": true, "pt-wx": true, "pt-soil": true, "pt-a14": true, "pt-watershed": true, "pt-runoff": true, "pt-climate": true };
   navObserver?.disconnect();
   navObserver = new MutationObserver(() => { clearTimeout(navTimer); navTimer = setTimeout(updatePointNav, 120); });
   for (const [id] of PT_SECTIONS) { const el = $(id); if (el) navObserver.observe(el, { childList: true, subtree: true, characterData: true }); }
@@ -419,6 +421,7 @@ export async function renderPoint(lon, lat) {
     "pt-lake": () => renderLakeAt($("pt-lake"), lon, lat), "pt-wetland": () => renderWetlandAt($("pt-wetland"), lon, lat), "pt-fema": () => renderFemaAt($("pt-fema"), lon, lat),
     "pt-crossing": () => renderCrossingAt($("pt-crossing"), lon, lat), "pt-wells": () => renderWellsAt($("pt-wells"), lon, lat),
     "pt-pwi": () => renderPwiAt($("pt-pwi"), lon, lat), "pt-impaired": () => renderImpairedAt($("pt-impaired"), lon, lat), "pt-easement": () => renderEasementsAt($("pt-easement"), lon, lat), "pt-mpca": () => renderMpcaAt($("pt-mpca"), lon, lat), "pt-species": () => renderSpeciesAt($("pt-species"), lon, lat),
+    "pt-climate": () => renderClimateAt($("pt-climate"), lon, lat),
   };
   c.querySelectorAll(".copy").forEach((b) => (b.onclick = async () => { try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = "✓"; setTimeout(() => (b.textContent = "⧉"), 1200); } catch { prompt("Copy:", b.dataset.copy); } }));
   startPointNav(c);
@@ -435,6 +438,12 @@ export async function renderPoint(lon, lat) {
   navTrack("pt-easement", renderEasementsAt($("pt-easement"), lon, lat));
   navTrack("pt-mpca", renderMpcaAt($("pt-mpca"), lon, lat));
   navTrack("pt-species", renderSpeciesAt($("pt-species"), lon, lat));
+  { // Daymet is ~0.5 MB per point: load when the row is opened (or right away if it was left open)
+    const el = $("pt-climate"), d = el.closest("details.sec"); let started = false;
+    el.innerHTML = `<div class="small" data-empty>Opens on demand: 1980–2025 daily precipitation, snowpack and temperature for this 1 km cell (Daymet, about 0.5 MB).</div>`;
+    const go = () => { if (started || !d.open || !live()) return; started = true; navDone["pt-climate"] = false; navTrack("pt-climate", renderClimateAt(el, lon, lat)); };
+    d.addEventListener("toggle", go); go();
+  }
   $("pt-report").onclick = async () => { const m = $("pt-report-msg"); try { await openReport({ lon, lat, onStatus: (t) => (m.textContent = t) }); m.textContent = ""; } catch (e) { m.textContent = "Report failed: " + e.message; } };
 
   renderNearby(lon, lat);

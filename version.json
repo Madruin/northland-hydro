@@ -1,5 +1,5 @@
 {
- "build": "20261005-2141-8ee3144",
+ "build": "20261006-0444-e51bc2e",
  "files": [
   "css/app.css",
   "css/report.css",
@@ -22,6 +22,7 @@
   "js/config.js",
   "js/coords.js",
   "js/crossings.js",
+  "js/daymet.js",
   "js/dnrlayers.js",
   "js/egg.js",
   "js/elevation.js",
@@ -51,6 +52,7 @@
   "js/report.js",
   "js/reportopts.js",
   "js/runoff.js",
+  "js/satellite.js",
   "js/search.js",
   "js/soils.js",
   "js/sources.js",

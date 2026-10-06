@@ -1,6 +1,8 @@
 // Imagery compare: a second MapLibre map, kept in sync with the main map, clipped to the right of a draggable
-// divider so any two imagery years (or imagery vs the current basemap) can be swiped against each other.
+// divider so any two imagery years (or imagery vs the current basemap) can be swiped against each other. Recent 30 m
+// NASA satellite scenes (HLS) are offered too, for before/after a storm against the Satellite imagery layer.
 import { BASEMAPS } from "./config.js";
+import { hlsScenes, hlsStyle, hlsSceneLabel } from "./satellite.js";
 
 const ICON = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 2v20M7 9l-2 3 2 3M17 9l2 3-2 3"/></svg>`;
 
@@ -19,10 +21,10 @@ export class CompareControl {
     this.active = true; this.btn.classList.add("active");
     const wrap = document.getElementById("map-wrap");
     this.el = document.createElement("div"); this.el.id = "compare"; this.el.innerHTML = `<div id="compare-map"></div><div id="compare-handle" title="Drag to swipe"><div class="ch-bar"></div><div class="ch-grip">⇔</div></div>
-      <div id="compare-box" class="floating"><span class="small">Left: current basemap</span><label class="small">Right: <select id="compare-sel">${this.imageryOptions().map((o) => `<option value="${o.id}" ${o.id === this.right ? "selected" : ""}>${o.label}</option>`).join("")}</select></label><button class="mb-x" title="Close compare">✕</button></div>`;
+      <div id="compare-box" class="floating"><span class="small">Left: current basemap</span><label class="small">Right: <select id="compare-sel">${this.imageryOptions().map((o) => `<option value="${o.id}" ${o.id === this.right ? "selected" : ""}>${o.label}</option>`).join("")}<optgroup label="Satellite 30 m (NASA)" id="compare-hls"><option disabled>Finding clear scenes…</option></optgroup></select></label><button class="mb-x" title="Close compare">✕</button></div>`;
     wrap.append(this.el);
     const m = this.map;
-    this.cmap = new maplibregl.Map({ container: "compare-map", style: BASEMAPS[this.right].style, center: m.getCenter(), zoom: m.getZoom(), bearing: m.getBearing(), pitch: m.getPitch(), interactive: false, attributionControl: false, maxZoom: 19, minZoom: 5 });
+    this.cmap = new maplibregl.Map({ container: "compare-map", style: this.styleFor(this.right), center: m.getCenter(), zoom: m.getZoom(), bearing: m.getBearing(), pitch: m.getPitch(), interactive: false, attributionControl: false, maxZoom: 19, minZoom: 5 });
     this.sync = () => this.cmap.jumpTo({ center: m.getCenter(), zoom: m.getZoom(), bearing: m.getBearing(), pitch: m.getPitch() });
     m.on("move", this.sync);
     this.ro = new ResizeObserver(() => { this.cmap.resize(); this.layout(); }); this.ro.observe(wrap);
@@ -30,10 +32,13 @@ export class CompareControl {
     h.addEventListener("pointerdown", (e) => { drag = true; h.setPointerCapture(e.pointerId); e.preventDefault(); });
     h.addEventListener("pointermove", (e) => { if (!drag) return; const r = wrap.getBoundingClientRect(); this.frac = Math.min(0.98, Math.max(0.02, (e.clientX - r.left) / r.width)); this.layout(); });
     const up = () => { drag = false; }; h.addEventListener("pointerup", up); h.addEventListener("pointercancel", up);
-    this.el.querySelector("#compare-sel").addEventListener("change", (e) => { this.right = e.target.value; this.cmap.setStyle(BASEMAPS[this.right].style); });
+    this.el.querySelector("#compare-sel").addEventListener("change", (e) => { this.right = e.target.value; this.cmap.setStyle(this.styleFor(this.right)); });
+    hlsScenes(m.getCenter().lng, m.getCenter().lat).then((sc) => { this.scenes = sc; const g = this.el?.querySelector("#compare-hls"); if (g) g.innerHTML = sc.length ? sc.map((x) => `<option value="hls:${x.date}">${hlsSceneLabel(x)}</option>`).join("") : `<option disabled>No clear scenes in the last 5 months</option>`; })
+      .catch(() => { const g = this.el?.querySelector("#compare-hls"); if (g) g.innerHTML = `<option disabled>Scene search failed</option>`; });
     this.el.querySelector(".mb-x").addEventListener("click", () => this.exit());
     this.layout();
   }
+  styleFor(id) { if (id.startsWith("hls:")) { const sc = (this.scenes || []).find((x) => x.date === id.slice(4)); if (sc) return hlsStyle(sc); } return (BASEMAPS[id] || BASEMAPS.imgsharp).style; }
   layout() {
     if (!this.el) return; const w = this.el.getBoundingClientRect().width; const x = Math.round(w * this.frac);
     this.el.querySelector("#compare-map").style.clipPath = `inset(0 0 0 ${x}px)`;

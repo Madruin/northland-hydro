@@ -19,6 +19,15 @@
 	header /data/freshness.json Cache-Control "no-cache"
 	header /version.json Cache-Control "no-cache"
 
+	# Daymet point climate (ORNL): no login, but no CORS header, so the site passes this one endpoint through
+	handle_path /api/daymet/data {
+		rewrite * /single-pixel/api/data?{query}
+		header Cache-Control "public, max-age=604800"
+		reverse_proxy https://daymet.ornl.gov {
+			header_up Host daymet.ornl.gov
+			header_down -Set-Cookie
+		}
+	}
 	handle @live {
 		root * /vol
 		file_server

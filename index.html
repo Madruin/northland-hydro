@@ -76,6 +76,18 @@
               <button class="layer-row" id="tg-karst" data-minzoom="9" data-label="Karst"><span class="lr-box"></span><span class="lr-text"><span class="lr-name">Karst</span><span class="lr-desc">Karst-prone bedrock, sinkholes and springs</span></span><span class="lr-zoom">zoom 9+</span></button>
               <button class="layer-row" id="tg-wells" data-minzoom="12" data-label="Wells &amp; borings"><span class="lr-box"></span><span class="lr-text"><span class="lr-name">Wells &amp; borings</span><span class="lr-desc">County Well Index logs, depth to bedrock, drill holes</span></span><span class="lr-zoom">zoom 12+</span></button>
             </div>
+            <div class="layer-group"><div class="group-name">Satellite (NASA)</div>
+              <div class="lr-with-select"><button class="layer-row" id="tg-sat-hls" data-minzoom="0" data-label="Satellite imagery, 30 m"><span class="lr-box"></span><span class="lr-text"><span class="lr-name">Satellite imagery, 30 m</span><span class="lr-desc">Landsat and Sentinel-2, a clear scene every few days: washouts, plumes, clearing, new ponds</span></span></button>
+                <select id="sat-hls-sel" class="lr-select" aria-label="Satellite imagery, 30 m: date"></select></div>
+              <div class="lr-with-select"><button class="layer-row" id="tg-sat-daily" data-minzoom="0" data-label="Daily satellite, 375 m"><span class="lr-box"></span><span class="lr-text"><span class="lr-name">Daily satellite, 375 m</span><span class="lr-desc">VIIRS true color every day: Lake Superior plumes, ice, smoke</span></span></button>
+                <select id="sat-daily-sel" class="lr-select" aria-label="Daily satellite, 375 m: date"></select></div>
+              <div class="lr-with-select"><button class="layer-row" id="tg-sat-snow" data-minzoom="0" data-label="Snow cover"><span class="lr-box"></span><span class="lr-text"><span class="lr-name">Snow cover</span><span class="lr-desc">VIIRS daily snow cover, 375 m; cloud leaves gaps</span></span></button>
+                <select id="sat-snow-sel" class="lr-select" aria-label="Snow cover: date"></select></div>
+              <div class="lr-with-select"><button class="layer-row" id="tg-sat-dist" data-minzoom="0" data-label="Vegetation loss"><span class="lr-box"></span><span class="lr-text"><span class="lr-name">Vegetation loss</span><span class="lr-desc">OPERA 30 m annual loss of vegetation cover: logging, blowdown, fire, beaver flooding</span></span></button>
+                <select id="sat-dist-sel" class="lr-select" aria-label="Vegetation loss: date"></select></div>
+              <div class="lr-with-select"><button class="layer-row" id="tg-sat-fire" data-minzoom="0" data-label="Fire detections"><span class="lr-box"></span><span class="lr-text"><span class="lr-name">Fire detections</span><span class="lr-desc">VIIRS hot spots, updated within hours</span></span></button>
+                <select id="sat-fire-sel" class="lr-select" aria-label="Fire detections: date"></select></div>
+            </div>
           </div></div>
         <div class="menu-wrap"><button class="toggle" id="tg-terrain" title="MnTOPO lidar hillshade, DEM and contours, plus USGS contours">Terrain ▾</button>
           <div class="menu" id="terrain-menu" hidden>

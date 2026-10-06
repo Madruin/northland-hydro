@@ -31,6 +31,7 @@ import { MeasureControl } from "./measure.js";
 import { CompareControl } from "./compare.js";
 import { initField, FieldControl } from "./field.js";
 import { initTeamLayer } from "./fieldrecords.js";
+import { initSatellite, satLegendHtml, satCount } from "./satellite.js";
 import { initEgg } from "./egg.js";
 import { setHideUnclassified, setShowRetired } from "./gauges.js";
 import { setGaugeFilter, setGaugeRetired } from "./map.js";
@@ -209,7 +210,7 @@ function buildControls() {
 const MENU_LAYERS = ["stations", "gauges", "qpe", "contam", "trails", "huc", "landcover", "streams", "crossings", "trout", "soils", "parcels", "wetlands", "fema", "karst", "wells", "pwi", "impaired", "easements"];
 function closeMenus() { document.querySelectorAll(".menu-wrap .menu").forEach((m) => { m.hidden = true; }); }
 function updateLayersButton() {
-  const n = MENU_LAYERS.filter((k) => state.layers[k]).length;
+  const n = MENU_LAYERS.filter((k) => state.layers[k]).length + satCount();
   $("btn-layers").classList.toggle("on", n > 0);
   $("btn-layers").textContent = n ? `Layers (${n}) ▾` : "Layers ▾";
 }
@@ -290,6 +291,7 @@ function renderLegend() {
   for (const k of ["contam", "trails", "pwi", "impaired", "easements", "wetlands", "trout", "karst"]) if (state.layers[k]) lg.insertAdjacentHTML("beforeend", dnrLegendHtml(k));
   if (state.layers.soils) lg.insertAdjacentHTML("beforeend", soilsLegendHtml());
   if (state.layers.streams) lg.insertAdjacentHTML("beforeend", `<h4>Streams (StreamStats grid)</h4><div class="legend-row"><span class="swatch sq" style="background:#0070ff"></span>Mapped stream cells (zoom 13+)</div><div class="small">The 10 m cells StreamStats delineates on; snap targets these.</div>`);
+  lg.insertAdjacentHTML("beforeend", satLegendHtml());
   lg.insertAdjacentHTML("beforeend", terrainLegendHtml(state.terrain));
   if (state.layers.qpe) { const lbl = $("ctl-qpe").selectedOptions[0].text; lg.insertAdjacentHTML("beforeend", `<h4>${state.qpeWindow === "live" ? "Live radar (NWS reflectivity)" : `Rain totals from radar + gauges (${lbl})`}</h4><div id="qpe-legend" data-win="${state.qpeWindow}"><div class="small">Loading NWS legend…</div></div>`); renderQpeLegend(state.qpeWindow, lbl); }
 }
@@ -349,6 +351,7 @@ async function boot() {
   fitLegend(); window.addEventListener("resize", debounce(fitLegend, 150)); map.once("load", fitLegend);
   initField();
   initTeamLayer();
+  initSatellite({ onChange: () => { renderLegend(); updateLayersButton(); } });
   initEgg();
   // Cached stations are drawn immediately by loadPrecip; render the Region panel from them too, then replace when fresh data lands.
   on("precip:loaded", ({ stale }) => { if (!stale) return; setStatus("Showing the last cached observations while fresh data loads…", false, true); renderLegend(); renderRegion({ quiet: !!state.selection && state.selection.type !== "region" }); });
