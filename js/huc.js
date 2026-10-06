@@ -1,6 +1,8 @@
 // USGS Watershed Boundary Dataset (WBD) HUC-8, HUC-10 and HUC-12 boundaries for the TSA3 region, drawn at every
 // zoom from site snapshots (data/layers/huc8|huc10|huc12/all.json, tools/build_static_layers.py). HUC-8 and HUC-10
-// load when the layer is turned on; HUC-12 (5 MB) loads from zoom 9 or when a Point panel asks which HUCs it is in.
+// load when the layer is turned on; HUC-12 from zoom 9. The map draws lines.json + labels.json (tools/build_huc_lines.py:
+// boundaries without USGS's sawtooth Lake Superior shore strip); the polygons (all.json, 5 MB for HUC-12) load only when
+// a Point panel asks which HUCs a point is in. Without lines.json the map falls back to the polygon outlines.
 import { escapeHtml, fmt, fmtNum, debounce, emit } from "./util.js";
 import { track } from "./loader.js";
 import { map, setOverlay } from "./map.js";
@@ -10,17 +12,23 @@ export const HUC_LEVELS = [
   { id: "huc10", code: "huc10", label: "HUC-10 watershed", color: "#7c3aed", minzoom: 6.5 },
   { id: "huc12", code: "huc12", label: "HUC-12 subwatershed", color: "#8b5cf6", minzoom: 9 },
 ];
-const data = {};
+const data = {}, drawn = {};
+const withPopups = (id, fc) => { const L = HUC_LEVELS.find((l) => l.id === id);
+  for (const f of fc.features) { const p = f.properties; p.code = p[L.code]; p.popup = `<div class="popup-title">${escapeHtml(p.name || "")}</div><div class="popup-sub">${L.label} ${escapeHtml(p.code || "")} · ${fmtNum(p.areasqkm / 2.58999, p.areasqkm < 260 ? 1 : 0)} mi²</div>`; }
+  return fc; };
+const getJson = (url) => fetch(url).then((r) => (r.ok ? r.json() : null)).catch(() => null);
 function load(id) {
-  if (!data[id]) {
-    const L = HUC_LEVELS.find((l) => l.id === id);
-    data[id] = fetch(`data/layers/${id}/all.json`).then(async (r) => {
-      if (!r.ok) return null; const fc = await r.json();
-      for (const f of fc.features) { const p = f.properties; p.code = p[L.code]; p.popup = `<div class="popup-title">${escapeHtml(p.name || "")}</div><div class="popup-sub">${L.label} ${escapeHtml(p.code || "")} · ${fmtNum(p.areasqkm / 2.58999, p.areasqkm < 260 ? 1 : 0)} mi²</div>`; }
-      return fc;
-    }).catch(() => { delete data[id]; return null; });
-  }
+  if (!data[id]) data[id] = getJson(`data/layers/${id}/all.json`).then((fc) => { if (!fc) { delete data[id]; return null; } return withPopups(id, fc); });
   return data[id];
+}
+// What the map draws: trimmed boundary lines and label points, or the polygons if those files are missing
+function loadDrawn(id) {
+  if (!drawn[id]) drawn[id] = Promise.all([getJson(`data/layers/${id}/lines.json`), getJson(`data/layers/${id}/labels.json`)]).then(async ([ln, lb]) => {
+    if (ln && lb) return { lines: withPopups(id, ln), labels: lb };
+    const fc = await load(id); if (!fc) { delete drawn[id]; return null; }
+    return { lines: fc, labels: { type: "FeatureCollection", features: fc.features.map((f) => ({ type: "Feature", geometry: { type: "Point", coordinates: labelPoint(f.geometry) }, properties: { label: f.properties.name } })) } };
+  });
+  return drawn[id];
 }
 // A label point well inside each polygon: the centroid of the largest ring if it falls inside, else the midpoint of the
 // widest horizontal span through the ring's middle latitude (cheap pole-of-inaccessibility stand-in).
@@ -39,10 +47,9 @@ function inGeom(g, x, y) { const polys = g.type === "Polygon" ? [g.coordinates] 
 let enabled = false; const shown = {};
 async function show(id) {
   if (shown[id]) return; shown[id] = true;
-  const p = load(id); track(`Watersheds ${id.toUpperCase()}`, p); const fc = await p;
-  if (!fc) { shown[id] = false; return; }
-  setOverlay(id, fc);
-  setOverlay(id + "-lbl", { type: "FeatureCollection", features: fc.features.map((f) => ({ type: "Feature", geometry: { type: "Point", coordinates: labelPoint(f.geometry) }, properties: { label: f.properties.name } })) });
+  const p = loadDrawn(id); track(`Watersheds ${id.toUpperCase()}`, p); const d = await p;
+  if (!d) { shown[id] = false; return; }
+  setOverlay(id, d.lines); setOverlay(id + "-lbl", d.labels);
 }
 function refresh() { if (!enabled) return; const z = map.getZoom(); for (const L of HUC_LEVELS) if (z >= L.minzoom - 0.5) show(L.id); }
 export function initHuc() { map.on("moveend", debounce(refresh, 300)); }

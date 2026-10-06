@@ -69,8 +69,8 @@ function popupHtml(s, days) {
 
 export function renderPrecipLegend(container, { days }) {
   const rows = PRECIP_BINS.map((b) => `<div class="legend-row"><span class="swatch" style="background:${b.color}"></span>${b.label}</div>`).join("");
-  container.innerHTML = `<h4>Precipitation, in (${days === 1 ? "1 day" : days + " days"})</h4>${rows}
-    <div class="legend-row"><span class="swatch" style="background:${PRECIP_MISSING_COLOR};opacity:.5"></span>No report</div>
+  container.innerHTML = `<h4>Precipitation, in (${days === 1 ? "1 day" : days + " days"})</h4><div class="legend-grid">${rows}
+    <div class="legend-row"><span class="swatch" style="background:${PRECIP_MISSING_COLOR};opacity:.5"></span>No report</div></div>
     <div class="small">${lastDay.date ? `${lastDay.reported} of ${lastDay.total} stations have reported for ${fmtDate(lastDay.date)}${lastDay.date === isoDate() ? "; observers read at ~7 AM and reports post through the day" : ""}.` : ""}</div>`;
 }
 

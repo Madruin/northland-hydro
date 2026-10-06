@@ -19,6 +19,7 @@ case "$JOB" in
   snapshots)
     cp -a /srv/data/. data/; cp -a "$LIVE/." data/ 2>/dev/null || true
     python tools/build_static_layers.py
+    python tools/build_huc_lines.py || log "watershed lines failed; the map falls back to polygon outlines"
     python tools/build_mpca.py
     python tools/build_trails.py || log "trails build failed; keeping last month's trails"
     total=$(du -sm data/layers | cut -f1); log "snapshot size ${total} MB"

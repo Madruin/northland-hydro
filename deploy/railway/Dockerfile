@@ -13,7 +13,7 @@ FROM python:3.12-slim-bookworm
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl libsqlite3-0 zlib1g libstdc++6 rsync util-linux \
  && rm -rf /var/lib/apt/lists/* \
  && curl -fsSL -o /usr/local/bin/supercronic https://github.com/aptible/supercronic/releases/download/v0.2.33/supercronic-linux-amd64 \
- && chmod +x /usr/local/bin/supercronic
+ && chmod +x /usr/local/bin/supercronic \n && pip install --no-cache-dir shapely==2.1.2
 COPY --from=tippecanoe /tc/tippecanoe /usr/local/bin/tippecanoe
 COPY --from=caddy /usr/bin/caddy /usr/bin/caddy
 COPY Caddyfile /etc/caddy/Caddyfile

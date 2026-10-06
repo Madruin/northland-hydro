@@ -61,7 +61,7 @@ export async function hlsScenes(lon = map.getCenter().lng, lat = map.getCenter()
   return scenesP;
 }
 const hlsLayer = (s) => (s.sensor === "L30" ? "HLS_L30_Nadir_BRDF_Adjusted_Reflectance" : "HLS_S30_Nadir_BRDF_Adjusted_Reflectance");
-const sceneLabel = (s) => `${nice(s.date, { month: "short", day: "numeric", year: "numeric" })} · ${s.sensor === "L30" ? "Landsat" : "Sentinel-2"} · ${Math.round(s.cloud)}% cloud`;
+const sceneLabel = (s) => `${nice(s.date, { month: "short", day: "numeric", year: "numeric" })} · ${s.sensor === "L30" ? "Landsat" : "Sentinel-2"}${Number.isFinite(s.cloud) ? ` · ${Math.round(s.cloud)}% cloud` : ""}`;
 // A style for the Compare control's right-hand map
 export function hlsStyle(s) {
   return { version: 8, sources: { hls: { type: "raster", tiles: [tileUrl(hlsLayer(s), s.date, 12, "png")], tileSize: 256, maxzoom: 12, attribution: `NASA HLS ${s.date} via GIBS` } },
@@ -92,9 +92,11 @@ function sources(k) { // [ [sourceId, sourceSpec], ... ]
   }
   return [];
 }
+const STACK = ["daily", "snow", "hls", "dist"]; // under the overlays, bottom → top, whatever order they load in (fire sits on top of everything)
 function beforeId(k) {
   if (!DEFS[k].below) return undefined;
   const L = map.getStyle().layers; const ids = new Set(L.map((l) => l.id));
+  for (const up of STACK.slice(STACK.indexOf(k) + 1)) if (ids.has(`sat-${up}`)) return `sat-${up}`;
   for (const id of ["qpe", "landcover"]) if (ids.has(id)) return id; // under radar and land cover
   return L.find((l) => l.type === "symbol")?.id;
 }
@@ -104,6 +106,7 @@ function apply(k) {
   clear(k); if (!st[k].on) return;
   const b = beforeId(k);
   for (const [id, spec] of sources(k)) { map.addSource(id, spec); map.addLayer({ id, type: "raster", source: id, paint: { "raster-opacity": DEFS[k].opacity, "raster-fade-duration": 0 } }, b); }
+  map.triggerRepaint();
 }
 const applyAll = () => { for (const k of Object.keys(st)) apply(k); };
 
@@ -111,13 +114,14 @@ const applyAll = () => { for (const k of Object.keys(st)) apply(k); };
 function fillSelect(k) {
   const sel = $(`sat-${k}-sel`); if (!sel) return; const s = st[k];
   if (k === "hls") sel.innerHTML = scenes.length ? scenes.map((x) => `<option value="${x.date}" ${x.date === s.date ? "selected" : ""}>${escapeHtml(sceneLabel(x))}</option>`).join("") : `<option value="">${scenesP ? "Finding clear scenes…" : "Turn on to find clear scenes here"}</option>`;
-  if (k === "daily" || k === "snow") sel.innerHTML = recentDays(14).map((d) => `<option value="${d}" ${d === (s.date || daysAgo(1)) ? "selected" : ""}>${nice(d, { weekday: "short", month: "short", day: "numeric" })}</option>`).join("");
+  if (k === "daily" || k === "snow") sel.innerHTML = [...new Set([...recentDays(14), ...(s.date ? [s.date] : [])])].map((d) => `<option value="${d}" ${d === (s.date || daysAgo(1)) ? "selected" : ""}>${nice(d, { weekday: "short", month: "short", day: "numeric" })}</option>`).join("");
   if (k === "dist") sel.innerHTML = ["2025", "2024", "2023"].map((y) => `<option value="${y}" ${y === s.year ? "selected" : ""}>${y} annual</option>`).join("");
   if (k === "fire") sel.innerHTML = [[1, "Last 24 h"], [3, "Last 3 days"], [7, "Last 7 days"]].map(([v, t]) => `<option value="${v}" ${v === s.days ? "selected" : ""}>${t}</option>`).join("");
 }
 async function refreshScenes() {
   const before = st.hls.date; fillSelect("hls");
   try { await hlsScenes(); } catch (e) { const sel = $("sat-hls-sel"); if (sel) sel.innerHTML = `<option value="">Scene search failed: ${escapeHtml(e.message)}</option>`; return; }
+  if (linked && linked.date === st.hls.date && !scenes.some((x) => x.date === linked.date)) scenes = [...scenes, linked].sort((a, b) => b.date.localeCompare(a.date)); // a shared link's older scene
   if (!scenes.some((x) => x.date === st.hls.date)) st.hls.date = scenes[0]?.date || null;
   fillSelect("hls");
   if (st.hls.date !== before || !map.getLayer("sat-hls")) { apply("hls"); onChange(); } // a pan within the same scene changes nothing
@@ -129,6 +133,26 @@ function setOn(k, on) {
 }
 const save = () => { try { localStorage.setItem("nh-sat", JSON.stringify({ on: Object.fromEntries(Object.entries(st).map(([k, v]) => [k, v.on])), dist: st.dist.year, fire: st.fire.days })); } catch {} };
 export const satCount = () => Object.values(st).filter((s) => s.on).length;
+// Shared-link form: hls:2026-10-02S,daily:2026-10-04,snow,dist:2025,fire:3 (empty = all off)
+let linked = null;
+export function satUrlState() {
+  const out = [];
+  if (st.hls.on) { const sc = scenes.find((x) => x.date === st.hls.date); out.push(sc ? `hls:${sc.date}${sc.sensor === "L30" ? "L" : "S"}` : "hls"); }
+  for (const k of ["daily", "snow"]) if (st[k].on) out.push(st[k].date ? `${k}:${st[k].date}` : k);
+  if (st.dist.on) out.push(`dist:${st.dist.year}`);
+  if (st.fire.on) out.push(`fire:${st.fire.days}`);
+  return out.join(",");
+}
+function readLink(v) {
+  for (const k of Object.keys(st)) st[k].on = false;
+  for (const part of v.split(",").filter(Boolean)) {
+    const [k, val = ""] = part.split(":"); if (!st[k]) continue; st[k].on = true;
+    if (k === "hls" && /^\d{4}-\d\d-\d\d[SL]$/.test(val)) { st.hls.date = val.slice(0, 10); linked = { date: st.hls.date, sensor: val.endsWith("L") ? "L30" : "S30", cloud: NaN }; }
+    if ((k === "daily" || k === "snow") && /^\d{4}-\d\d-\d\d$/.test(val)) st[k].date = val;
+    if (k === "dist" && /^20\d\d$/.test(val)) st.dist.year = val;
+    if (k === "fire" && ["1", "3", "7"].includes(val)) st.fire.days = +val;
+  }
+}
 
 export function satLegendHtml() {
   const out = [];
@@ -140,9 +164,10 @@ export function satLegendHtml() {
   return out.join("");
 }
 
-export function initSatellite({ onChange: cb } = {}) {
+export function initSatellite({ onChange: cb, fromUrl } = {}) {
   onChange = cb || onChange; addProtocol();
-  try { const v = JSON.parse(localStorage.getItem("nh-sat") || "null"); if (v) { for (const k of Object.keys(st)) st[k].on = !!v.on?.[k]; if (v.dist) st.dist.year = v.dist; if (v.fire) st.fire.days = +v.fire; } } catch {}
+  if (fromUrl != null) readLink(fromUrl); // a shared link wins over this browser's last choice
+  else try { const v = JSON.parse(localStorage.getItem("nh-sat") || "null"); if (v) { for (const k of Object.keys(st)) st[k].on = !!v.on?.[k]; if (v.dist) st.dist.year = v.dist; if (v.fire) st.fire.days = +v.fire; } } catch {}
   for (const k of Object.keys(st)) {
     fillSelect(k); $(`tg-sat-${k}`)?.classList.toggle("on", st[k].on);
     $(`tg-sat-${k}`)?.addEventListener("click", () => setOn(k, !st[k].on));

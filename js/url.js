@@ -12,6 +12,7 @@ export function readUrl() {
   if (h.get("t") != null) st.terrain = Object.fromEntries(h.get("t").split(",").filter(Boolean).map((k) => [k, true]));
   if (h.get("to")) st.terrainOpacity = Number(h.get("to")) / 100;
   if (h.get("sel")) { const [type, ...rest] = h.get("sel").split(":"); st.selection = { type, id: rest.join(":") }; }
+  if (h.get("sat") != null) st.sat = h.get("sat"); // satellite layers, e.g. hls:2026-10-02S,dist:2025,fire:3
   return st;
 }
 export function writeUrl(st) {
@@ -24,5 +25,6 @@ export function writeUrl(st) {
   const t = Object.keys(st.terrain || {}).filter((k) => st.terrain[k]);
   if (t.length) { h.set("t", t.join(",")); h.set("to", String(Math.round((st.terrainOpacity ?? 0.6) * 100))); }
   if (st.selection) h.set("sel", `${st.selection.type}:${st.selection.id}`);
+  if (st.sat) h.set("sat", st.sat);
   history.replaceState(null, "", "#" + h.toString());
 }

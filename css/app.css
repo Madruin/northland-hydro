@@ -545,3 +545,20 @@ details.sec.error .sec-s { color: #fca5a5; }
 .fd-annot-box label { display: grid; gap: 3px; }
 .fd-annot-box input, .fd-annot-box textarea { width: 100%; background: var(--bg3); border: 1px solid var(--line); border-radius: 6px; padding: 7px 8px; color: var(--fg); font: inherit; font-size: 15px; }
 .fd-annot-box .fd-actions { margin: 2px 0 0; }
+
+/* Polish pass 2026-10-06 */
+.tab:disabled { display: none; } /* Station, Gauge, Point and Export appear once they have something to show */
+#ctl-basemap { max-width: 190px; text-overflow: ellipsis; }
+.legend-grid { display: grid; grid-template-columns: auto auto; column-gap: 12px; }
+button:focus-visible, select:focus-visible, summary:focus-visible, a:focus-visible, input[type=checkbox]:focus-visible, .layer-row:focus-visible { outline: 2px solid #38bdf8; outline-offset: 2px; }
+@media (min-width: 901px) and (max-width: 1300px) {
+  .ctl > span:first-child { display: none; } /* "End date" / "Window" labels: the controls explain themselves */
+  #ctl-search { width: 170px; }
+  .controls { gap: 8px; }
+}
+@media (min-width: 901px) and (max-width: 1200px) { /* keep the header to one row: icon-only export and link buttons */
+  .chip .lbl { display: none; }
+  #ctl-search { width: 145px; }
+  #ctl-basemap { max-width: 150px; }
+}
+@media (max-width: 900px) { #map-hint { top: auto; bottom: 64px; } } /* clear of the zoom buttons and legend */

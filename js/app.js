@@ -31,7 +31,7 @@ import { MeasureControl } from "./measure.js";
 import { CompareControl } from "./compare.js";
 import { initField, FieldControl } from "./field.js";
 import { initTeamLayer } from "./fieldrecords.js";
-import { initSatellite, satLegendHtml, satCount } from "./satellite.js";
+import { initSatellite, satLegendHtml, satCount, satUrlState } from "./satellite.js";
 import { initEgg } from "./egg.js";
 import { setHideUnclassified, setShowRetired } from "./gauges.js";
 import { setGaugeFilter, setGaugeRetired } from "./map.js";
@@ -76,7 +76,7 @@ function buildControls() {
   $("date-prev").addEventListener("click", () => stepDate(-1));
   $("date-next").addEventListener("click", () => stepDate(1));
   $("date-today").addEventListener("click", () => stepDate(0));
-  $("btn-share").addEventListener("click", async () => { syncUrl(); try { await navigator.clipboard.writeText(location.href); $("btn-share").textContent = "🔗 Copied"; } catch { prompt("Copy this link:", location.href); } setTimeout(() => ($("btn-share").textContent = "🔗 Link"), 1500); });
+  $("btn-share").addEventListener("click", async () => { syncUrl(); try { await navigator.clipboard.writeText(location.href); $("btn-share").innerHTML = "✓<span class='lbl'> Copied</span>"; } catch { prompt("Copy this link:", location.href); } setTimeout(() => ($("btn-share").innerHTML = "🔗<span class='lbl'> Link</span>"), 1500); });
   $("btn-help").addEventListener("click", () => openHelp("guide"));
   $("attrib-sources").addEventListener("click", (e) => { e.preventDefault(); openHelp("sources"); });
   $("help").querySelectorAll(".mtab").forEach((b) => b.addEventListener("click", () => showHelpPane(b.dataset.pane)));
@@ -354,7 +354,11 @@ async function boot() {
   fitLegend(); window.addEventListener("resize", debounce(fitLegend, 150)); map.once("load", fitLegend);
   initField();
   initTeamLayer();
-  initSatellite({ onChange: () => { renderLegend(); updateLayersButton(); } });
+  initSatellite({ fromUrl: state.sat, onChange: () => { state.sat = satUrlState(); renderLegend(); updateLayersButton(); syncUrl(); } });
+  state.sat = satUrlState(); updateLayersButton();
+  // Layer rows report on/off to screen readers (the .on class is set in several places)
+  const syncPressed = (r) => r.setAttribute("aria-pressed", String(r.classList.contains("on")));
+  document.querySelectorAll(".layer-row").forEach((r) => { syncPressed(r); new MutationObserver(() => syncPressed(r)).observe(r, { attributes: true, attributeFilter: ["class"] }); });
   initEgg();
   // Cached stations are drawn immediately by loadPrecip; render the Region panel from them too, then replace when fresh data lands.
   on("precip:loaded", ({ stale }) => { if (!stale) return; setStatus("Showing the last cached observations while fresh data loads…", false, true); renderLegend(); renderRegion({ quiet: !!state.selection && state.selection.type !== "region" }); });
