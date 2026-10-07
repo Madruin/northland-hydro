@@ -148,7 +148,7 @@
 
   <div id="help" class="modal" role="dialog" aria-modal="true" aria-label="Help and sources" hidden>
     <div class="modal-box">
-      <div class="modal-head"><b>Northland Eco</b><div class="modal-tabs"><button class="mtab on" data-pane="guide">How to use it</button><button class="mtab" data-pane="sources">Sources &amp; methods</button></div><button id="help-close" title="Close">✕</button></div>
+      <div class="modal-head"><b>Northland Eco</b><div class="modal-tabs"><button class="mtab on" data-pane="guide">How to use it</button><button class="mtab" data-pane="sources">Sources &amp; methods</button><button class="mtab" data-pane="changelog">Changelog</button></div><button id="help-close" title="Close">✕</button></div>
       <div class="modal-body">
         <div id="help-pane-guide" class="help-pane on">
         <div id="wip-guide"></div>
@@ -215,11 +215,12 @@
         <p class="small">Full list under <b>Sources &amp; methods</b> above. RCC-ACIS · USGS NWIS · MN DNR/MPCA CSG · NWS API & RFC QPE · Open-Meteo · NOAA CO-OPS · NOAA Atlas 14 · USGS StreamStats · MnGeo/MnTOPO · TSA3 regional curve workbooks. Made and maintained by Matías Valero. An independent project; not an official product of MN SWCD Technical Service Area 3 or any government agency. Report a data problem or ask a question: <a href="mailto:matiasvalero@tsa3.org">matiasvalero@tsa3.org</a>. Open source under the MIT license: <a href="https://github.com/Madruin/northland-hydro" target="_blank" rel="noopener">github.com/Madruin/northland-hydro</a>.</p>
         </div>
         <div id="help-pane-sources" class="help-pane"></div>
+        <div id="help-pane-changelog" class="help-pane"></div>
       </div>
     </div>
   </div>
   <footer id="attrib">
-    <span class="foot-brand"><img src="assets/icon.svg" alt="" width="13" height="13" id="foot-logo" /> <b>Northland Eco</b></span> <span class="foot-wip" id="foot-wip" title="Northland Eco is under active development; features and data may change">Site in development</span> ·
+    <span class="foot-brand"><img src="assets/icon.svg" alt="" width="13" height="13" id="foot-logo" /> <b>Northland Eco</b></span> <button type="button" class="foot-wip" id="foot-wip" title="Northland Eco is under active development; click for the changelog">Site in development</button> ·
     <a href="#" id="attrib-sources" title="All data sources, methods and software">Sources</a> · <a href="#" id="report-problem" title="Email Matías about a problem or idea, with a link to exactly what you are looking at">Report a problem</a> · Data: <a href="https://www.rcc-acis.org/" target="_blank" rel="noopener">RCC-ACIS</a> (CoCoRaHS · COOP · ASOS) ·
     <a href="https://waterdata.usgs.gov/" target="_blank" rel="noopener">USGS NWIS</a> ·
     <a href="https://www.dnr.state.mn.us/waters/csg/index.html" target="_blank" rel="noopener">MN DNR/MPCA CSG</a> ·

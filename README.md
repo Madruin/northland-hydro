@@ -195,7 +195,7 @@ The **Field** tab (also the pin button in the map's left tool column) is built f
 
 - **Right-click or long-press the map** (`js/mapmenu.js`): point info, add a field point, copy lat/lon or UTM 15N US ft, directions.
 - **Last view**: opening the site without a link restores the last map view and layers (`nh-last-view`; never the date or a selection).
-- **What's new** (`js/changes.js`): returning visitors see the newest entries once after an update; Help lists them all. Add an entry there with each release people will notice.
+- **Changelog** (`js/changes.js`): the full record since 2026-09-08 in Help → Changelog (also opened from the footer's "Site in development" label and "Full changelog" links); returning visitors see the newest entries once after an update, and Help shows the latest two releases. Add an entry there with each release people will notice.
 - **Report a problem** (footer): a pre-filled email to matiasvalero@tsa3.org with the exact view link, version and browser.
 - **Offline banner** when the browser loses signal, saying field notes keep saving.
 - **Layers menu**: filter box, per-group "n on" counts, Turn all off; keyboard **L** opens it, **/** search, **?** help, **←/→** date, **Esc** closes (focus returns to the button).

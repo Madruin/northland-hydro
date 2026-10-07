@@ -584,3 +584,6 @@ ul.changes { margin: 4px 0 6px; padding-left: 18px; } ul.changes li { margin: 2p
 @media (max-width: 900px) { #whats-new { left: 8px; right: 8px; bottom: 64px; max-width: none; } #offline-banner { top: auto; bottom: 110px; max-width: calc(100% - 16px); } }
 #layers-menu [hidden] { display: none !important; }
 #whats-new .wn-x { background: none; border: 0; color: var(--fg2); cursor: pointer; font-size: 14px; padding: 0 2px; } #whats-new .wn-x:hover { color: var(--fg); }
+button.foot-wip { cursor: pointer; font-family: inherit; margin: 0; } button.foot-wip:hover { color: var(--fg); border-color: var(--fg3); }
+#help-pane-changelog h4 { margin: 14px 0 2px; font-size: 12px; text-transform: uppercase; letter-spacing: .4px; color: var(--fg3); }
+#open-changelog { margin: 2px 0 4px; }

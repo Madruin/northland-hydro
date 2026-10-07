@@ -33,7 +33,7 @@ import { initField, FieldControl } from "./field.js";
 import { initTeamLayer } from "./fieldrecords.js";
 import { initSatellite, satLegendHtml, satCount, satUrlState, satAllOff } from "./satellite.js";
 import { initMapMenu } from "./mapmenu.js";
-import { maybeShowWhatsNew, changesHtml } from "./changes.js";
+import { maybeShowWhatsNew, changesHtml, changelogHtml } from "./changes.js";
 import { initEgg } from "./egg.js";
 import { setHideUnclassified, setShowRetired } from "./gauges.js";
 import { setGaugeFilter, setGaugeRetired } from "./map.js";
@@ -264,6 +264,7 @@ on("layer:status", ({ name, text }) => {
 let sourcesRendered = false;
 function showHelpPane(pane) {
   if (pane === "sources" && !sourcesRendered) { renderSources($("help-pane-sources")); sourcesRendered = true; }
+  if (pane === "changelog" && !$("help-pane-changelog").innerHTML) $("help-pane-changelog").innerHTML = changelogHtml();
   $("help").querySelectorAll(".mtab").forEach((b) => b.classList.toggle("on", b.dataset.pane === pane));
   $("help").querySelectorAll(".help-pane").forEach((p) => p.classList.toggle("on", p.id === "help-pane-" + pane));
   $("help").querySelector(".modal-body").scrollTop = 0;
@@ -349,7 +350,9 @@ async function checkBuild() {
 // Version and site-in-development notice: footer label and the top of the help guide
 function showVersion() {
   const v = versionInfo(); const f = $("foot-wip"); if (f) f.textContent = v.label;
-  const g = $("wip-guide"); if (g) g.innerHTML = wipNoteHtml() + `<details class="changes-box"><summary>Recent changes</summary>${changesHtml()}</details>`;
+  const g = $("wip-guide"); if (g) g.innerHTML = wipNoteHtml() + `<details class="changes-box"><summary>Recent changes</summary>${changesHtml()}<button type="button" class="linkbtn" id="open-changelog">Full changelog →</button></details>`;
+  $("open-changelog")?.addEventListener("click", () => openHelp("changelog"));
+  $("foot-wip")?.addEventListener("click", () => openHelp("changelog"));
 }
 async function boot() {
   showVersion();
@@ -407,7 +410,7 @@ async function boot() {
   // First visit: show the welcome dialog now, not after the station query (ACIS can take 20-30 s cold).
   let returning = true;
   try { if (localStorage.getItem("nh-visited") !== "1") { returning = false; localStorage.setItem("nh-visited", "1"); $("help").hidden = false; } } catch {}
-  maybeShowWhatsNew(returning);
+  maybeShowWhatsNew(returning, () => openHelp("changelog"));
   // A shared link to a point or gauge opens right away; station rainfall fills in when ACIS answers.
   // refreshPrecipNow sets the date window synchronously, so the point's PRISM and forecast sections can start now.
   const precipP = refreshPrecipNow();
