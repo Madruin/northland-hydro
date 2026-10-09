@@ -3,6 +3,7 @@ import { plot } from "./loader.js";
 import { $, escapeHtml, fmt, fmtNum, fmtDate, haversineKm, kmToMi, plotlyLayout } from "./util.js";
 import * as dnr from "./api/dnrlakes.js";
 import { setLake } from "./map.js";
+import { renderLakeDepth } from "./bathy.js";
 
 export async function renderLakeAt(container, lon, lat) {
   container.innerHTML = "";
@@ -18,10 +19,12 @@ export async function renderLakeAt(container, lon, lat) {
     <div><b>${escapeHtml(name)}</b> <span class="small">${dow ? `· DOW ${escapeHtml(dow)} ` : ""}${p.cty_name ? `· ${escapeHtml(p.cty_name)} County ` : ""}· ${escapeHtml(p.wb_class || "")}${p.pwi_class ? " · PWI " + escapeHtml(p.pwi_class) : ""}</span></div>
     <div class="small">${fmtNum(p.acres, 0)} ac · ${fmt(p.shore_mi, 1)} mi shoreline${p.in_lakefinder !== "Y" ? " · not in LakeFinder" : ""}</div>
     <div id="lk-levels"><div class="spinner">Water levels…</div></div>
+    <div id="lk-depth"></div>
     <div id="lk-outlet"><div class="spinner">Outlet / control structures…</div></div>
     <div id="lk-morph"></div>
     ${dow ? `<div class="actions"><a class="btn" href="${dnr.lakefinderUrl(dow)}" target="_blank" rel="noopener">LakeFinder</a><a class="btn" href="${dnr.levelsPageUrl(dow)}" target="_blank" rel="noopener">Water levels page</a><a class="btn" href="${dnr.levelsCsvUrl(dow)}" target="_blank" rel="noopener">Levels CSV</a></div>` : ""}`;
 
+  renderLakeDepth($("lk-depth"), { lon, lat, dow });
   // Water levels: summary from the page (OHW, datum, extremes) + readings CSV → chart
   (async () => {
     const box = $("lk-levels");

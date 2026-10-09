@@ -8,7 +8,7 @@
 // disc lowered to its lowest ground, and the pour cell snaps to the strongest flow line within snapCells.
 self.onmessage = (e) => { try { const r = run(e.data); self.postMessage(r, [r.mask.buffer]); } catch (err) { self.postMessage({ error: err.message || String(err) }); } };
 
-function run({ z, w, h, cell, px, py, snapCells, outletCells = 0 }) {
+function run({ z, w, h, cell, px, py, snapCells, outletCells = 0, burn = null }) {
   const n = w * h, nod = new Uint8Array(n);
   let nNod = 0; for (let i = 0; i < n; i++) if (!(z[i] > -1000)) { nod[i] = 1; nNod++; } // NaN or the -9999 nodata
   if (nNod > n * 0.9) throw new Error("no lidar elevations here");
@@ -22,6 +22,9 @@ function run({ z, w, h, cell, px, py, snapCells, outletCells = 0 }) {
     let zmin = Infinity; for (let dy = -outletCells; dy <= outletCells; dy++) for (let dx = -outletCells; dx <= outletCells; dx++) { if (dx * dx + dy * dy > outletCells * outletCells) continue; const x = px + dx, y = py + dy; if (x < 0 || y < 0 || x >= w || y >= h) continue; const j = y * w + x; if (nod[j]) continue; disc.push(j); if (z[j] < zmin) zmin = z[j]; }
     for (const j of disc) f[j] = zmin;
   }
+  // mapped streams (DNR, traced from lidar) burned 3 m in: flow follows them, and the bump left where one crosses a road
+  // fill is a short, cheap breach along the line instead of a dam
+  let burned = 0; if (burn) for (let i = 0; i < n; i++) if (burn[i] && !nod[i]) { f[i] -= 3; burned++; }
   const breached = breach(f, w, h, nod, cell, DX, DY, DL);
   // ---- priority-flood fill with epsilon (cells on the grid edge or next to nodata are outlets) ----
   const closed = new Uint8Array(n);
@@ -60,8 +63,15 @@ function run({ z, w, h, cell, px, py, snapCells, outletCells = 0 }) {
   while (qh < qt) { const c = q[qh++], d = dir[c]; if (d < 0) continue; acc[d] += acc[c]; if (--indeg[d] === 0) q[qt++] = d; }
 
   let pour = py * w + px;
-  if (snapCells > 0) { let best = -1; for (let dy = -snapCells; dy <= snapCells; dy++) for (let dx = -snapCells; dx <= snapCells; dx++) {
-    if (dx * dx + dy * dy > snapCells * snapCells) continue; const x = px + dx, y = py + dy; if (x < 0 || y < 0 || x >= w || y >= h) continue; const j = y * w + x; if (!nod[j] && acc[j] > best) { best = acc[j]; pour = j; } } }
+  // snap: the nearest cell that is on the main flow line within the radius (at least a quarter of the largest flow there),
+  // not the largest one, so the outlet moves as little as possible and nearby clicks give their own outlets
+  if (snapCells > 0) {
+    const cand = []; let mx = 0;
+    for (let dy = -snapCells; dy <= snapCells; dy++) for (let dx = -snapCells; dx <= snapCells; dx++) {
+      const d2 = dx * dx + dy * dy; if (d2 > snapCells * snapCells) continue; const x = px + dx, y = py + dy; if (x < 0 || y < 0 || x >= w || y >= h) continue;
+      const j = y * w + x; if (nod[j]) continue; cand.push([j, d2]); if (acc[j] > mx) mx = acc[j]; }
+    let bd = Infinity; for (const [j, d2] of cand) if (acc[j] >= mx * 0.25 && d2 < bd) { bd = d2; pour = j; }
+  }
   if (nod[pour]) throw new Error("the point is on a lidar data gap (often open water)");
 
   // ---- upstream catchment, flow length to the pour cell ----
@@ -94,14 +104,14 @@ function run({ z, w, h, cell, px, py, snapCells, outletCells = 0 }) {
   }
   const px2 = pour % w, py2 = (pour - px2) / w;
   return { mask, count, touches, pour: [px2, py2], areaM2: count * cell * cell, reliefM: zMax - zMin, zMin, zMax, slopePct: sN ? (100 * sSum) / sN : null,
-    lfpM: dist[far], lfpDropM: z[far] - (seeds.length > 1 ? Math.min(...disc.map((j) => z[j])) : z[pour]), nodFrac: nNod / n, breached };
+    lfpM: dist[far], lfpDropM: z[far] - (seeds.length > 1 ? Math.min(...disc.map((j) => z[j])) : z[pour]), nodFrac: nNod / n, breached, burned };
 }
 
 // Least-cost depression breaching (Lindsay 2016), constrained: single-cell pits are raised first; then each remaining
 // pit (no lower neighbour), lowest first, runs a small Dijkstra search whose cost is the cut depth above the pit, limited
 // to maxDistM path length and maxDepthM cut, until it reaches lower ground or the grid edge; that path is carved so it
 // descends. A global work budget keeps big flat wetlands from stalling (whatever is left is filled afterwards).
-function breach(f, w, h, nod, cell, DX, DY, DL, maxDistM = 60, maxDepthM = 8, budget = 3e7) {
+function breach(f, w, h, nod, cell, DX, DY, DL, maxDistM = 100, maxDepthM = 12, budget = 4e7) {
   const n = w * h, inner = (x, y) => x > 0 && y > 0 && x < w - 1 && y < h - 1;
   const lowerNb = (i, x, y) => { for (let k = 0; k < 8; k++) { const j = (y + DY[k]) * w + x + DX[k]; if (!nod[j] && f[j] < f[i]) return true; } return false; };
   const edgeLike = (x, y) => { if (!inner(x, y)) return true; for (let k = 0; k < 8; k++) if (nod[(y + DY[k]) * w + x + DX[k]]) return true; return false; };

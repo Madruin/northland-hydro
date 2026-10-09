@@ -1,8 +1,11 @@
 // Small-watershed delineation from lidar, in the browser: for off-stream swales, ditches and culverts on small
 // drainages that StreamStats' stream grid doesn't reach. The MnTOPO lidar DEM (2nd generation 0.5 m, or 1st
 // generation 1 m where the 0.5 m has gaps, e.g. Pine County) is read around the point; a worker fills sinks, routes
-// D8 flow and traces everything draining to the point (js/demshed-worker.js), after breaching road and rail fills. If the watershed reaches the edge of
-// the window, the window grows (with coarser cells) up to ~7 km across. The outline comes from d3-contour.
+// D8 flow and traces everything draining to the point (js/demshed-worker.js), after breaching road and rail fills.
+// If the watershed reaches the edge of the window, the window grows (with coarser cells) up to ~7 km across. The
+// outline comes from d3-contour. DNR's stream lines traced from lidar (water_dnr_hydrography_from_lidar: watercourses,
+// detailed stream lines, flow-accumulation lines) are burned in first, so water follows mapped streams through road
+// crossings the lidar shows as solid fill.
 import { toUtm, fromUtm } from "./coords.js";
 import { loadScript } from "./field.js";
 
@@ -12,6 +15,33 @@ const DEMS = [{ url: `${IMG}/2nd_Generation_Seamless_Lidar_DEM/ImageServer/expor
 // window half-width (m) and cell size (m) for each try; ~1,000-1,400 cells across
 export const STAGES = [{ half: 250, cell: 0.5 }, { half: 600, cell: 1 }, { half: 1500, cell: 2.5 }, { half: 3500, cell: 6 }];
 const cache = new Map();
+const HYD = "https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_dnr/water_dnr_hydrography_from_lidar/MapServer";
+const BURN_LAYERS = window.__burnLayers || [1, 2]; // DNR watercourses from lidar and additional detailed stream lines
+
+// DNR lidar stream lines in a UTM box, as arrays of [x, y] paths (paged; capped so a huge window can't stall)
+async function streamPaths(box, signal) {
+  const out = [];
+  await Promise.all(BURN_LAYERS.map(async (layer) => {
+    for (let page = 0, offset = 0; page < 8; page++) {
+      const q = new URLSearchParams({ geometry: box.map((v) => v.toFixed(1)).join(","), geometryType: "esriGeometryEnvelope", inSR: "26915", outSR: "26915", spatialRel: "esriSpatialRelIntersects", returnGeometry: "true", outFields: "objectid", geometryPrecision: "1", resultOffset: String(offset), resultRecordCount: "2000", f: "json" });
+      const r = await fetch(`${HYD}/${layer}/query?${q}`, { signal }); if (!r.ok) return;
+      const d = await r.json(); if (d.error) return;
+      for (const f of d.features || []) for (const p of f.geometry?.paths || []) out.push(p);
+      if (!d.exceededTransferLimit) return; offset += (d.features || []).length;
+    }
+  }));
+  return out;
+}
+// Rasterize paths onto the grid (cells touched by each segment, stepped at a third of a cell)
+function burnMask(paths, g) {
+  const m = new Uint8Array(g.w * g.h); let k = 0;
+  for (const p of paths) for (let i = 1; i < p.length; i++) {
+    const [ax, ay] = p[i - 1], [bx, by] = p[i]; const steps = Math.max(1, Math.ceil((Math.hypot(bx - ax, by - ay) / g.cell) * 3));
+    for (let s = 0; s <= steps; s++) { const x = ax + ((bx - ax) * s) / steps, y = ay + ((by - ay) * s) / steps;
+      const c = Math.floor((x - g.x0) / g.cell), r = Math.floor((g.y0 - y) / g.cell); if (c >= 0 && r >= 0 && c < g.w && r < g.h && !m[r * g.w + c]) { m[r * g.w + c] = 1; k++; } }
+  }
+  return k ? m : null;
+}
 
 const fetchDem = (dem, e, n, half, cell, signal) => fetchBox(dem, [e - half, n - half, e + half, n + half], cell, signal);
 async function fetchBox(dem, bbox, cell, signal) {
@@ -30,7 +60,7 @@ function runWorker(msg) {
     const wk = new Worker(new URL("./demshed-worker.js", import.meta.url));
     wk.onmessage = (ev) => { wk.terminate(); ev.data.error ? rej(new Error(ev.data.error)) : res(ev.data); };
     wk.onerror = (ev) => { wk.terminate(); rej(new Error(ev.message || "worker failed")); };
-    wk.postMessage(msg, [msg.z.buffer]);
+    wk.postMessage(msg, [msg.z.buffer, ...(msg.burn ? [msg.burn.buffer] : [])]);
   });
 }
 // Douglas-Peucker on a closed ring of [x, y]
@@ -45,7 +75,7 @@ function simplify(ring, tol) {
 
 // Delineate. onStatus(text) reports progress. Returns the basin feature (lon/lat) and metrics.
 // outletM: radius of the outlet disc lowered through road fills (a culvert or outlet at the point)
-export async function delineateLidar(lon, lat, { snapM = 20, outletM = 8, onStatus = () => {}, signal } = {}) {
+export async function delineateLidar(lon, lat, { snapM = 10, outletM = 8, onStatus = () => {}, signal } = {}) {
   const key = `${lon.toFixed(5)},${lat.toFixed(5)},${snapM},${outletM}`; if (cache.has(key)) return cache.get(key);
   await loadScript("https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js", "GeoTIFF");
   if (!window.d3?.contours) { // d3-contour needs d3-array loaded first
@@ -69,7 +99,8 @@ export async function delineateLidar(lon, lat, { snapM = 20, outletM = 8, onStat
     // first try: breach and fill, then snap to the strongest flow line within snapM of the click; later (bigger, coarser)
     // tries keep that outlet so they trace the same watershed
     const [px, py] = cellOf(outlet || [e, n]);
-    res = await runWorker({ z: g.z, w: g.w, h: g.h, cell: g.cell, px, py, snapCells: outlet ? 0 : Math.round(snapM / g.cell), outletCells: Math.max(1, Math.round(outletM / g.cell)) });
+    const burn = burnMask(await streamPaths([e - s.half, n - s.half, e + s.half, n + s.half], signal).catch(() => []), g);
+    res = await runWorker({ z: g.z, w: g.w, h: g.h, cell: g.cell, px, py, snapCells: outlet ? 0 : Math.round(snapM / g.cell), outletCells: Math.max(1, Math.round(outletM / g.cell)), burn });
     outlet ||= [g.x0 + (res.pour[0] + 0.5) * g.cell, g.y0 - (res.pour[1] + 0.5) * g.cell];
     if (!res.touches) break;
   }
@@ -85,7 +116,8 @@ export async function delineateLidar(lon, lat, { snapM = 20, outletM = 8, onStat
       onStatus(`Refining the outline at ${fine} m cells…`);
       const g2 = await fetchBox(dem, box, fine, signal);
       const px = Math.floor((outlet[0] - g2.x0) / g2.cell), py = Math.floor((g2.y0 - outlet[1]) / g2.cell);
-      const r2 = await runWorker({ z: g2.z, w: g2.w, h: g2.h, cell: g2.cell, px, py, snapCells: 0, outletCells: Math.max(1, Math.round(outletM / g2.cell)) });
+      const burn2 = burnMask(await streamPaths(box, signal).catch(() => []), g2);
+      const r2 = await runWorker({ z: g2.z, w: g2.w, h: g2.h, cell: g2.cell, px, py, snapCells: 0, outletCells: Math.max(1, Math.round(outletM / g2.cell)), burn: burn2 });
       if (!r2.touches) { res = r2; g = g2; }
     } catch (err) { console.warn("lidar refine pass skipped", err); }
   }
@@ -103,6 +135,6 @@ export async function delineateLidar(lon, lat, { snapM = 20, outletM = 8, onStat
   const out = { basin: { type: "Feature", geometry, properties: { source: "lidar" } }, pour: [pp.lon, pp.lat], snappedM,
     areaSqMi: res.areaM2 / 2589988.11, acres: res.areaM2 / 4046.856, reliefFt: res.reliefM * 3.28084, slopePct: res.slopePct,
     lfpFt: res.lfpM * 3.28084, lfpSlopePct: res.lfpM > 0 ? (100 * res.lfpDropM) / res.lfpM : null,
-    cell: g.cell, windowKm: (2 * stage.half) / 1000, dem: dem.label, touches: res.touches, carved: res.breached?.carved ?? 0, budgetHit: !!res.breached?.budgetHit };
+    cell: g.cell, windowKm: (2 * stage.half) / 1000, dem: dem.label, touches: res.touches, burned: res.burned ?? 0, carved: res.breached?.carved ?? 0, click: [lon, lat], budgetHit: !!res.breached?.budgetHit };
   cache.set(key, out); return out;
 }

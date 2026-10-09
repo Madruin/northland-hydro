@@ -33,6 +33,7 @@ import { initField, FieldControl } from "./field.js";
 import { initTeamLayer } from "./fieldrecords.js";
 import { initSatellite, satLegendHtml, satCount, satUrlState, satAllOff } from "./satellite.js";
 import { initMapMenu } from "./mapmenu.js";
+import { initBathy, bathyOn, bathyLegendHtml, setBathy } from "./bathy.js";
 import { maybeShowWhatsNew, changesHtml, changelogHtml } from "./changes.js";
 import { initEgg } from "./egg.js";
 import { setHideUnclassified, setShowRetired } from "./gauges.js";
@@ -124,7 +125,7 @@ function buildControls() {
     if (e.key === "Escape") { const open = [...document.querySelectorAll(".menu-wrap .menu")].find((m) => !m.hidden); closeMenus(); if (open?.contains(document.activeElement)) open.closest(".menu-wrap").querySelector("button")?.focus(); } // keep keyboard focus on the button
     if ((e.key === "l" || e.key === "L") && !e.ctrlKey && !e.metaKey && !e.altKey && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) { e.preventDefault(); $("btn-layers").click(); if (!$("layers-menu").hidden) $("layers-filter").focus(); }
   });
-  $("layers-off").addEventListener("click", (e) => { e.stopPropagation(); for (const k of MENU_LAYERS) if (state.layers[k]) toggleLayer(k, false); satAllOff(); });
+  $("layers-off").addEventListener("click", (e) => { e.stopPropagation(); for (const k of MENU_LAYERS) if (state.layers[k]) toggleLayer(k, false); satAllOff(); if (bathyOn()) setBathy(false); });
   whenMap(() => {
     map.on("moveend", () => { if (!$("layers-menu").hidden) updateLayerRows(); if (zoomHint && map.getZoom() >= zoomHint.mz - 0.01) setStatus(normalStatus); });
     map.on("click", () => dismissHint());
@@ -225,7 +226,7 @@ function buildControls() {
 const MENU_LAYERS = ["stations", "gauges", "qpe", "contam", "trails", "huc", "landcover", "streams", "crossings", "trout", "soils", "parcels", "wetlands", "fema", "karst", "wells", "pwi", "impaired", "easements"];
 function closeMenus() { document.querySelectorAll(".menu-wrap .menu").forEach((m) => { m.hidden = true; }); }
 function updateLayersButton() {
-  const n = MENU_LAYERS.filter((k) => state.layers[k]).length + satCount();
+  const n = MENU_LAYERS.filter((k) => state.layers[k]).length + satCount() + (bathyOn() ? 1 : 0);
   $("btn-layers").classList.toggle("on", n > 0);
   const off = $("layers-off"); if (off) off.hidden = n === 0;
   document.querySelectorAll(".layer-group").forEach((g) => { const c = g.querySelectorAll(".layer-row.on").length; const el = g.querySelector(".group-name"); if (el) el.dataset.on = c ? `${c} on` : ""; });
@@ -313,6 +314,7 @@ function renderLegend() {
   for (const k of ["contam", "trails", "pwi", "impaired", "easements", "wetlands", "trout", "karst"]) if (state.layers[k]) lg.insertAdjacentHTML("beforeend", dnrLegendHtml(k));
   if (state.layers.soils) lg.insertAdjacentHTML("beforeend", soilsLegendHtml());
   if (state.layers.streams) lg.insertAdjacentHTML("beforeend", `<h4>Streams (StreamStats grid)</h4><div class="legend-row"><span class="swatch sq" style="background:#0070ff"></span>Mapped stream cells (zoom 13+)</div><div class="small">The 10 m cells StreamStats delineates on; snap targets these.</div>`);
+  lg.insertAdjacentHTML("beforeend", bathyLegendHtml());
   lg.insertAdjacentHTML("beforeend", satLegendHtml());
   lg.insertAdjacentHTML("beforeend", terrainLegendHtml(state.terrain));
   if (state.layers.qpe) { const lbl = $("ctl-qpe").selectedOptions[0].text; lg.insertAdjacentHTML("beforeend", `<h4>${state.qpeWindow === "live" ? "Live radar (NWS reflectivity)" : `Rain totals from radar + gauges (${lbl})`}</h4><div id="qpe-legend" data-win="${state.qpeWindow}"><div class="small">Loading NWS legend…</div></div>`); renderQpeLegend(state.qpeWindow, lbl); }
@@ -382,6 +384,7 @@ async function boot() {
   document.querySelectorAll(".layer-row").forEach((r) => { syncPressed(r); new MutationObserver(() => syncPressed(r)).observe(r, { attributes: true, attributeFilter: ["class"] }); });
   initEgg();
   whenMap(initMapMenu);
+  whenMap(() => initBathy({ onChange: () => { renderLegend(); updateLayersButton(); } }));
   // Report a problem: an email with the exact view attached
   $("report-problem").addEventListener("click", (e) => {
     e.preventDefault(); syncUrl();
