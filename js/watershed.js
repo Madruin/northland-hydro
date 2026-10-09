@@ -19,7 +19,7 @@ const lidarCache = new Map(); // key lon,lat → lidar result
 let curveChoice = null;
 const METHODS = {
   ss: { label: "StreamStats", help: "<b>StreamStats</b>: points on a mapped stream (the Streams layer, zoom 13+). USGS delineation, basin characteristics, regression peak flows and the TSA3 regional curves for bankfull dimensions. About 15 s." },
-  dem: { label: "Lidar", help: "<b>Lidar</b>: small or off-stream drainages (swales, ditches, field and road drainage, culverts on small catchments), up to a few square miles. Traced here on the 0.5 m lidar (1 m where there's no 0.5 m, e.g. Pine County), with NRCS curve-number runoff and design-storm peaks. No regression flows. 5–30 s." },
+  dem: { label: "Lidar", help: "<b>Lidar</b>: small or off-stream drainages (swales, ditches, field and road drainage, culverts on small catchments), up to a few square miles. Traced here on the 0.5 m lidar (1 m where there's no 0.5 m, e.g. Pine County), with NRCS curve-number runoff and design-storm peaks. No regression flows. Not for developed areas where streams run in storm sewers or long culverts (e.g. around Miller Hill Mall): the lidar can't see pipes, so use StreamStats there. 5–30 s." },
   both: { label: "Both", help: "<b>Both</b>: runs StreamStats and lidar and compares the drainage areas: useful at the top of the stream network, or to check a StreamStats basin against the lidar." },
 };
 const methodPref = () => { try { const m = localStorage.getItem("nh-ws-method"); return METHODS[m] ? m : "ss"; } catch { return "ss"; } };
@@ -38,7 +38,7 @@ export function renderWatershed(container, lon, lat) {
       <a class="btn" href="${ss.streamstatsUrl(lat, lon)}" target="_blank" rel="noopener">Open in StreamStats</a>
     </div>
     ${m !== "dem" ? `<label class="chk" title="Move the point to the nearest StreamStats stream-grid cell within 200 m before delineating (what the StreamStats app does). Uncheck to delineate exactly where you clicked."><input type="checkbox" id="ws-snap" ${snapPref() ? "checked" : ""}/> snap to the nearest mapped stream (StreamStats)</label>` : ""}
-    ${m !== "ss" ? `<div class="small">Lidar treats the point as an outlet: everything draining into a 40 ft circle around it, with the ground there lowered so a culvert under a road fill still drains. Click on the culvert or the channel bottom.</div>` : ""}
+    ${m !== "ss" ? `<div class="small">Lidar moves the point to the strongest flow line within 65 ft and cuts through road and rail fills where water would otherwise pond behind them (the culverts aren't in the lidar). Click on the culvert or the channel.</div>` : ""}
     <div id="ws-body">${st ? "" : m !== "dem" ? `<div class="small">StreamStats calls USGS servers (about 15 s total) and draws the basin on the map. Use the drainage-area box to run the regional curves without delineating.</div>` : ""}</div>
     <div id="ws-lidar"></div>`;
   container.querySelectorAll('input[name="ws-m"]').forEach((r) => (r.onchange = () => { try { localStorage.setItem("nh-ws-method", r.value); } catch {} renderWatershed(container, lon, lat); }));
@@ -52,7 +52,7 @@ export function renderWatershed(container, lon, lat) {
       // StreamStats' stream-grid snap, waited for up to 20 s (USGS is sometimes slow); otherwise lidar snaps on its own within 30 m
       const timeout = new Promise((res) => setTimeout(() => res(null), 20000));
       const snapped = $("ws-snap")?.checked ? Promise.race([ss.snapToStreamGrid(ss.STATE_FOR(lon, lat), lat, lon, 200).then((sn) => (sn.snapped ? { lon: sn.lon, lat: sn.lat, onGrid: true } : null)).catch(() => null), timeout]) : Promise.resolve({ lon, lat, onGrid: true });
-      const lidarRun = snapped.then((p) => runLidar(container, p?.lon ?? lon, p?.lat ?? lat, key, mm, p?.onGrid ? 15 : 12));
+      const lidarRun = snapped.then((p) => runLidar(container, p?.lon ?? lon, p?.lat ?? lat, key, mm, p?.onGrid ? 40 : 20)); // StreamStats' 10 m grid can sit tens of metres off the lidar channel
       Promise.all([ssRun, lidarRun]).then(() => compareLine(key));
     } };
   $("ws-snap")?.addEventListener("change", (e) => { try { localStorage.setItem("nh-snap", e.target.checked ? "1" : "0"); } catch {} });
@@ -66,8 +66,8 @@ async function runLidar(container, lon, lat, key, mode, snapOverride = null) {
   const box = $("ws-lidar"); if (!box) return; const gone = () => !box.isConnected;
   box.innerHTML = `<h3>Lidar watershed</h3><div class="spinner">Starting…</div>`;
   try {
-    // no snapping: the outlet circle absorbs small click offsets, and snapping on the lidar jumps to road ditches
-    const r = await delineateLidar(lon, lat, { snapM: 0, outletM: snapOverride ?? 12, onStatus: (t) => { const s = !gone() && box.querySelector(".spinner"); if (s) s.textContent = t; } });
+    // after breaching, the pour point snaps to the strongest flow line within 20 m (40 m from a StreamStats stream point)
+    const r = await delineateLidar(lon, lat, { snapM: snapOverride ?? 20, outletM: 8, onStatus: (t) => { const s = !gone() && box.querySelector(".spinner"); if (s) s.textContent = t; } });
     if (gone()) return;
     lidarCache.set(key, r); setLidarBasin(r.basin, r.pour, { fit: mode !== "both" });
     renderLidar(container, lon, lat, key, mode);
@@ -85,7 +85,7 @@ function renderLidar(container, lon, lat, key, mode) {
       <div class="stat"><div class="v">${fmtNum(r.lfpFt, 0)}</div><div class="l">longest flow path, ft</div><div class="s">${r.lfpSlopePct != null ? `${fmt(r.lfpSlopePct, 1)}% average along it` : ""}</div></div>
       <div class="stat"><div class="v">${fmt(r.slopePct, 1)}%</div><div class="l">mean land slope</div><div class="s">relief ${fmtNum(r.reliefFt, 0)} ft</div></div>
     </div>
-    <div class="small">${escapeHtml(r.dem)}, traced at ${fmt(r.cell, r.cell < 1 ? 1 : r.cell % 1 ? 1 : 0)} m cells (search window ${fmt(r.windowKm, 1)} km). Outlet: everything draining into a 40 ft circle at the point, with the ground there lowered through any road fill. Lidar is bare earth: other culverts and storm sewers aren't in it, so a road fill upstream can block or divert part of the drawn watershed (check in the field), and divides across ponds and flat wetlands are approximate.</div>
+    <div class="small">${escapeHtml(r.dem)}, traced at ${fmt(r.cell, r.cell < 1 ? 1 : r.cell % 1 ? 1 : 0)} m cells (search window ${fmt(r.windowKm, 1)} km). ${r.snappedM > 1 ? `Point moved ${Math.round(r.snappedM * 3.28084)} ft to the strongest flow line. ` : ""}Road and rail fills were cut through at their cheapest point (${fmtNum(r.carved, 0)} breaches), since the lidar has no culverts; storm sewers and long or deep fills aren't handled, and divides across flat wetlands are approximate, so check the outline in the field.</div>
     <div class="actions"><button class="btn" id="ws-l-curves" title="Put this drainage area in the box above and run the TSA3 regional curves">Use this area for regional curves</button></div>
     <div class="ws-l-compare"></div>
     <div class="ws-l-soils"></div>${roHost ? "" : `<div class="ws-l-runoff"></div>`}`;

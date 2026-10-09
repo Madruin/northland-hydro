@@ -195,13 +195,15 @@ The **Field** tab (also the pin button in the map's left tool column) is built f
 
 The Watershed row offers **StreamStats** (default; points on mapped streams: USGS delineation, basin characteristics, regression flows, regional curves), **Lidar** (small or off-stream drainages) or **Both** (compares drainage areas; lidar starts from StreamStats' snapped stream point, waiting at most 20 s for the snap). `js/demshed.js` reads the MnTOPO DEM around the point from the MnGeo ImageServer (`exportImage`, float32 GeoTIFF; 2nd generation 0.5 m, or the 1st generation 1 m where the 0.5 m has gaps, e.g. Pine County, which returns an empty TIFF) and `js/demshed-worker.js` does the hydrology off the main thread:
 
-- **Outlet:** a 12 m (40 ft) disc at the point lowered to its lowest ground, a breach through road fills, since bare-earth lidar has no culverts. The watershed is everything draining into the disc. No snapping: on lidar the strongest flow line near a crossing is often the road ditch.
-- **Routing:** priority-flood depression filling with an epsilon gradient (Barnes et al. 2014), D8 steepest descent, upstream trace.
+- **Embankments:** bare-earth lidar has road and rail fills but no culverts, so depressions are first breached by the least-cost cut (Lindsay 2016, as in WhiteboxTools BreachDepressionsLeastCost; path ≤ 60 m, cut ≤ 8 m, single-cell pits raised first, a work budget for big flat wetlands). Without this, water behind a fill inside the watershed spilled elsewhere (a Miller Creek-area point came out a few acres against StreamStats' much larger basin).
+- **Outlet:** an 8 m disc at the point lowered to its lowest ground, then the pour cell snaps to the strongest flow line within 20 m (40 m from a StreamStats stream point in Both mode).
+- **Routing:** the remaining depressions and flats by priority-flood filling with an epsilon gradient (Barnes et al. 2014), D8 steepest descent, upstream trace.
+- **Limits:** storm sewers and long culverts (developed areas such as around Miller Hill Mall, where Miller Creek is piped) are invisible to lidar; use StreamStats there.
 - **Window:** 0.5 km at 0.5 m cells, then 1.2 km at 1 m, 3 km at 2.5 m and 7 km at 6 m while the watershed touches the edge. A watershed found on a coarse grid is traced again over its own extent (+25%) at the finest cells under ~1.6 M (e.g. 3 m for 1 mi²).
 - **Outline:** d3-contour on the mask, Douglas-Peucker, slivers < 1% dropped. Drawn orange dashed (`basin-dem` source), next to StreamStats' blue.
 - **Metrics:** area, longest flow path and its average slope, mean land slope (Horn, ~2 m baseline), relief. They feed `renderBasinSoils` and `renderRunoff` (longest flow path and mean slope for the SCS lag Tc), shown in the Runoff row when lidar is the only method.
 
-Tested: a 16.5-acre hillside drainage above Duluth (elevations checked uphill of the outlet), a 1 m fallback in Pine County, and a county-road culvert (Saint Louis County T3243 on an unnamed Lester River tributary) where the breach turns a 1-acre ditch result into a 616-acre watershed.
+Tested: a 16.5-acre hillside drainage above Duluth (elevations checked uphill of the outlet), a 1 m fallback in Pine County, and four rural county-road culverts on unnamed streams against StreamStats (no snap): 0.841 vs 0.797 mi² (T3243), 0.072 vs 0.086 (CSAH 12), 0.798 vs 0.922 (CR 266), 0.456 vs 0.372 (T885), i.e. within about ±20%. Runs take 5–15 s.
 
 ## Small conveniences
 

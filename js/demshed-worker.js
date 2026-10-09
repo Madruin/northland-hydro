@@ -2,8 +2,10 @@
 // gradient, Barnes et al. 2014, so flats and filled pits still drain), D8 flow directions on the filled surface,
 // flow accumulation, the upstream catchment of a pour cell, and basin metrics from the original (unfilled) DEM.
 // Input: DEM in metres on a square UTM grid, row 0 at the north edge. Output: catchment mask + metrics.
-// The outlet is a small disc (outletCells radius) lowered to its lowest ground: lidar is bare earth without culverts, so
-// a road fill would otherwise dam the drainage at a crossing; the watershed is everything draining into the disc.
+// Bare-earth lidar has road and rail fills but no culverts, so before filling, depressions are breached by the least-cost
+// cut (Lindsay 2016, as in WhiteboxTools BreachDepressionsLeastCost): from each pit, the cheapest path (sum of cut depth)
+// to lower ground within maxDist and maxDepth is carved; what can't be breached is then filled. The outlet is a small
+// disc lowered to its lowest ground, and the pour cell snaps to the strongest flow line within snapCells.
 self.onmessage = (e) => { try { const r = run(e.data); self.postMessage(r, [r.mask.buffer]); } catch (err) { self.postMessage({ error: err.message || String(err) }); } };
 
 function run({ z, w, h, cell, px, py, snapCells, outletCells = 0 }) {
@@ -16,10 +18,11 @@ function run({ z, w, h, cell, px, py, snapCells, outletCells = 0 }) {
   // ---- outlet disc lowered to its lowest cell (the breach through a road fill at a culvert) ----
   const f = new Float64Array(n); for (let i = 0; i < n; i++) f[i] = z[i];
   const disc = [];
-  if (outletCells > 0 && snapCells === 0) {
+  if (outletCells > 0) {
     let zmin = Infinity; for (let dy = -outletCells; dy <= outletCells; dy++) for (let dx = -outletCells; dx <= outletCells; dx++) { if (dx * dx + dy * dy > outletCells * outletCells) continue; const x = px + dx, y = py + dy; if (x < 0 || y < 0 || x >= w || y >= h) continue; const j = y * w + x; if (nod[j]) continue; disc.push(j); if (z[j] < zmin) zmin = z[j]; }
     for (const j of disc) f[j] = zmin;
   }
+  const breached = breach(f, w, h, nod, cell, DX, DY, DL);
   // ---- priority-flood fill with epsilon (cells on the grid edge or next to nodata are outlets) ----
   const closed = new Uint8Array(n);
   const hk = new Float64Array(n), hi = new Int32Array(n); let hn = 0;
@@ -63,7 +66,8 @@ function run({ z, w, h, cell, px, py, snapCells, outletCells = 0 }) {
 
   // ---- upstream catchment, flow length to the pour cell ----
   const mask = new Uint8Array(n), dist = new Float32Array(n); qh = 0; qt = 0;
-  for (const j of disc.length ? disc : [pour]) { mask[j] = 1; q[qt++] = j; }
+  const seeds = disc.length && pour === py * w + px ? disc : [pour]; // a snapped outlet traces from its own cell
+  for (const j of seeds) { mask[j] = 1; q[qt++] = j; }
   let touches = false, far = pour;
   while (qh < qt) {
     const c = q[qh++], cx = c % w, cy = (c - cx) / w;
@@ -90,5 +94,55 @@ function run({ z, w, h, cell, px, py, snapCells, outletCells = 0 }) {
   }
   const px2 = pour % w, py2 = (pour - px2) / w;
   return { mask, count, touches, pour: [px2, py2], areaM2: count * cell * cell, reliefM: zMax - zMin, zMin, zMax, slopePct: sN ? (100 * sSum) / sN : null,
-    lfpM: dist[far], lfpDropM: z[far] - (disc.length ? Math.min(...disc.map((j) => z[j])) : z[pour]), nodFrac: nNod / n };
+    lfpM: dist[far], lfpDropM: z[far] - (seeds.length > 1 ? Math.min(...disc.map((j) => z[j])) : z[pour]), nodFrac: nNod / n, breached };
+}
+
+// Least-cost depression breaching (Lindsay 2016), constrained: single-cell pits are raised first; then each remaining
+// pit (no lower neighbour), lowest first, runs a small Dijkstra search whose cost is the cut depth above the pit, limited
+// to maxDistM path length and maxDepthM cut, until it reaches lower ground or the grid edge; that path is carved so it
+// descends. A global work budget keeps big flat wetlands from stalling (whatever is left is filled afterwards).
+function breach(f, w, h, nod, cell, DX, DY, DL, maxDistM = 60, maxDepthM = 8, budget = 3e7) {
+  const n = w * h, inner = (x, y) => x > 0 && y > 0 && x < w - 1 && y < h - 1;
+  const lowerNb = (i, x, y) => { for (let k = 0; k < 8; k++) { const j = (y + DY[k]) * w + x + DX[k]; if (!nod[j] && f[j] < f[i]) return true; } return false; };
+  const edgeLike = (x, y) => { if (!inner(x, y)) return true; for (let k = 0; k < 8; k++) if (nod[(y + DY[k]) * w + x + DX[k]]) return true; return false; };
+  // single-cell pits: raise to the lowest neighbour
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const i = y * w + x; if (nod[i]) continue; let m = Infinity;
+    for (let k = 0; k < 8; k++) { const j = (y + DY[k]) * w + x + DX[k]; if (!nod[j] && f[j] < m) m = f[j]; }
+    if (m > f[i] && m < Infinity) f[i] = m;
+  }
+  const pits = [];
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) { const i = y * w + x; if (!nod[i] && !edgeLike(x, y) && !lowerNb(i, x, y)) pits.push(i); }
+  pits.sort((a, b) => f[a] - f[b]);
+  const stamp = new Int32Array(n), cost = new Float32Array(n), par = new Int32Array(n), len = new Float32Array(n), done = new Uint8Array(n);
+  const hk = new Float64Array(n), hi = new Int32Array(n); let hn = 0;
+  const push = (i, k) => { let c = hn++; hk[c] = k; hi[c] = i; while (c > 0) { const p = (c - 1) >> 1; if (hk[p] <= hk[c]) break; [hk[p], hk[c]] = [hk[c], hk[p]]; [hi[p], hi[c]] = [hi[c], hi[p]]; c = p; } };
+  const pop = () => { const top = hi[0]; hn--; if (hn > 0) { hk[0] = hk[hn]; hi[0] = hi[hn]; let c = 0; for (;;) { const l = 2 * c + 1, r = l + 1; let m = c; if (l < hn && hk[l] < hk[m]) m = l; if (r < hn && hk[r] < hk[m]) m = r; if (m === c) break; [hk[m], hk[c]] = [hk[c], hk[m]]; [hi[m], hi[c]] = [hi[c], hi[m]]; c = m; } } return top; };
+  let work = 0, carved = 0, tag = 0;
+  for (const p of pits) {
+    if (work > budget) break;
+    const px = p % w, py = (p - px) / w; if (done[p] || lowerNb(p, px, py)) continue;
+    const zp = f[p]; tag++; hn = 0; stamp[p] = tag; cost[p] = 0; len[p] = 0; par[p] = -1; push(p, 0);
+    let target = -1;
+    while (hn > 0) {
+      const c = pop(); work++; const cx = c % w, cy = (c - cx) / w;
+      if (c !== p && (f[c] < zp || edgeLike(cx, cy))) { target = c; break; }
+      if (f[c] <= zp) done[c] = 1; // the pit's own floor: resolved with it
+      for (let k = 0; k < 8; k++) {
+        const x = cx + DX[k], y = cy + DY[k]; if (x < 0 || y < 0 || x >= w || y >= h) continue; const j = y * w + x; if (nod[j]) continue;
+        const cut = f[j] - zp; if (cut > maxDepthM) continue;
+        const L = len[c] + DL[k]; if (L > maxDistM) continue;
+        const cc = cost[c] + Math.max(0, cut) * DL[k];
+        if (stamp[j] === tag && cc >= cost[j]) continue;
+        stamp[j] = tag; cost[j] = cc; len[j] = L; par[j] = c; push(j, cc);
+      }
+    }
+    if (target < 0) continue;
+    // carve: walk from the target back to the pit, then lower the path so it descends pit → target
+    const path = []; for (let c = target; c !== -1; c = par[c]) path.push(c); path.reverse();
+    let zc = zp;
+    for (let s = 1; s < path.length; s++) { zc -= 1e-5; if (f[path[s]] > zc) f[path[s]] = zc; else zc = f[path[s]]; }
+    carved++;
+  }
+  return { pits: pits.length, carved, budgetHit: work > budget };
 }

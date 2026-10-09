@@ -1,7 +1,7 @@
 // Small-watershed delineation from lidar, in the browser: for off-stream swales, ditches and culverts on small
 // drainages that StreamStats' stream grid doesn't reach. The MnTOPO lidar DEM (2nd generation 0.5 m, or 1st
 // generation 1 m where the 0.5 m has gaps, e.g. Pine County) is read around the point; a worker fills sinks, routes
-// D8 flow and traces everything draining to the point (js/demshed-worker.js). If the watershed reaches the edge of
+// D8 flow and traces everything draining to the point (js/demshed-worker.js), after breaching road and rail fills. If the watershed reaches the edge of
 // the window, the window grows (with coarser cells) up to ~7 km across. The outline comes from d3-contour.
 import { toUtm, fromUtm } from "./coords.js";
 import { loadScript } from "./field.js";
@@ -45,7 +45,7 @@ function simplify(ring, tol) {
 
 // Delineate. onStatus(text) reports progress. Returns the basin feature (lon/lat) and metrics.
 // outletM: radius of the outlet disc lowered through road fills (a culvert or outlet at the point)
-export async function delineateLidar(lon, lat, { snapM = 10, outletM = 12, onStatus = () => {}, signal } = {}) {
+export async function delineateLidar(lon, lat, { snapM = 20, outletM = 8, onStatus = () => {}, signal } = {}) {
   const key = `${lon.toFixed(5)},${lat.toFixed(5)},${snapM},${outletM}`; if (cache.has(key)) return cache.get(key);
   await loadScript("https://cdn.jsdelivr.net/npm/geotiff@2.1.3/dist-browser/geotiff.js", "GeoTIFF");
   if (!window.d3?.contours) { // d3-contour needs d3-array loaded first
@@ -66,14 +66,11 @@ export async function delineateLidar(lon, lat, { snapM = 10, outletM = 12, onSta
     onStatus(`Routing flow over ${(g.w * g.h / 1e6).toFixed(1)} million cells…`);
     // the outlet is snapped once, on the finest grid; bigger windows keep it (re-snapping on coarse cells can jump to another flow line)
     const cellOf = ([x, y]) => [Math.floor((x - g.x0) / g.cell), Math.floor((g.y0 - y) / g.cell)];
-    if (!outlet && snapM > 0) { // snap on the untouched surface: the strongest flow line within snapM
-      const [px0, py0] = cellOf([e, n]);
-      const r0 = await runWorker({ z: g.z.slice(), w: g.w, h: g.h, cell: g.cell, px: px0, py: py0, snapCells: Math.round(snapM / g.cell) });
-      outlet = [g.x0 + (r0.pour[0] + 0.5) * g.cell, g.y0 - (r0.pour[1] + 0.5) * g.cell];
-    }
-    outlet ||= [e, n];
-    const [px, py] = cellOf(outlet);
-    res = await runWorker({ z: g.z, w: g.w, h: g.h, cell: g.cell, px, py, snapCells: 0, outletCells: Math.max(1, Math.round(outletM / g.cell)) });
+    // first try: breach and fill, then snap to the strongest flow line within snapM of the click; later (bigger, coarser)
+    // tries keep that outlet so they trace the same watershed
+    const [px, py] = cellOf(outlet || [e, n]);
+    res = await runWorker({ z: g.z, w: g.w, h: g.h, cell: g.cell, px, py, snapCells: outlet ? 0 : Math.round(snapM / g.cell), outletCells: Math.max(1, Math.round(outletM / g.cell)) });
+    outlet ||= [g.x0 + (res.pour[0] + 0.5) * g.cell, g.y0 - (res.pour[1] + 0.5) * g.cell];
     if (!res.touches) break;
   }
   // A watershed found on a coarse grid is traced again over just its extent (+25%) at the finest cells that stay
@@ -106,6 +103,6 @@ export async function delineateLidar(lon, lat, { snapM = 10, outletM = 12, onSta
   const out = { basin: { type: "Feature", geometry, properties: { source: "lidar" } }, pour: [pp.lon, pp.lat], snappedM,
     areaSqMi: res.areaM2 / 2589988.11, acres: res.areaM2 / 4046.856, reliefFt: res.reliefM * 3.28084, slopePct: res.slopePct,
     lfpFt: res.lfpM * 3.28084, lfpSlopePct: res.lfpM > 0 ? (100 * res.lfpDropM) / res.lfpM : null,
-    cell: g.cell, windowKm: (2 * stage.half) / 1000, dem: dem.label, touches: res.touches };
+    cell: g.cell, windowKm: (2 * stage.half) / 1000, dem: dem.label, touches: res.touches, carved: res.breached?.carved ?? 0, budgetHit: !!res.breached?.budgetHit };
   cache.set(key, out); return out;
 }
