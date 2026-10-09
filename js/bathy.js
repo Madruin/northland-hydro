@@ -3,7 +3,7 @@
 // and "depth along a line": click two points (a fetch line) for its length, mean and max depth and a depth profile,
 // for fetch and wave run-up calculations. Depths are feet below the lake surface at survey time.
 import { $, escapeHtml, fmt, fmtNum, haversineKm, plotlyLayout } from "./util.js";
-import { map, setPickMode } from "./map.js";
+import { map, setPickMode, isTiled } from "./map.js";
 import { plot } from "./loader.js";
 
 const B = "https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_dnr/water_lake_bathymetry/MapServer";
@@ -91,17 +91,23 @@ async function profile(out, a, b) {
   $("bz-again").onclick = () => drawLine(out);
 }
 
-// ---------- map layer: depth contours for the view ----------
+// ---------- map layer: depth contours ----------
+// From the site's vector tiles at every zoom (tools/build_tiles.py group "bathy", built monthly on Railway); without
+// them, the contours in view are queried live from zoom 11.
 const COLOR = ["interpolate", ["linear"], ["get", "abs_depth"], 0, "#7dd3fc", 10, "#38bdf8", 20, "#0ea5e9", 40, "#0369a1", 80, "#0c4a6e"];
+const tiled = () => isTiled("bathy");
 function ensureLayers() {
   if (!map?.getStyle() || map.getSource("bathy")) return;
-  map.addSource("bathy", { type: "geojson", data: on ? { type: "FeatureCollection", features: [...feats.values()] } : empty });
-  map.addLayer({ id: "bathy-contours", type: "line", source: "bathy", minzoom: MINZOOM, paint: { "line-color": COLOR, "line-width": ["interpolate", ["linear"], ["zoom"], 11, 0.8, 15, 1.6] } });
-  map.addLayer({ id: "bathy-labels", type: "symbol", source: "bathy", minzoom: 13, filter: [">", ["get", "abs_depth"], 0], layout: { "symbol-placement": "line", "text-field": ["concat", ["to-string", ["get", "abs_depth"]], "'"], "text-size": 10.5, "text-font": ["Noto Sans Regular"], "symbol-spacing": 280 }, paint: { "text-color": "#0c4a6e", "text-halo-color": "#fff", "text-halo-width": 1.3 } });
+  const vis = { visibility: on ? "visible" : "none" };
+  if (tiled()) map.addSource("bathy", { type: "vector", url: "pmtiles://" + new URL("data/tiles/bathy.pmtiles", location.href).href, attribution: "MN DNR lake bathymetry" });
+  else map.addSource("bathy", { type: "geojson", data: on ? { type: "FeatureCollection", features: [...feats.values()] } : empty, attribution: "MN DNR lake bathymetry" });
+  const sl = tiled() ? { "source-layer": "bathy" } : {};
+  map.addLayer({ id: "bathy-contours", type: "line", source: "bathy", ...sl, minzoom: tiled() ? 0 : MINZOOM, layout: vis, paint: { "line-color": COLOR, "line-width": ["interpolate", ["linear"], ["zoom"], 7, 0.5, 11, 0.9, 15, 1.6] } });
+  map.addLayer({ id: "bathy-labels", type: "symbol", source: "bathy", ...sl, minzoom: 13, filter: [">", ["get", "abs_depth"], 0], layout: { ...vis, "symbol-placement": "line", "text-field": ["concat", ["to-string", ["get", "abs_depth"]], "'"], "text-size": 10.5, "text-font": ["Noto Sans Regular"], "symbol-spacing": 280 }, paint: { "text-color": "#0c4a6e", "text-halo-color": "#fff", "text-halo-width": 1.3 } });
 }
 let loading = null;
 async function load() {
-  if (!on || !map || map.getZoom() < MINZOOM - 0.01) return;
+  if (!on || !map || tiled() || map.getZoom() < MINZOOM - 0.01) return;
   const b = map.getBounds(); const z = map.getZoom();
   const q = new URLSearchParams({ geometry: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].map((v) => v.toFixed(5)).join(","), geometryType: "esriGeometryEnvelope", inSR: "4326", outSR: "4326", spatialRel: "esriSpatialRelIntersects",
     outFields: "objectid,abs_depth,lake_name", returnGeometry: "true", geometryPrecision: "6", maxAllowableOffset: String(z >= 14 ? 0.00002 : z >= 12 ? 0.00008 : 0.0002), resultRecordCount: "2000", f: "geojson" });
@@ -112,13 +118,14 @@ async function load() {
 export function setBathy(v) {
   on = !!v; try { localStorage.setItem("nh-bathy", on ? "1" : "0"); } catch {}
   $("tg-bathy")?.classList.toggle("on", on);
-  map.getSource("bathy")?.setData(on ? { type: "FeatureCollection", features: [...feats.values()] } : empty);
+  for (const id of ["bathy-contours", "bathy-labels"]) if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
+  if (!tiled()) map.getSource("bathy")?.setData(on ? { type: "FeatureCollection", features: [...feats.values()] } : empty);
   if (on) load(); onChange();
 }
 export const bathyOn = () => on;
 export function bathyLegendHtml() {
   if (!on) return "";
-  return `<h4>Lake depth (DNR survey)</h4><div class="legend-row"><span class="swatch sq" style="background:linear-gradient(90deg,#7dd3fc,#0ea5e9,#0369a1,#0c4a6e)"></span>shallow → 80+ ft contours</div><div class="small">From zoom ${MINZOOM}; labels in ft below the surface at survey time.${map && map.getZoom() < MINZOOM ? ` Zoom in to see them.` : ""}</div>`;
+  return `<h4>Lake depth (DNR survey)</h4><div class="legend-row"><span class="swatch sq" style="background:linear-gradient(90deg,#7dd3fc,#0ea5e9,#0369a1,#0c4a6e)"></span>shallow → 80+ ft contours</div><div class="small">${tiled() ? "Every zoom; labels" : `From zoom ${MINZOOM}; labels`} from zoom 13, in ft below the surface at survey time.${!tiled() && map && map.getZoom() < MINZOOM ? ` Zoom in to see them.` : ""}</div>`;
 }
 export function initBathy({ onChange: cb } = {}) {
   onChange = cb || onChange;

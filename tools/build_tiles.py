@@ -28,12 +28,15 @@ GROUPS = {
     "karst": ["karst-poly", "karst-pts", "springs"],
     "contam": ["mpca-landfill", "mpca-ic", "mpca-gwconcern", "mpca-gwline", "mpca-sites"],
     "trails": ["trails"],
+    "bathy": ["bathy"],  # DNR lake bathymetric depth contours (abs_depth, ft)
 }
+# Layers only tiled (no data/layers snapshot): registered with the snapshot fetcher here
+b.LAYERS["bathy"] = ("https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_dnr/water_lake_bathymetry/MapServer/0", "objectid,abs_depth,lake_name,dowlknum", None)
 # Bump when the tippecanoe options change, so every group is rebuilt once
 OPTS_VERSION = "2: no tiny-polygon reduction (small zones stay exact at every zoom; the live check relies on it)"
-FRESH = {"fema-zones", "fema-xs", "fema-bfe", "fema-lomr", "pwi-basins", "pwi-lines", "tmdl-areas", "imp-lakes", "imp-streams", "rim", "wetbank", "trout", "karst-poly"}
+FRESH = {"bathy", "fema-zones", "fema-xs", "fema-bfe", "fema-lomr", "pwi-basins", "pwi-lines", "tmdl-areas", "imp-lakes", "imp-streams", "rim", "wetbank", "trout", "karst-poly"}
 HP = {"offset": 0.00001, "prec": 6}           # ~1 m
-HP_OVERRIDE = {"tmdl-areas": {"offset": 0.00003, "prec": 6}}  # allocation areas are whole watersheds; 3 m is plenty
+HP_OVERRIDE = {"tmdl-areas": {"offset": 0.00003, "prec": 6}, "bathy": {"offset": 0.00002, "prec": 6}}  # allocation areas are whole watersheds; 3 m is plenty
 
 # Stable feature IDs, so the map's live check can tell exactly which FEMA features changed since the build
 ID_FIELDS = {"fema-zones": "FLD_AR_ID", "fema-xs": "XS_LN_ID", "fema-bfe": "BFE_LN_ID"}

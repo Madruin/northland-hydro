@@ -366,7 +366,7 @@ async function boot() {
   buildControls();
   await loadTileManifest(); // which overlay groups draw from vector tiles (a missing manifest means GeoJSON snapshots)
   // Tiled layers draw at every zoom: their Layers-menu rows lose the "zoom N+" badge
-  for (const [k, id] of Object.entries({ pwi: "pwi-basins", impaired: "imp-lakes", easements: "rim", trout: "trout", karst: "karst-poly", contam: "mpca-sites", trails: "trails", fema: "fema-zones" })) if (isTiled(id)) { const r = $("tg-" + k); if (r) { r.dataset.minzoom = "0"; const zz = r.querySelector(".lr-zoom"); if (zz) zz.textContent = "any zoom"; } }
+  for (const [k, id] of Object.entries({ bathy: "bathy", pwi: "pwi-basins", impaired: "imp-lakes", easements: "rim", trout: "trout", karst: "karst-poly", contam: "mpca-sites", trails: "trails", fema: "fema-zones" })) if (isTiled(id)) { const r = $("tg-" + k); if (r) { r.dataset.minzoom = "0"; const zz = r.querySelector(".lr-zoom"); if (zz) zz.textContent = "any zoom"; } }
   initMap({ center: state.center, zoom: state.zoom, basemap: state.basemap });
   map.addControl(new LocateControl({ onStatus: (m, err) => setStatus(m, !!err, true) }), "top-left");
   map.addControl(new MeasureControl(), "top-left");

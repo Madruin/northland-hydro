@@ -19,7 +19,7 @@ let lakeFeature = null;
 // Regional overlays draw from PMTiles at every zoom: tippecanoe keeps sub-pixel accuracy per zoom, so there is no
 // coarse overview and no snapshot-to-live geometry swap. The GeoJSON source of the same id then only carries the
 // live check's additions (features newer than the tiles), drawn on "~new" layers with a dashed outline.
-export const TILE_GROUP = { "fema-zones": "fema", "fema-xs": "fema", "fema-bfe": "fema", "fema-lomr": "fema", "pwi-basins": "pwi", "pwi-lines": "pwi", "tmdl-areas": "impaired", "imp-lakes": "impaired", "imp-streams": "impaired",
+export const TILE_GROUP = { bathy: "bathy", "fema-zones": "fema", "fema-xs": "fema", "fema-bfe": "fema", "fema-lomr": "fema", "pwi-basins": "pwi", "pwi-lines": "pwi", "tmdl-areas": "impaired", "imp-lakes": "impaired", "imp-streams": "impaired",
   rim: "easements", wetbank: "easements", trout: "trout", "karst-poly": "karst", "karst-pts": "karst", springs: "karst", "mpca-landfill": "contam", "mpca-ic": "contam", "mpca-gwconcern": "contam", "mpca-gwline": "contam", "mpca-sites": "contam", trails: "trails" };
 export let tileManifest = null;
 export const isTiled = (id) => !!tileManifest?.groups?.[TILE_GROUP[id]];
