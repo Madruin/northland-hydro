@@ -210,6 +210,12 @@ async function addOverlays() {
     map.addLayer({ id: "basin-fill-multi", type: "fill", source: "basin", filter: ["==", ["geometry-type"], "MultiPolygon"], paint: { "fill-color": "#38bdf8", "fill-opacity": 0.18 } }, firstSymbol);
     map.addLayer({ id: "basin-line", type: "line", source: "basin", paint: { "line-color": "#0ea5e9", "line-width": 2.2 } });
   }
+  if (!map.getSource("basin-dem")) { // lidar-delineated watershed (js/demshed.js), drawn alongside a StreamStats basin
+    map.addSource("basin-dem", { type: "geojson", data: { type: "FeatureCollection", features: lidarBasin } });
+    map.addLayer({ id: "basin-dem-fill", type: "fill", source: "basin-dem", filter: ["!=", ["geometry-type"], "Point"], paint: { "fill-color": "#f97316", "fill-opacity": 0.14 } }, firstSymbol);
+    map.addLayer({ id: "basin-dem-line", type: "line", source: "basin-dem", filter: ["!=", ["geometry-type"], "Point"], paint: { "line-color": "#ea580c", "line-width": 2.2, "line-dasharray": [3, 1.5] } });
+    map.addLayer({ id: "basin-dem-pour", type: "circle", source: "basin-dem", filter: ["==", ["geometry-type"], "Point"], paint: { "circle-radius": 5, "circle-color": "#ea580c", "circle-stroke-color": "#fff", "circle-stroke-width": 2 } });
+  }
   if (!map.hasImage("project-star")) map.addImage("project-star", starImage(), { sdf: true });
   if (!map.getSource("projects")) {
     map.addSource("projects", { type: "geojson", data: sources.projects });
@@ -301,6 +307,16 @@ let basinFeatures = [];
 function basinGeo() { return { type: "FeatureCollection", features: basinFeatures }; }
 // Draw a basin outline without moving the map (the report dialog frames it itself)
 export function drawBasin(f) { basinFeatures = f ? [f.type === "Feature" ? f : { type: "Feature", geometry: f, properties: {} }] : []; if (map && map.getSource("basin")) map.getSource("basin").setData(basinGeo()); }
+let lidarBasin = [];
+export function setLidarBasin(feature, pourLL, { fit = true } = {}) {
+  lidarBasin = feature ? [feature, ...(pourLL ? [{ type: "Feature", geometry: { type: "Point", coordinates: pourLL }, properties: {} }] : [])] : [];
+  map?.getSource("basin-dem")?.setData({ type: "FeatureCollection", features: lidarBasin });
+  if (feature && fit) {
+    const coords = feature.geometry.type === "Polygon" ? feature.geometry.coordinates.flat() : feature.geometry.coordinates.flat(2);
+    const xs = coords.map((c) => c[0]), ys = coords.map((c) => c[1]);
+    map.fitBounds([[Math.min(...xs), Math.min(...ys)], [Math.max(...xs), Math.max(...ys)]], { padding: 60, maxZoom: 17 });
+  }
+}
 export function setBasin(polygonFeature, pourpointFeature) {
   basinFeatures = polygonFeature ? [polygonFeature] : [];
   if (map && map.getSource("basin")) map.getSource("basin").setData(basinGeo());

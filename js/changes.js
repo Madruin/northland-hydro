@@ -4,6 +4,10 @@
 import { escapeHtml } from "./util.js";
 
 export const CHANGES = [
+  { date: "2026-10-09", items: [
+    "Watershed: choose StreamStats, Lidar or Both. Lidar traces small and off-stream drainages (swales, ditches, culverts) on the 0.5 m lidar (1 m in Pine County) right in the browser, treats the point as an outlet so a culvert under a road fill still drains, and feeds the basin to the soils and NRCS runoff tools. Both compares the two drainage areas.",
+    "The rain-total window moved out of the top bar into the Rain stations row (Layers menu) and the rain legend's heading.",
+  ] },
   { date: "2026-10-06", items: [
     "Watershed lines no longer zig-zag along the Lake Superior shore (USGS's sawtooth shoreline strip is left out of the drawing).",
     "Right-click (or long-press) the map for point info, a field point, coordinates or directions.",

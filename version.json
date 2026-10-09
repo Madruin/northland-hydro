@@ -1,5 +1,5 @@
 {
- "build": "20261007-1344-73b5737",
+ "build": "20261009-1901-475cb8c",
  "files": [
   "css/app.css",
   "css/report.css",
@@ -24,6 +24,8 @@
   "js/coords.js",
   "js/crossings.js",
   "js/daymet.js",
+  "js/demshed-worker.js",
+  "js/demshed.js",
   "js/dnrlayers.js",
   "js/egg.js",
   "js/elevation.js",

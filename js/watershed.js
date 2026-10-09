@@ -1,10 +1,12 @@
 // Watershed section for the Point panel: StreamStats delineation, basin characteristics, regression flows,
-// and TSA3 regional-curve bankfull dimensions. User-initiated (button), results cached per point,
-// and savable to a team project (Supabase) so a design basis is reproducible later.
+// and TSA3 regional-curve bankfull dimensions; or a lidar delineation for small / off-stream drainages
+// (js/demshed.js) with NRCS runoff; or both, compared. User-initiated (button), results cached per point,
+// and StreamStats results savable to a team project (Supabase) so a design basis is reproducible later.
 import { $, escapeHtml, fmt, fmtNum, fmtDateTime } from "./util.js";
 import * as ss from "./api/streamstats.js";
 import * as db from "./api/supabase.js";
-import { setBasin, setPin } from "./map.js";
+import { setBasin, setPin, setLidarBasin } from "./map.js";
+import { delineateLidar } from "./demshed.js";
 import { loadCurves, renderRegional, suggestCurve, compute, curves } from "./regional.js";
 import { authState } from "./projects.js";
 import { renderBasinSoils } from "./basinsoils.js";
@@ -13,24 +15,90 @@ import { renderBasinImpairments } from "./waterregs.js";
 import { renderRunoff } from "./runoff.js";
 
 const cache = new Map(); // key lon,lat → state
+const lidarCache = new Map(); // key lon,lat → lidar result
 let curveChoice = null;
+const METHODS = {
+  ss: { label: "StreamStats", help: "<b>StreamStats</b>: points on a mapped stream (the Streams layer, zoom 13+). USGS delineation, basin characteristics, regression peak flows and the TSA3 regional curves for bankfull dimensions. About 15 s." },
+  dem: { label: "Lidar", help: "<b>Lidar</b>: small or off-stream drainages (swales, ditches, field and road drainage, culverts on small catchments), up to a few square miles. Traced here on the 0.5 m lidar (1 m where there's no 0.5 m, e.g. Pine County), with NRCS curve-number runoff and design-storm peaks. No regression flows. 5–30 s." },
+  both: { label: "Both", help: "<b>Both</b>: runs StreamStats and lidar and compares the drainage areas: useful at the top of the stream network, or to check a StreamStats basin against the lidar." },
+};
+const methodPref = () => { try { const m = localStorage.getItem("nh-ws-method"); return METHODS[m] ? m : "ss"; } catch { return "ss"; } };
 
 export function renderWatershed(container, lon, lat) {
   const key = `${lon.toFixed(5)},${lat.toFixed(5)}`;
   const st = cache.get(key);
-  container.innerHTML = `<h3>Watershed · USGS StreamStats + TSA3 regional curves</h3>
+  const m = methodPref(), lst = lidarCache.get(key);
+  container.innerHTML = `<h3>Watershed</h3>
+    <div class="ws-method" role="radiogroup" aria-label="Delineation method">${Object.entries(METHODS).map(([k, v]) => `<label class="ws-m ${k === m ? "on" : ""}"><input type="radio" name="ws-m" value="${k}" ${k === m ? "checked" : ""}> ${v.label}</label>`).join("")}</div>
+    <div class="small ws-method-help">${METHODS[m].help}</div>
     <div class="actions">
-      <button class="btn primary" id="ws-run">${st ? "Re-run" : "Delineate watershed"}</button>
+      <button class="btn primary" id="ws-run">${st || lst ? "Re-run" : "Delineate watershed"}</button>
       <label class="ctl-inline">or drainage area, mi² <input id="ws-da" type="number" step="0.01" min="0.01" style="width:90px" value="${st?.da ?? ""}" /></label>
       <button class="btn" id="ws-da-go">Curves only</button>
       <a class="btn" href="${ss.streamstatsUrl(lat, lon)}" target="_blank" rel="noopener">Open in StreamStats</a>
     </div>
-    <label class="chk" title="Move the point to the nearest StreamStats stream-grid cell within 200 m before delineating (what the StreamStats app does). Uncheck to delineate exactly where you clicked."><input type="checkbox" id="ws-snap" ${snapPref() ? "checked" : ""}/> snap to nearest mapped stream before delineating</label>
-    <div id="ws-body">${st ? "" : `<div class="small">Delineation calls USGS servers (about 15 s total) and draws the basin on the map. Use the drainage-area box to run the regional curves without delineating.</div>`}</div>`;
-  $("ws-run").onclick = () => run(container, lon, lat, key);
-  $("ws-snap").onchange = (e) => { try { localStorage.setItem("nh-snap", e.target.checked ? "1" : "0"); } catch {} };
+    ${m !== "dem" ? `<label class="chk" title="Move the point to the nearest StreamStats stream-grid cell within 200 m before delineating (what the StreamStats app does). Uncheck to delineate exactly where you clicked."><input type="checkbox" id="ws-snap" ${snapPref() ? "checked" : ""}/> snap to the nearest mapped stream (StreamStats)</label>` : ""}
+    ${m !== "ss" ? `<div class="small">Lidar treats the point as an outlet: everything draining into a 40 ft circle around it, with the ground there lowered so a culvert under a road fill still drains. Click on the culvert or the channel bottom.</div>` : ""}
+    <div id="ws-body">${st ? "" : m !== "dem" ? `<div class="small">StreamStats calls USGS servers (about 15 s total) and draws the basin on the map. Use the drainage-area box to run the regional curves without delineating.</div>` : ""}</div>
+    <div id="ws-lidar"></div>`;
+  container.querySelectorAll('input[name="ws-m"]').forEach((r) => (r.onchange = () => { try { localStorage.setItem("nh-ws-method", r.value); } catch {} renderWatershed(container, lon, lat); }));
+  $("ws-run").onclick = () => { const mm = methodPref();
+    if (mm === "ss") setLidarBasin(null); if (mm === "dem") { setBasin(null); $("ws-body").innerHTML = ""; }
+    if (mm === "ss") run(container, lon, lat, key);
+    else if (mm === "dem") runLidar(container, lon, lat, key, mm);
+    else { // both: lidar starts from the point StreamStats snapped onto the stream, so the two trace the same outlet
+      $("ws-lidar").innerHTML = `<h3>Lidar watershed</h3><div class="spinner">Finding the mapped stream near the point…</div>`;
+      const ssRun = run(container, lon, lat, key);
+      // StreamStats' stream-grid snap, waited for up to 20 s (USGS is sometimes slow); otherwise lidar snaps on its own within 30 m
+      const timeout = new Promise((res) => setTimeout(() => res(null), 20000));
+      const snapped = $("ws-snap")?.checked ? Promise.race([ss.snapToStreamGrid(ss.STATE_FOR(lon, lat), lat, lon, 200).then((sn) => (sn.snapped ? { lon: sn.lon, lat: sn.lat, onGrid: true } : null)).catch(() => null), timeout]) : Promise.resolve({ lon, lat, onGrid: true });
+      const lidarRun = snapped.then((p) => runLidar(container, p?.lon ?? lon, p?.lat ?? lat, key, mm, p?.onGrid ? 15 : 12));
+      Promise.all([ssRun, lidarRun]).then(() => compareLine(key));
+    } };
+  $("ws-snap")?.addEventListener("change", (e) => { try { localStorage.setItem("nh-snap", e.target.checked ? "1" : "0"); } catch {} });
   $("ws-da-go").onclick = () => { const da = Number($("ws-da").value); if (da > 0) { cache.set(key, { ...(cache.get(key) || {}), da, manual: true }); renderLive(container, lon, lat, key); } };
-  if (st) renderLive(container, lon, lat, key);
+  if (st && m !== "dem") renderLive(container, lon, lat, key);
+  if (lst && m !== "ss") { renderLidar(container, lon, lat, key, m); if (m === "both") compareLine(key); }
+}
+
+// ---- lidar delineation ----
+async function runLidar(container, lon, lat, key, mode, snapOverride = null) {
+  const box = $("ws-lidar"); if (!box) return; const gone = () => !box.isConnected;
+  box.innerHTML = `<h3>Lidar watershed</h3><div class="spinner">Starting…</div>`;
+  try {
+    // no snapping: the outlet circle absorbs small click offsets, and snapping on the lidar jumps to road ditches
+    const r = await delineateLidar(lon, lat, { snapM: 0, outletM: snapOverride ?? 12, onStatus: (t) => { const s = !gone() && box.querySelector(".spinner"); if (s) s.textContent = t; } });
+    if (gone()) return;
+    lidarCache.set(key, r); setLidarBasin(r.basin, r.pour, { fit: mode !== "both" });
+    renderLidar(container, lon, lat, key, mode);
+  } catch (e) { if (!gone()) box.innerHTML = `<h3>Lidar watershed</h3><div class="notice">Lidar delineation failed: ${escapeHtml(e.message)}</div>`; }
+}
+function renderLidar(container, lon, lat, key, mode) {
+  const box = $("ws-lidar"), r = lidarCache.get(key); if (!box || !r) return;
+  setLidarBasin(r.basin, r.pour, { fit: false });
+  // runoff: in the Point panel's own Runoff row when lidar is the only method; inside this block when comparing
+  const roHost = mode === "dem" && box.closest("#pt-watershed") ? document.getElementById("pt-runoff") : null;
+  box.innerHTML = `<h3>Lidar watershed <span class="small">(orange dashed outline)</span></h3>
+    ${r.touches ? `<div class="notice">⚠ The watershed reaches the edge of the ${fmt(r.windowKm, 0)} km search window, so it is larger than drawn. Use StreamStats for drainages this size.</div>` : ""}
+    <div class="stat-row">
+      <div class="stat"><div class="v">${r.acres < 640 ? fmt(r.acres, r.acres < 10 ? 2 : 1) : fmt(r.areaSqMi, 2)}</div><div class="l">drainage area, ${r.acres < 640 ? "acres" : "mi²"}</div><div class="s">${r.acres < 640 ? `${fmt(r.areaSqMi, 3)} mi²` : `${fmtNum(r.acres, 0)} acres`}</div></div>
+      <div class="stat"><div class="v">${fmtNum(r.lfpFt, 0)}</div><div class="l">longest flow path, ft</div><div class="s">${r.lfpSlopePct != null ? `${fmt(r.lfpSlopePct, 1)}% average along it` : ""}</div></div>
+      <div class="stat"><div class="v">${fmt(r.slopePct, 1)}%</div><div class="l">mean land slope</div><div class="s">relief ${fmtNum(r.reliefFt, 0)} ft</div></div>
+    </div>
+    <div class="small">${escapeHtml(r.dem)}, traced at ${fmt(r.cell, r.cell < 1 ? 1 : r.cell % 1 ? 1 : 0)} m cells (search window ${fmt(r.windowKm, 1)} km). Outlet: everything draining into a 40 ft circle at the point, with the ground there lowered through any road fill. Lidar is bare earth: other culverts and storm sewers aren't in it, so a road fill upstream can block or divert part of the drawn watershed (check in the field), and divides across ponds and flat wetlands are approximate.</div>
+    <div class="actions"><button class="btn" id="ws-l-curves" title="Put this drainage area in the box above and run the TSA3 regional curves">Use this area for regional curves</button></div>
+    <div class="ws-l-compare"></div>
+    <div class="ws-l-soils"></div>${roHost ? "" : `<div class="ws-l-runoff"></div>`}`;
+  $("ws-l-curves").onclick = () => { $("ws-da").value = r.areaSqMi.toFixed(3); $("ws-da-go").click(); };
+  renderBasinSoils(box.querySelector(".ws-l-soils"), r.basin.geometry, r.areaSqMi);
+  if (roHost) { roHost.innerHTML = `<div class="ws-l-runoff"></div>`; const d = roHost.closest("details"); if (d && !d.open) d.open = true; }
+  renderRunoff((roHost || box).querySelector(".ws-l-runoff"), { geometry: r.basin.geometry, daSqMi: r.areaSqMi, lat, lon, bc: { LFPLENGTH: r.lfpFt / 5280, BSLDEM10M: r.slopePct, LAKEAREA: 0 } });
+}
+function compareLine(key) {
+  const el = document.querySelector("#ws-lidar .ws-l-compare"), st = cache.get(key), r = lidarCache.get(key); if (!el || !r) return;
+  if (!st?.da) { el.innerHTML = ""; return; }
+  const d = (100 * (r.areaSqMi - st.da)) / st.da;
+  el.innerHTML = `<div class="notice">StreamStats ${fmt(st.da, 3)} mi² (blue) vs lidar ${fmt(r.areaSqMi, 3)} mi² (orange): lidar ${d >= 0 ? "+" : ""}${fmt(d, 0)}%. ${Math.abs(d) <= 10 ? "Close agreement." : "Check the outlines on the map: differences usually come from road fills and culverts, flat wetland divides, or the StreamStats point snapping to a different stream."}</div>`;
 }
 
 async function run(container, lon, lat, key) {
@@ -47,7 +115,7 @@ async function run(container, lon, lat, key) {
       try {
         const sn = await ss.snapToStreamGrid(state, lat, lon, 200); if (gone()) return;
         if (sn.snapped && sn.distM > 2) { snapNote = `Point snapped ${Math.round(sn.distM * 3.28084)} ft to the nearest mapped stream cell.`; lat = sn.lat; lon = sn.lon; setPin([lon, lat]); }
-        else if (!sn.snapped) snapNote = "No mapped stream within 200 m of the click; delineating at the click itself.";
+        else if (!sn.snapped) snapNote = "No mapped stream within 200 m of the click; delineating at the click itself. For an off-stream drainage, choose Lidar above.";
       } catch (e) { console.warn("snap failed", e); snapNote = "Stream-grid snap unavailable (service error); delineating at the click itself."; }
       body.innerHTML = `<div class="spinner">Delineating (StreamStats ${state})…</div>`;
     }

@@ -303,7 +303,8 @@ const firstLine = (el) => { const n = [...el.children].find((x) => x.tagName !==
 const parts = (s, k) => s.split(" · ").slice(0, k).join(" · ");
 const bodyRows = (el) => el.querySelectorAll("table.data tbody tr").length;
 const SUMMARY = {
-  "pt-watershed": (el) => { const da = statV(el, /drainage area/i); return da ? `${da} mi² drainage area` : "Delineate from here"; },
+  "pt-watershed": (el) => { const card = [...el.querySelectorAll(".stat")].find((s) => /drainage area/i.test(txt(s.querySelector(".l")))); if (!card) return "Delineate from here";
+    const unit = /acres/.test(txt(card.querySelector(".l"))) ? "acres" : "mi²"; return `${txt(card.querySelector(".v"))} ${unit} drainage area${el.querySelector("#ws-lidar .stat") && !el.querySelector("#ws-body .stat") ? " (lidar)" : ""}`; },
   "pt-runoff": (el) => { const cn = statV(el, /composite CN/i); const r = [...el.querySelectorAll("tbody tr")].find((x) => /^100-yr/.test(txt(x.cells[0]))); return [cn && `CN ${cn}`, r && `100-yr ${txt(r.cells[4])} cfs (MSE3)`].filter(Boolean).join(" · ") || cut(firstLine(el)); },
   "pt-fema": (el) => { const t = txt(el); if (/No effective NFHL/i.test(t)) return "No digital FIRM here"; if (/No flood zone polygon/i.test(t)) return "No zone at this point (open water or gap)";
     // Read the flood-zone card itself ("AE FW"); the page's other text mentions zones generically ("Zone A or X")

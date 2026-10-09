@@ -36,17 +36,14 @@
         <button class="step" id="date-next" title="Next day (→)" aria-label="Next day">›</button>
         <button class="step" id="date-today" title="Jump to today">Today</button>
       </div>
-      <label class="ctl">
-        <span>Window</span>
-        <select id="ctl-window"></select>
-      </label>
       <div class="ctl toggles" role="group" aria-label="Layers">
         <div class="menu-wrap"><button class="toggle" id="btn-layers" title="Rain, rivers, water, land, hazard and subsurface layers">Layers ▾</button>
           <div class="menu layers-menu" id="layers-menu" hidden>
             <input type="search" id="layers-filter" class="layers-filter" placeholder="Filter layers (e.g. flood, soil, trout)" aria-label="Filter layers" autocomplete="off">
             <div class="menu-title">Map layers <button type="button" class="linkbtn" id="layers-off" hidden>Turn all off</button> <span class="small">· zoomed out, regional layers show a simplified whole-area overview; full detail loads past the zoom on each row. Shortcut: L</span></div>
             <div class="layer-group"><div class="group-name">Rain and rivers</div>
-              <button class="layer-row on" id="tg-precip" data-minzoom="0" data-label="Rain stations"><span class="lr-box"></span><span class="lr-text"><span class="lr-name">Rain stations</span><span class="lr-desc">CoCoRaHS, COOP and ASOS totals for the date window above</span></span><span class="lr-zoom">any zoom</span></button>
+              <div class="lr-with-select"><button class="layer-row on" id="tg-precip" data-minzoom="0" data-label="Rain stations"><span class="lr-box"></span><span class="lr-text"><span class="lr-name">Rain stations</span><span class="lr-desc">CoCoRaHS, COOP and ASOS totals ending on the date above</span></span></button>
+                <select id="ctl-window" class="lr-select" aria-label="Rain total window" title="How many days of rain to total, ending on the date in the top bar"></select></div>
               <button class="layer-row on" id="tg-gauges" data-minzoom="0" data-label="Stream gauges"><span class="lr-box"></span><span class="lr-text"><span class="lr-name">Stream gauges</span><span class="lr-desc">USGS and DNR/MPCA flow compared with the record for today</span></span><span class="lr-zoom">any zoom</span></button>
               <div class="lr-with-select"><button class="layer-row" id="tg-qpe" data-minzoom="0" data-label="Radar"><span class="lr-box"></span><span class="lr-text"><span class="lr-name">Radar</span><span class="lr-desc">Live echoes, or rain totals from radar and gauges</span></span></button>
                 <select id="ctl-qpe" class="lr-select" aria-label="Radar product" title="Live radar echoes, or rainfall totals estimated from radar and gauges">

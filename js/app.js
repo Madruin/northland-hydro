@@ -97,7 +97,7 @@ function buildControls() {
   $("help-close").addEventListener("click", () => ($("help").hidden = true));
   $("help").addEventListener("click", (e) => { if (e.target.id === "help") $("help").hidden = true; });
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") $("help").hidden = true; if (e.key === "?" && !/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) $("help").hidden = !$("help").hidden; });
-  $("legend").addEventListener("change", (e) => { if (e.target.id === "soils-theme") { setSoilsTheme(e.target.value); renderLegend(); return; } if (e.target.id === "lg-show-retired") { setShowRetired(e.target.checked); setGaugeRetired(e.target.checked); try { localStorage.setItem("nh-show-retired", e.target.checked ? "1" : "0"); } catch {} return; } if (e.target.id === "lg-hide-unclassified") { setHideUnclassified(e.target.checked); setGaugeFilter(e.target.checked); try { localStorage.setItem("nh-hide-unclassified", e.target.checked ? "1" : "0"); } catch {} } });
+  $("legend").addEventListener("change", (e) => { if (e.target.id === "lg-window") { state.days = Number(e.target.value); $("ctl-window").value = e.target.value; refreshPrecip(); return; } if (e.target.id === "soils-theme") { setSoilsTheme(e.target.value); renderLegend(); return; } if (e.target.id === "lg-show-retired") { setShowRetired(e.target.checked); setGaugeRetired(e.target.checked); try { localStorage.setItem("nh-show-retired", e.target.checked ? "1" : "0"); } catch {} return; } if (e.target.id === "lg-hide-unclassified") { setHideUnclassified(e.target.checked); setGaugeFilter(e.target.checked); try { localStorage.setItem("nh-hide-unclassified", e.target.checked ? "1" : "0"); } catch {} } });
   try { if (localStorage.getItem("nh-show-retired") === "1") { setShowRetired(true); setGaugeRetired(true); } } catch {}
   try { if (localStorage.getItem("nh-hide-unclassified") === "1") { setHideUnclassified(true); once("map:ready", () => setGaugeFilter(true)); } } catch {}
   $("ctl-date").addEventListener("change", (e) => { if (e.target.value && e.target.value <= isoDate()) { state.endDate = e.target.value; refreshPrecip(); } });
@@ -298,7 +298,11 @@ function toggleLayer(name, force) {
 function renderLegend() {
   const lg = $("legend-body");
   lg.innerHTML = "";
-  if (state.layers.stations) renderPrecipLegend(lg, { days: state.days });
+  if (state.layers.stations) {
+    renderPrecipLegend(lg, { days: state.days });
+    const h = lg.querySelector("h4"); // the rain total window, picked right where the totals are read
+    if (h) h.innerHTML = `Precipitation, in · <select id="lg-window" class="lg-select" aria-label="Rain total window">${WINDOWS.map((w) => `<option value="${w.days}" ${w.days === state.days ? "selected" : ""}>${w.label}</option>`).join("")}</select>`;
+  }
   if (state.layers.gauges) renderGaugeLegend(lg);
   if (state.layers.huc) lg.insertAdjacentHTML("beforeend", hucLegendHtml());
   if (state.layers.landcover) lg.insertAdjacentHTML("beforeend", landcoverLegendHtml());
