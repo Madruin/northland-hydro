@@ -5,7 +5,7 @@ import { escapeHtml } from "./util.js";
 
 export const CHANGES = [
   { date: "2026-10-09", items: [
-    "Lake depth: DNR bathymetric contours as a map layer (colored and labeled by depth), depth at the clicked spot and the deepest contour in the Lake section, and a Depth along a line tool (length, mean and max depth, profile) for fetch and wave run-up.",
+    "Lake depth: DNR bathymetric contours as a map layer at every zoom (colored and labeled by depth), depth at the clicked spot and the deepest contour in the Lake section, and a Depth along a line tool (length, mean and max depth, profile) for fetch and wave run-up.",
     "Lidar watersheds burn in DNR's lidar-traced stream lines so water follows mapped streams through road crossings, snap only to the nearest flow line (a dotted line shows the move), and warn when the point isn't in a channel.",
     "Watershed: choose StreamStats, Lidar or Both. Lidar traces small and off-stream drainages (swales, ditches, culverts) on the 0.5 m lidar (1 m in Pine County) right in the browser, treats the point as an outlet so a culvert under a road fill still drains, and feeds the basin to the soils and NRCS runoff tools. Both compares the two drainage areas.",
     "Lidar watersheds now cut through road and rail fills where water would pond behind them (least-cost breaching), so culverts under embankments inside the watershed no longer cut it off; checked against StreamStats at four rural culverts (within about ±20%).",

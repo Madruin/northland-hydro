@@ -135,4 +135,5 @@ export function initBathy({ onChange: cb } = {}) {
   map.on("style.load", () => { ensureLayers(); }); map.once("idle", ensureLayers); try { ensureLayers(); } catch {}
   let t = null; map.on("moveend", () => { clearTimeout(t); t = setTimeout(load, 300); });
   if (on) load();
+  onChange(); // legend and the Layers count when it was left on last visit
 }
