@@ -16,7 +16,7 @@ const DEMS = [{ url: `${IMG}/2nd_Generation_Seamless_Lidar_DEM/ImageServer/expor
 export const STAGES = [{ half: 250, cell: 0.5 }, { half: 600, cell: 1 }, { half: 1500, cell: 2.5 }, { half: 3500, cell: 6 }];
 const cache = new Map();
 const HYD = "https://enterprise.gisdata.mn.gov/aghost/rest/services/us_mn_state_dnr/water_dnr_hydrography_from_lidar/MapServer";
-const BURN_LAYERS = window.__burnLayers || [1, 2]; // DNR watercourses from lidar and additional detailed stream lines
+const BURN_LAYERS = [1, 2]; // DNR watercourses from lidar and additional detailed stream lines
 
 // DNR lidar stream lines in a UTM box, as arrays of [x, y] paths (paged; capped so a huge window can't stall)
 async function streamPaths(box, signal) {
