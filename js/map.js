@@ -210,6 +210,11 @@ async function addOverlays() {
     map.addLayer({ id: "basin-fill-multi", type: "fill", source: "basin", filter: ["==", ["geometry-type"], "MultiPolygon"], paint: { "fill-color": "#38bdf8", "fill-opacity": 0.18 } }, firstSymbol);
     map.addLayer({ id: "basin-line", type: "line", source: "basin", paint: { "line-color": "#0ea5e9", "line-width": 2.2 } });
   }
+  if (!map.getSource("lidar-flow")) {
+    map.addSource("lidar-flow", { type: "geojson", data: lidarFlow });
+    map.addLayer({ id: "lidar-flow", type: "line", source: "lidar-flow", layout: { "line-cap": "round", "line-join": "round" },
+      paint: { "line-color": "#06b6d4", "line-opacity": 0.85, "line-width": ["interpolate", ["linear"], ["ln", ["max", 1, ["get", "acres"]]], 0.7, 0.8, 5, 2.4, 9, 4.5] } });
+  }
   if (!map.getSource("basin-dem")) { // lidar-delineated watershed (js/demshed.js), drawn alongside a StreamStats basin
     map.addSource("basin-dem", { type: "geojson", data: { type: "FeatureCollection", features: lidarBasin } });
     map.addLayer({ id: "basin-dem-fill", type: "fill", source: "basin-dem", filter: ["!=", ["geometry-type"], "Point"], paint: { "fill-color": "#f97316", "fill-opacity": 0.14 } }, firstSymbol);
@@ -308,7 +313,9 @@ let basinFeatures = [];
 function basinGeo() { return { type: "FeatureCollection", features: basinFeatures }; }
 // Draw a basin outline without moving the map (the report dialog frames it itself)
 export function drawBasin(f) { basinFeatures = f ? [f.type === "Feature" ? f : { type: "Feature", geometry: f, properties: {} }] : []; if (map && map.getSource("basin")) map.getSource("basin").setData(basinGeo()); }
-let lidarBasin = [];
+let lidarBasin = [], lidarFlow = { type: "FeatureCollection", features: [] };
+// Drainage lines from the lidar run (js/demshed.js): where the lidar sends water, width by drainage area
+export function setLidarFlow(fc) { lidarFlow = fc || { type: "FeatureCollection", features: [] }; map?.getSource("lidar-flow")?.setData(lidarFlow); }
 export function setLidarBasin(feature, pourLL, { fit = true, click = null } = {}) {
   const moved = click && pourLL && Math.hypot((click[0] - pourLL[0]) * Math.cos((pourLL[1] * Math.PI) / 180), click[1] - pourLL[1]) * 111320 > 1;
   lidarBasin = feature ? [feature, ...(moved ? [{ type: "Feature", geometry: { type: "LineString", coordinates: [click, pourLL] }, properties: { snap: 1 } }] : []), ...(pourLL ? [{ type: "Feature", geometry: { type: "Point", coordinates: pourLL }, properties: {} }] : [])] : [];

@@ -8,7 +8,7 @@
 // disc lowered to its lowest ground, and the pour cell snaps to the strongest flow line within snapCells.
 self.onmessage = (e) => { try { const r = run(e.data); self.postMessage(r, [r.mask.buffer]); } catch (err) { self.postMessage({ error: err.message || String(err) }); } };
 
-function run({ z, w, h, cell, px, py, snapCells, outletCells = 0, burn = null }) {
+function run({ z, w, h, cell, px, py, snapCells, outletCells = 0, burn = null, altCells = 0 }) {
   const n = w * h, nod = new Uint8Array(n);
   let nNod = 0; for (let i = 0; i < n; i++) if (!(z[i] > -1000)) { nod[i] = 1; nNod++; } // NaN or the -9999 nodata
   if (nNod > n * 0.9) throw new Error("no lidar elevations here");
@@ -73,6 +73,9 @@ function run({ z, w, h, cell, px, py, snapCells, outletCells = 0, burn = null })
     let bd = Infinity; for (const [j, d2] of cand) if (acc[j] >= mx * 0.25 && d2 < bd) { bd = d2; pour = j; }
   }
   if (nod[pour]) throw new Error("the point is on a lidar data gap (often open water)");
+  // the largest flow line within altCells (~60 m): offered when it drains much more than the chosen outlet
+  let alt = -1; if (altCells > 0) { let best = 0; for (let dy = -altCells; dy <= altCells; dy++) for (let dx = -altCells; dx <= altCells; dx++) {
+    if (dx * dx + dy * dy > altCells * altCells) continue; const x = px + dx, y = py + dy; if (x < 0 || y < 0 || x >= w || y >= h) continue; const j = y * w + x; if (!nod[j] && acc[j] > best) { best = acc[j]; alt = j; } } }
 
   // ---- upstream catchment, flow length to the pour cell ----
   const mask = new Uint8Array(n), dist = new Float32Array(n); qh = 0; qt = 0;
@@ -102,9 +105,23 @@ function run({ z, w, h, cell, px, py, snapCells, outletCells = 0, burn = null })
     const dzdx = ((c + 2 * e2 + ii) - (a + 2 * d + g)) / (8 * L), dzdy = ((g + 2 * hh + ii) - (a + 2 * b + c)) / (8 * L);
     sSum += Math.hypot(dzdx, dzdy); sN++;
   }
+  // ---- drainage lines (≥ ~2 acres) as chains of cell centres, for the map: where the lidar routes water ----
+  let thr = Math.max(4, Math.round(8000 / (cell * cell)));
+  const lines = [];
+  for (let tries = 0; tries < 3; tries++) {
+    lines.length = 0; const upCh = new Uint8Array(n), seen = new Uint8Array(n); let pts = 0;
+    for (let i = 0; i < n; i++) if (acc[i] >= thr && dir[i] >= 0 && acc[dir[i]] >= thr) upCh[dir[i]] = 1;
+    for (let i = 0; i < n && pts < 250000; i++) {
+      if (acc[i] < thr || upCh[i] || nod[i]) continue; // start only at channel heads
+      const xy = []; let c = i;
+      for (;;) { const x = c % w, y = (c - x) / w; xy.push(x + 0.5, y + 0.5); pts++; if (seen[c]) break; seen[c] = 1; const d = dir[c]; if (d < 0 || acc[d] < thr) break; c = d; }
+      if (xy.length >= 4) lines.push({ xy: Float32Array.from(xy), acc: acc[c] * cell * cell });
+    }
+    if (pts < 250000) break; thr *= 4; // too dense for the map: keep only bigger drainages
+  }
   const px2 = pour % w, py2 = (pour - px2) / w;
   return { mask, count, touches, pour: [px2, py2], areaM2: count * cell * cell, reliefM: zMax - zMin, zMin, zMax, slopePct: sN ? (100 * sSum) / sN : null,
-    lfpM: dist[far], lfpDropM: z[far] - (seeds.length > 1 ? Math.min(...disc.map((j) => z[j])) : z[pour]), nodFrac: nNod / n, breached, burned };
+    lines, lineThrM2: thr * cell * cell, alt: alt >= 0 ? { x: alt % w, y: Math.floor(alt / w), accM2: acc[alt] * cell * cell } : null, lfpM: dist[far], lfpDropM: z[far] - (seeds.length > 1 ? Math.min(...disc.map((j) => z[j])) : z[pour]), nodFrac: nNod / n, breached, burned };
 }
 
 // Least-cost depression breaching (Lindsay 2016), constrained: single-cell pits are raised first; then each remaining

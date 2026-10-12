@@ -73,6 +73,7 @@ function simplify(ring, tol) {
   const out = ring.filter((_, i) => keep[i]); return out.length >= 4 ? out : ring;
 }
 
+function simplifyOpen(line, tol) { const closed = simplify([...line, line[0]], tol); return closed.slice(0, -1).length >= 2 ? closed.slice(0, -1) : line; }
 // Delineate. onStatus(text) reports progress. Returns the basin feature (lon/lat) and metrics.
 // outletM: radius of the outlet disc lowered through road fills (a culvert or outlet at the point)
 export async function delineateLidar(lon, lat, { snapM = 10, outletM = 8, onStatus = () => {}, signal } = {}) {
@@ -83,7 +84,7 @@ export async function delineateLidar(lon, lat, { snapM = 10, outletM = 8, onStat
     await loadScript("https://cdn.jsdelivr.net/npm/d3-contour@4.0.2/dist/d3-contour.min.js", "__none");
   }
   const [e, n] = toUtm(lon, lat);
-  let dem = DEMS[0], res = null, g = null, stage = null, outlet = null;
+  let dem = DEMS[0], res = null, g = null, stage = null, outlet = null, firstAlt = null;
   for (const [si, s] of STAGES.entries()) {
     stage = s; onStatus(`Reading lidar ${s.cell} m cells over ${((2 * s.half) / 1000).toFixed(1)} km (try ${si + 1} of ${STAGES.length})…`);
     g = await fetchDem(dem, e, n, s.half, s.cell, signal);
@@ -100,7 +101,8 @@ export async function delineateLidar(lon, lat, { snapM = 10, outletM = 8, onStat
     // tries keep that outlet so they trace the same watershed
     const [px, py] = cellOf(outlet || [e, n]);
     const burn = burnMask(await streamPaths([e - s.half, n - s.half, e + s.half, n + s.half], signal).catch(() => []), g);
-    res = await runWorker({ z: g.z, w: g.w, h: g.h, cell: g.cell, px, py, snapCells: outlet ? 0 : Math.round(snapM / g.cell), outletCells: Math.max(1, Math.round(outletM / g.cell)), burn });
+    res = await runWorker({ z: g.z, w: g.w, h: g.h, cell: g.cell, px, py, snapCells: outlet ? 0 : Math.round(snapM / g.cell), outletCells: Math.max(1, Math.round(outletM / g.cell)), burn, altCells: outlet ? 0 : Math.round(60 / g.cell) });
+    if (!outlet && res.alt) firstAlt = { e: g.x0 + (res.alt.x + 0.5) * g.cell, n: g.y0 - (res.alt.y + 0.5) * g.cell, accM2: res.alt.accM2 };
     outlet ||= [g.x0 + (res.pour[0] + 0.5) * g.cell, g.y0 - (res.pour[1] + 0.5) * g.cell];
     if (!res.touches) break;
   }
@@ -130,11 +132,18 @@ export async function delineateLidar(lon, lat, { snapM = 10, outletM = 8, onStat
   const parts = mp.coordinates.map((poly) => ({ poly, a: ringArea(poly[0]) })).sort((x, y) => y.a - x.a);
   const polys = parts.filter((p, i) => i === 0 || p.a > parts[0].a * 0.01).map(({ poly }) => poly.filter((ring, i) => i === 0 || ringArea(ring) > 4).map((ring) => simplify(ring, 0.75).map(toLL)));
   const geometry = polys.length === 1 ? { type: "Polygon", coordinates: polys[0] } : { type: "MultiPolygon", coordinates: polys };
+  // drainage lines: grid centres → UTM → lon/lat, lightly simplified
+  const flow = { type: "FeatureCollection", features: (res.lines || []).map((l) => {
+    const ring = []; for (let i = 0; i < l.xy.length; i += 2) ring.push([g.x0 + l.xy[i] * g.cell, g.y0 - l.xy[i + 1] * g.cell]);
+    const pts = ring.length > 2 ? simplifyOpen(ring, g.cell) : ring;
+    return { type: "Feature", geometry: { type: "LineString", coordinates: pts.map(([x, y]) => { const p = fromUtm(x, y); return [+p.lon.toFixed(6), +p.lat.toFixed(6)]; }) }, properties: { acres: Math.round(l.acc / 4046.856) } }; }) };
   const pourUtm = outlet; const pp = fromUtm(...pourUtm);
   const snappedM = Math.hypot(pourUtm[0] - e, pourUtm[1] - n);
   const out = { basin: { type: "Feature", geometry, properties: { source: "lidar" } }, pour: [pp.lon, pp.lat], snappedM,
     areaSqMi: res.areaM2 / 2589988.11, acres: res.areaM2 / 4046.856, reliefFt: res.reliefM * 3.28084, slopePct: res.slopePct,
     lfpFt: res.lfpM * 3.28084, lfpSlopePct: res.lfpM > 0 ? (100 * res.lfpDropM) / res.lfpM : null,
-    cell: g.cell, windowKm: (2 * stage.half) / 1000, dem: dem.label, touches: res.touches, burned: res.burned ?? 0, carved: res.breached?.carved ?? 0, click: [lon, lat], budgetHit: !!res.breached?.budgetHit };
+    cell: g.cell, windowKm: (2 * stage.half) / 1000, dem: dem.label, touches: res.touches, burned: res.burned ?? 0, flow,
+    // a bigger flow line near the click (draining at least twice as much within the first window)
+    alt: firstAlt && firstAlt.accM2 > Math.max(2 * res.areaM2, 4047) && Math.hypot(firstAlt.e - outlet[0], firstAlt.n - outlet[1]) > 3 ? (() => { const p = fromUtm(firstAlt.e, firstAlt.n); return { lon: p.lon, lat: p.lat, distFt: Math.hypot(firstAlt.e - e, firstAlt.n - n) * 3.28084, acresAtLeast: firstAlt.accM2 / 4046.856 }; })() : null, flowMinAcres: Math.round((res.lineThrM2 || 0) / 4046.856), carved: res.breached?.carved ?? 0, click: [lon, lat], budgetHit: !!res.breached?.budgetHit };
   cache.set(key, out); return out;
 }

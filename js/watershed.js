@@ -5,7 +5,7 @@
 import { $, escapeHtml, fmt, fmtNum, fmtDateTime } from "./util.js";
 import * as ss from "./api/streamstats.js";
 import * as db from "./api/supabase.js";
-import { setBasin, setPin, setLidarBasin } from "./map.js";
+import { setBasin, setPin, setLidarBasin, setLidarFlow } from "./map.js";
 import { delineateLidar } from "./demshed.js";
 import { loadCurves, renderRegional, suggestCurve, compute, curves } from "./regional.js";
 import { authState } from "./projects.js";
@@ -43,7 +43,7 @@ export function renderWatershed(container, lon, lat) {
     <div id="ws-lidar"></div>`;
   container.querySelectorAll('input[name="ws-m"]').forEach((r) => (r.onchange = () => { try { localStorage.setItem("nh-ws-method", r.value); } catch {} renderWatershed(container, lon, lat); }));
   $("ws-run").onclick = () => { const mm = methodPref();
-    if (mm === "ss") setLidarBasin(null); if (mm === "dem") { setBasin(null); $("ws-body").innerHTML = ""; }
+    if (mm === "ss") { setLidarBasin(null); setLidarFlow(null); } if (mm === "dem") { setBasin(null); $("ws-body").innerHTML = ""; }
     if (mm === "ss") run(container, lon, lat, key);
     else if (mm === "dem") runLidar(container, lon, lat, key, mm);
     else { // both: lidar starts from the point StreamStats snapped onto the stream, so the two trace the same outlet
@@ -75,7 +75,7 @@ async function runLidar(container, lon, lat, key, mode, snapOverride = null) {
 }
 function renderLidar(container, lon, lat, key, mode) {
   const box = $("ws-lidar"), r = lidarCache.get(key); if (!box || !r) return;
-  setLidarBasin(r.basin, r.pour, { fit: false, click: r.click });
+  setLidarBasin(r.basin, r.pour, { fit: false, click: r.click }); setLidarFlow(r.flow);
   // runoff: in the Point panel's own Runoff row when lidar is the only method; inside this block when comparing
   const roHost = mode === "dem" && box.closest("#pt-watershed") ? document.getElementById("pt-runoff") : null;
   box.innerHTML = `<h3>Lidar watershed <span class="small">(orange dashed outline)</span></h3>
@@ -87,9 +87,13 @@ function renderLidar(container, lon, lat, key, mode) {
       <div class="stat"><div class="v">${fmt(r.slopePct, 1)}%</div><div class="l">mean land slope</div><div class="s">relief ${fmtNum(r.reliefFt, 0)} ft</div></div>
     </div>
     <div class="small">${escapeHtml(r.dem)}, traced at ${fmt(r.cell, r.cell < 1 ? 1 : r.cell % 1 ? 1 : 0)} m cells (search window ${fmt(r.windowKm, 1)} km). ${r.snappedM > 1 ? `Outlet moved ${Math.round(r.snappedM * 3.28084)} ft from the click to the nearest flow line (dotted on the map). ` : ""}Road and rail fills were cut through at their cheapest point (${fmtNum(r.carved, 0)} breaches), since the lidar has no culverts; storm sewers and long or deep fills aren't handled, and divides across flat wetlands are approximate, so check the outline in the field.</div>
+    <div class="small"><span class="swatch" style="display:inline-block;width:14px;height:3px;background:#06b6d4;vertical-align:middle"></span> Cyan lines are where the lidar sends water (drainage of ${fmtNum(r.flowMinAcres || 2, 0)}+ acres, wider = more). If the line from the valley you expect doesn't pass through the outlet, the lidar routes that water elsewhere (often across a flat bog or around a fill); click on a cyan line to delineate from it. <button type="button" class="linkbtn" id="ws-l-flowtoggle">Hide lines</button></div>
     <div class="actions"><button class="btn" id="ws-l-curves" title="Put this drainage area in the box above and run the TSA3 regional curves">Use this area for regional curves</button></div>
+    ${r.alt ? `<div class="notice">A bigger lidar flow line passes ${fmtNum(r.alt.distFt, 0)} ft from your click, draining ${fmtNum(r.alt.acresAtLeast, 0)}+ acres (this outlet drains ${fmt(r.acres, 1)}). <button type="button" class="btn" id="ws-l-alt">Use that line instead</button></div>` : ""}
     <div class="ws-l-compare"></div>
     <div class="ws-l-soils"></div>${roHost ? "" : `<div class="ws-l-runoff"></div>`}`;
+  if (r.alt) $("ws-l-alt").onclick = () => runLidar(container, r.alt.lon, r.alt.lat, key, mode, 2);
+  $("ws-l-flowtoggle").onclick = (e) => { const hide = e.target.textContent === "Hide lines"; setLidarFlow(hide ? null : r.flow); e.target.textContent = hide ? "Show lines" : "Hide lines"; };
   $("ws-l-curves").onclick = () => { $("ws-da").value = r.areaSqMi.toFixed(3); $("ws-da-go").click(); };
   renderBasinSoils(box.querySelector(".ws-l-soils"), r.basin.geometry, r.areaSqMi);
   if (roHost) { roHost.innerHTML = `<div class="ws-l-runoff"></div>`; const d = roHost.closest("details"); if (d && !d.open) d.open = true; }

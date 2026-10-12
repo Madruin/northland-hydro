@@ -4,6 +4,9 @@
 import { escapeHtml } from "./util.js";
 
 export const CHANGES = [
+  { date: "2026-10-12", items: [
+    "Lidar watersheds draw the lidar's drainage lines (cyan, wider = more area) so you can see where it sends water, and offer a nearby bigger flow line as the outlet when the clicked one drains much less.",
+  ] },
   { date: "2026-10-09", items: [
     "Lake depth: DNR bathymetric contours as a map layer at every zoom (colored and labeled by depth), depth at the clicked spot and the deepest contour in the Lake section, and a Depth along a line tool (length, mean and max depth, profile) for fetch and wave run-up.",
     "Lidar watersheds burn in DNR's lidar-traced stream lines so water follows mapped streams through road crossings, snap only to the nearest flow line (a dotted line shows the move), and warn when the point isn't in a channel.",
