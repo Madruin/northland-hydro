@@ -1,7 +1,6 @@
 name: Harvest WLSSD rainfall
 on:
-  schedule:
-    - cron: "12 * * * *"   # hourly; the WLSSD page updates every few minutes, hourly is enough for daily totals
+  # Manual only: Railway runs this job now (deploy/railway/crontab). Kept for a one-off run from the Actions tab.
   workflow_dispatch:
 permissions:
   contents: write

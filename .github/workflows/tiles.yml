@@ -1,8 +1,6 @@
 name: Build vector tiles
 on:
-  workflow_run:
-    workflows: ["Refresh layer snapshots"]   # after the monthly snapshots (contamination, trails and points come from them)
-    types: [completed]
+  # Manual only: Railway runs this job now (deploy/railway/crontab). Kept for a one-off run from the Actions tab.
   workflow_dispatch:
     inputs:
       groups:

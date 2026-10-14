@@ -4,6 +4,10 @@
 import { escapeHtml } from "./util.js";
 
 export const CHANGES = [
+  { date: "2026-10-14", items: [
+    "The Layers, Terrain and basemap buttons at the top are tinted so they're easier to find.",
+    "The Projects tab no longer gets stuck on \"Connecting…\"; if sign-in can't be reached it says so and offers Retry.",
+  ] },
   { date: "2026-10-12", items: [
     "Lidar watersheds draw the lidar's drainage lines (cyan, wider = more area) so you can see where it sends water, and offer a nearby bigger flow line as the outlet when the clicked one drains much less.",
   ] },

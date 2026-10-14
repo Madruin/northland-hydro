@@ -597,3 +597,8 @@ button.foot-wip { cursor: pointer; font-family: inherit; margin: 0; } button.foo
 .ws-method-help { margin-bottom: 6px; }
 
 #legend .lg-select { background: var(--bg3); color: var(--fg); border: 1px solid var(--line); border-radius: 4px; font-size: 10.5px; padding: 0 2px; text-transform: none; letter-spacing: 0; }
+
+/* The three map menus (Layers, Terrain, basemap/imagery) are where most of the site lives: a light accent tint
+   invites a first click; once something is switched on, Layers and Terrain take the solid "on" style as before. */
+#btn-layers:not(.on), #tg-terrain:not(.on), #ctl-basemap { border-color: rgba(56,189,248,.55); background: rgba(56,189,248,.12); color: #e0f2fe; }
+#btn-layers:not(.on):hover, #tg-terrain:not(.on):hover, #ctl-basemap:hover { background: rgba(56,189,248,.22); filter: none; }

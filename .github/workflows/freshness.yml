@@ -1,7 +1,6 @@
 name: Check data freshness
 on:
-  schedule:
-    - cron: "41 10 2 * *"   # 2nd of each month, 10:41 UTC (after the 1st-of-month snapshot rebuild)
+  # Manual only: Railway runs this job now (deploy/railway/crontab). Kept for a one-off run from the Actions tab.
   workflow_dispatch:
 permissions:
   contents: write

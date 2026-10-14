@@ -1,7 +1,6 @@
 name: Refresh layer snapshots
 on:
-  schedule:
-    - cron: "17 9 1 * *"   # 1st of each month, 09:17 UTC (~4 AM Central)
+  # Manual only: Railway runs this job now (deploy/railway/crontab). Kept for a one-off run from the Actions tab.
   workflow_dispatch:
 permissions:
   contents: write
