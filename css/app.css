@@ -602,3 +602,6 @@ button.foot-wip { cursor: pointer; font-family: inherit; margin: 0; } button.foo
    invites a first click; once something is switched on, Layers and Terrain take the solid "on" style as before. */
 #btn-layers:not(.on), #tg-terrain:not(.on), #ctl-basemap { border-color: rgba(56,189,248,.55); background: rgba(56,189,248,.12); color: #e0f2fe; }
 #btn-layers:not(.on):hover, #tg-terrain:not(.on):hover, #ctl-basemap:hover { background: rgba(56,189,248,.22); filter: none; }
+/* the tint is translucent, so give the basemap dropdown list its own opaque colors (else white list, light text) */
+#ctl-basemap { color-scheme: dark; }
+#ctl-basemap option, #ctl-basemap optgroup { background: var(--bg3); color: var(--fg); }
