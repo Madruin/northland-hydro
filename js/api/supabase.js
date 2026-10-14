@@ -7,11 +7,14 @@ let client = null;
 export function sb() {
   if (client) return client;
   if (!window.supabase) throw new Error("supabase-js not loaded");
-  client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
+  // No cross-tab lock: supabase-js serialises auth through navigator.locks, and a token refresh that stalls (a laptop
+  // waking from sleep, a frozen tab) left every later getSession() waiting forever: the Projects tab sat on "Connecting…".
+  client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, lock: async (_name, _timeout, fn) => await fn() } });
   return client;
 }
+const withTimeout = (p, ms, what) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(`${what} timed out`)), ms))]);
 
-export async function session() { const { data } = await sb().auth.getSession(); return data.session; }
+export async function session() { const { data } = await withTimeout(sb().auth.getSession(), 10000, "Sign-in check"); return data.session; }
 export function onAuth(fn) { return sb().auth.onAuthStateChange((_evt, s) => fn(s)); }
 export async function signInWithEmail(email) {
   const redirect = location.origin + location.pathname;
@@ -33,7 +36,7 @@ export async function setPassword(password) {
 export async function signOut() { await sb().auth.signOut(); }
 
 export async function isMember() {
-  const { data, error } = await sb().rpc("is_hydro_member");
+  const { data, error } = await withTimeout(sb().rpc("is_hydro_member"), 15000, "Membership check");
   if (error) return false;
   return !!data;
 }

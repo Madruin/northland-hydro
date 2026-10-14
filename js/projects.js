@@ -25,14 +25,21 @@ const STATUSES = { active: "Active", design: "Design", construction: "Constructi
 const INSPECT_IN = 0.5;
 const STATUS_COLORS = { active: "#38bdf8", design: "#a78bfa", construction: "#f59e0b", monitoring: "#22c55e", on_hold: "#94a3b8", complete: "#64748b" };
 
-export async function initProjects() {
+let authHooked = false;
+async function connect() {
   const pane = $("tab-projects");
   pane.innerHTML = `<div class="spinner">Connecting…</div>`;
   try {
     user = (await db.session())?.user || null;
-    db.onAuth(async (s) => { user = s?.user || null; await refresh(); });
+    if (!authHooked) { authHooked = true; db.onAuth(async (s) => { user = s?.user || null; await refresh(); }); }
     await refresh();
-  } catch (e) { pane.innerHTML = `<div class="notice">Project list unavailable: ${escapeHtml(e.message)}</div>`; }
+  } catch (e) {
+    pane.innerHTML = `<div class="notice">Couldn't reach the sign-in service (${escapeHtml(e.message)}). Check the connection, then <button type="button" class="btn" id="pj-retry">Retry</button></div>`;
+    $("pj-retry").onclick = () => connect();
+  }
+}
+export async function initProjects() {
+  await connect();
   on("precip:loaded", () => { if (!editing) renderList(); });
   on("gauges:loaded", () => { if (!editing) renderList(); });
   on("select:project", (p) => openProject(p.id));
